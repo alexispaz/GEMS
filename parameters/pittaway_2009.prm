@@ -1,0 +1,36 @@
+! PARAMETROS POTENCIAL GUPTA o SMA-TB
+! Gupta PRB 23(1981)12. 10.1103/PhysRevB.23.6265
+!
+! Esta implementación usa un polinomio de suavizado.
+! Logsdail etal. RSC Advances 2(2012)5863. 10.1039/c2ra20309j (en el supporting esta el polinomio)
+    
+GUPTA
+! Pittaway JPCC 113(2009)9141 10.1021/jp9006075
+!   NOTA: No informan radio de corte.
+! Cleri et. al. PRB 48(1993)1. 10.1103/PhysRevB.48.22
+!   NOTA: sugieren el uso de un radio de corte de cinco vecinos de
+!   distancia.
+!
+! Usado tambien en:
+! Ismail et. al. PCCP 12(2010)8607. 10.1039/c004044d
+!
+! a: eV
+! eps: eV
+! p:
+! q:
+! r0: A   !Parametro de red/dsqrt(2)  !1ros Vecinos
+! rci: A  !r0*sqrt2 !2dos Vecinos del atomo mas grande, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+! rce: A  !r0*sqrt3 !3ros Vecinos del atomo mas chico, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+!
+!Pd Pd  0.1746  1.718  10.867  3.742  {3.887/sqrt(2.)} {3.887} {3.887*sqrt(3./2.)} ! Cleri 1993
+!Au Au  0.2061  1.790  10.229  4.036  {3.779/sqrt(2.)} {3.779} {3.779*sqrt(3./2.)} ! Cleri 1993
+!Au Pd  0.2061  1.790  10.229  4.036  {3.779/sqrt(2.)} {3.779} {3.779*sqrt(3./2.)} ! Pittaway 2009 average
+!
+Pd Pd  0.171493044 1.701873210 11.000 3.794 2.7485 {2.7485*sqrt(2.)} {2.7485*sqrt(3.)} ! Pittaway 2009 exp-fit
+Au Au  0.209570656 1.815276400 10.139 4.033 2.884  {2.884 *sqrt(2.)} {2.884 *sqrt(3.)} ! Pittaway 2009 exp-fit
+Au Pd  0.2764      2.082       10.569 3.913 2.816  {2.816 *sqrt(2.)} {2.816 *sqrt(3.)} ! Pittaway 2009 exp-fit
+!
+!Pd Pd  0.1653  1.6805 10.8535 3.7516 2.7485 {2.7485*sqrt(2.)} {2.7485*sqrt(2.)} ! Pittaway 2009 dft-fit
+!Au Au  0.2091  1.8097 10.2437 4.0445 2.8840 {2.8840*sqrt(2.)} {2.8840*sqrt(2.)} ! Pittaway 2009 dft-fit
+!Au Pd  0.1843  1.7867 10.5420 3.8826 2.8160 {2.8160*sqrt(2.)} {2.8160*sqrt(2.)} ! Pittaway 2009 dft-fit
+

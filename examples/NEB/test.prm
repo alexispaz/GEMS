@@ -1,0 +1,16 @@
+! PARAMETROS POTENCIAL GUPTA o SMA-TB
+! Gupta PRB 23(1981)12. 10.1103/PhysRevB.23.6265
+!
+! Esta implementación usa un polinomio de suavizado.
+! Logsdail etal. RSC Advances 2(2012)5863. 10.1039/c2ra20309j (en el supporting esta el polinomio)
+    
+GUPTA
+! Mescla rara de:
+! Logsdail 2009 
+! Rossi et. al. JCP 122(2005)194309. 10.1063/1.1898224
+! Cleri et. al. PRB 48(1993)1. 10.1103/PhysRevB.48.22
+! NOTA: sugieren el uso de un radio de corte de cinco vecinos de
+! distancia.
+Au Au  0.2096  1.8153  10.139  4.033  2.8850 {2.8850*sqrt(2.)} {2.8850*sqrt(3.)}   ! Rossi 2005
+Pt Pt  0.2975  2.695  10.612  4.004  {3.924/sqrt(2.)} {3.924} {3.924*sqrt(3./2.)}  ! Cleri 1993
+Au Pt    0.25  2.2    10.42   4.02   2.830 {2.830*sqrt(2.)} {2.830*sqrt(3.)}       ! Logsdail 2009

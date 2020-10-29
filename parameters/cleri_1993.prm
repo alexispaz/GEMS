@@ -1,0 +1,30 @@
+! PARAMETROS POTENCIAL GUPTA o SMA-TB
+! Gupta PRB 23(1981)12. 10.1103/PhysRevB.23.6265
+!
+! Esta implementación usa un polinomio de suavizado.
+! Logsdail etal. RSC Advances 2(2012)5863. 10.1039/c2ra20309j (en el supporting esta el polinomio)
+    
+GUPTA
+! Cleri et. al. PRB 48(1993)1. 10.1103/PhysRevB.48.22
+!   NOTA: sugieren el uso de un radio de corte de cinco vecinos de
+!   distancia.
+!
+! a: eV
+! eps: eV
+! p:
+! q:
+! r0: A   !Parametro de red/dsqrt(2)  !1ros Vecinos
+! rci: A  !r0*sqrt2 !2dos Vecinos, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+! rce: A  !r0*sqrt3 !3ros Vecinos, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+!
+Ni Ni  0.0376  1.070  16.999  1.189  {3.523/sqrt(2.)} {3.523} {3.523*sqrt(3./2.)}
+Cu Cu  0.0855  1.224  10.960  2.278  {3.615/sqrt(2.)} {3.615} {3.615*sqrt(3./2.)}
+Rh Rh  0.0629  1.660  18.450  1.867  {3.803/sqrt(2.)} {3.803} {3.803*sqrt(3./2.)}
+Pd Pd  0.1746  1.718  10.867  3.742  {3.887/sqrt(2.)} {3.887} {3.887*sqrt(3./2.)}
+Ag Ag  0.1028  1.178  10.928  3.139  {4.085/sqrt(2.)} {4.085} {4.085*sqrt(3./2.)}
+Ir Ir  0.1156  2.289  16.980  2.691  {3.839/sqrt(2.)} {3.839} {3.839*sqrt(3./2.)}
+Pt Pt  0.2975  2.695  10.612  4.004  {3.924/sqrt(2.)} {3.924} {3.924*sqrt(3./2.)}
+Au Au  0.2061  1.790  10.229  4.036  {3.779/sqrt(2.)} {3.779} {3.779*sqrt(3./2.)}
+Al Al  0.1221  1.316   8.612  2.516  {3.339/sqrt(2.)} {3.339} {3.339*sqrt(3./2.)}
+Pb Pb  0.0980  0.914   9.576  3.648  {4.951/sqrt(2.)} {4.951} {4.951*sqrt(3./2.)}
+

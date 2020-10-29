@@ -1,0 +1,30 @@
+! PARAMETROS POTENCIAL GUPTA o SMA-TB
+! Gupta PRB 23(1981)12. 10.1103/PhysRevB.23.6265
+!
+! Esta implementación usa un polinomio de suavizado.
+! Logsdail etal. RSC Advances 2(2012)5863. 10.1039/c2ra20309j (en el supporting esta el polinomio)
+    
+GUPTA
+! Chen  JPCC 111(2007) 9157-9165
+! Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+! Rossi et. al. JCP 122(2005)194309. 10.1063/1.1898224
+!
+! a: eV
+! eps: eV
+! p:
+! q:
+! r0: A   !Parametro de red/dsqrt(2)  !1ros Vecinos
+! rci: A  !r0*sqrt2 !2dos Vecinos, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+! rce: A  !r0*sqrt3 !3ros Vecinos, Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223
+!
+Au Au  0.2096 1.8153 10.139 4.033 2.8850    {2.8850   *sqrt(2.)} {2.8850   *sqrt(3.)} 
+Ag Ag  0.1031 1.1895 10.850 3.180 2.8921    {2.8921   *sqrt(2.)} {2.8921   *sqrt(3.)} 
+Ag Au  0.1488 1.4874 10.494 3.607 2.8885    {2.8885   *sqrt(2.)} {2.8885   *sqrt(3.)} 
+Co Co  0.189  1.907   8.80  2.960 2.559727  {2.559727 *sqrt(2.)} {2.559727 *sqrt(3.)}
+Co Au  0.141  1.614  10.66  3.113 2.7223611 {2.7223611*sqrt(2.)} {2.7223611*sqrt(3.)}
+Au Au  0.2096 1.8153 10.139 4.033 2.8850    {2.8850   *sqrt(2.)} {2.8850   *sqrt(3.)}
+Au Au  0.2096 1.8153 10.139 4.033 2.8850    {2.8850   *sqrt(2.)} {2.8850   *sqrt(3.)}
+Ag Ag  0.1031 1.1895 10.850 3.180 2.8921    {2.8921   *sqrt(2.)} {2.8921   *sqrt(3.)}
+Pd Pd  0.1715 1.7019 11.000 3.794 {3.887/sqrt(2.)}           3.887          2.74852405847211              !r0 Cleri et. al. PRB 48(1993)1. 10.1103/PhysRevB.48.22
+Pd Ag  0.161  1.5597 10.895 3.492 {((3.887/sqrt(2.)+2.89219)/2.0)}  3.98858716147992  4.88500167012087    !r0 media arismetica  
+

@@ -1,0 +1,148 @@
+#  gms file
+#  
+#    ________           _____     _________
+#   /  _____/   ____   /     \   /   _____/
+#  /   \  ___ _/ __ \ /  \ /  \  \_____  \
+#  \    \_\  \\  ___//    Y    \ /        \
+#   \______  / \____\\____|__  //_______  /
+#          \/                \/         \/
+#             General Molecular Simulation
+#                         by S. Alexis Paz
+#   NOTA IMPORTANTE:
+#  
+#   Señor usuario, notese que el codigo esta en pañales y esta pensado para ser
+#   publicado. Por lo tanto no esta liberado todavia. Si usted esta viendo este
+#   mensaje, es porque es considerado una persona de mi extrema confianza. Este
+#   es un desarrollo de varios años de intenso trabajo, y si le encuentran
+#   utilidad, le pido que me mantenga en colaboración. Este programa no se puede
+#   distribuir a cualquier persona sin previo consentimiento.
+#   Ante cualquier duda comuniquese a alexis.paz@gmail.com.
+#                                                     Gracias por su compresion.
+#                                                     Alexis.
+#  
+#  Version:3203-dirty
+#  I/O Units:
+#    -input: bloques.gms
+#    -log:   bloques.log
+#    -chp:   bloques.chp
+#  MPI: Not compiled for MPI
+#-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
+#  Random Seed: 
+#    607647251
+#    1012367656
+#    -1588114538
+#    -1608308576
+#    -1005535769
+#    809641163
+#    449441898
+#    132520941
+#    -812953550
+#    977711958
+#    -2089487996
+#    1208791007
+#    -304441085
+#    971321952
+#    -850358694
+#    564544816
+#    1120046848
+#    -1373400984
+#    1813724999
+#    -138785912
+#    -454714315
+#    1362446528
+#    1018384015
+#    2142266071
+#    365032458
+#    -1047911522
+#    -898142663
+#    1604641405
+#    -323980646
+#    -1103060261
+#    -343367275
+#    -1740690824
+#    0
+# Input script for GeMS
+
+bloque repeat 12
+  print {2*$i$}
+fin
+#-STD->  >>> iterando: $i$=01
+# 2.0000000000000000
+#-STD->  >>> iterando: $i$=02
+# 4.0000000000000000
+#-STD->  >>> iterando: $i$=03
+# 6.0000000000000000
+#-STD->  >>> iterando: $i$=04
+# 8.0000000000000000
+#-STD->  >>> iterando: $i$=05
+# 10.000000000000000
+#-STD->  >>> iterando: $i$=06
+# 12.000000000000000
+#-STD->  >>> iterando: $i$=07
+# 14.000000000000000
+#-STD->  >>> iterando: $i$=08
+# 16.000000000000000
+#-STD->  >>> iterando: $i$=09
+# 18.000000000000000
+#-STD->  >>> iterando: $i$=10
+# 20.000000000000000
+#-STD->  >>> iterando: $i$=11
+# 22.000000000000000
+#-STD->  >>> iterando: $i$=12
+# 24.000000000000000
+
+bloque save 1
+   print hola
+fin
+
+bloque save 2
+   print dm_steps
+fin
+
+bloque load 1
+# hola
+
+box size 5.78 5.78 5.78
+
+>< atom 1 1 1
+#-STD->            1 particles in creation
+#-STD->            1 particles selected
++< atom 2.2 1 1
+#-STD->            2 particles in creation
+#-STD->            2 particles selected
+# m0=1uma
+sys add H
+#-STD->            2 particles in the system 
+
+> sys
+#-STD->            2 particles selected
+set pbc F F F
+set mass 3.
+group 1 add
+#-STD->            2 particles in group           1
+
+interact 1 under lj 1. 0.890898718140339 2
+# NHB Not using linked cells since it would involve less than 4 cells.
+# NHB  -cut radious:    2.00000
+
+getin tau_ps 0.01018
+#-STD-> tau_ps = 0.01018
+time step {0.002*$tau_ps$}   (integration timestep [ps])
+
+> sys
+#-STD->            2 particles selected
+evolve ermak 100 1
+#-STD-> The interaction label is :1
+evolve :1 v_verlet
+bloque load_each 3 2
+dinamica 6
+#-STD-> 1 steps reached!
+#-STD-> 1neigh searches
+#-STD-> average wall time per step:      0.000 s
+#-STD->       0.00ps simulated!
+#-STD-> average wall time per ns:      0.000 s
+#  0.30000000E+01
+#  0.60000000E+01
+#-STD-> cpu time:      0.002 s
+#-STD-> wall time:      0.000 s
+#-STD-> vecinos actualizados: 1 veces
