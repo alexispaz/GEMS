@@ -26,6 +26,8 @@ gems_SOURCES = Algebra.F90            \
                Output.F90             \
                Programs.f90           \
                Program_Types.F90      \
+               Atoms.F90	      \
+               Groups.F90	      \
                Quasi_Newton.f90       \
                Select_Create.F90      \
                Set_Properties.f90     \
@@ -150,7 +152,9 @@ Variables.o:	 Errors.o Program_Types.o Constants.o Strings.o
 Algebra.o:	 Constants.o $(random_obj)
 Elements.o:      Strings.o Constants.o Errors.o
 Input_Parsing.o: Elements.o Algebra.o Constants.o
-Program_Types.o: Elements.o Constants.o Errors.o Input_Parsing.o
+Atoms.o: Elements.o Constants.o 
+Groups.o: Constants.o 
+Program_Types.o: Elements.o Constants.o Errors.o Input_Parsing.o Atoms.o Groups.o
 
 ForceField.o:    Algebra.o Output.o Program_Types.o Constants.o Input_Parsing.o    
 DDDA.o:                 Program_Types.o	 Errors.o

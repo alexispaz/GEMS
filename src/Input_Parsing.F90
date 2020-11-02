@@ -114,7 +114,7 @@ type input_options
   integer :: nerror=0
 
   character(1) :: comment='#'
-  character(8) :: concat="\"  
+  character(1) :: concat="\"
 
   contains
     procedure   :: init=>input_options_init
@@ -367,7 +367,7 @@ lines: do
   call get_line(in, aux, iostat, iomsg)
   aux=trim(aux)
   char=aux
-   
+  
   ! Handle EOF
   if(is_iostat_end(iostat)) then
     if (level > 0) then
@@ -389,9 +389,12 @@ lines: do
    
   ! Echo
   if (opts%echo) write(opts%or,"(a)") aux
-
-  ! Concatenate with next line/s
+  
+  ! Empty line
   m=len(char)
+  if(m==0) cycle
+         
+  ! Concatenate with next line/s
   do while (char(m:m)==opts%concat)
     call get_line(in, aux, iostat, iomsg)
     aux=trim(aux)
@@ -715,6 +718,11 @@ function parse_special(w) result(flag)
 
   flag=1
 
+  if(len(w)==0) then
+    flag=0
+    return
+  endif
+
   ! To let w intent(in)
   ans=adjustl(w)
 
@@ -723,9 +731,11 @@ function parse_special(w) result(flag)
     flag=0
 
     ! Just in case opts%comment is #
-    if(w(2:2) == " ") then
-      if(w(1:1)==opts%comment) then
-        return
+    if(len(w)>1) then
+      if(w(2:2) == " ") then
+        if(w(1:1)==opts%comment) then
+          return
+        endif
       endif
     endif
 

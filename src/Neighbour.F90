@@ -53,7 +53,9 @@ module gems_neighbour
 !the spirit of core-shell is update neighbour list when a shell neigh particle live the shell to the core. this event can check in the neigh loop of the force calculation.
 use gems_algebra,  only: real_v, integer_v
 use gems_program_types, only: boxed,box
-use gems_program_types  !only: nghost
+use gems_program_types
+use gems_groups
+use gems_atoms
 use gems_constants,     only: dp,cdm,dm,ui_ev
 use gems_inq_properties, only: vdistance
 use gems_errors
@@ -1498,14 +1500,14 @@ subroutine pbcghost()
 ! other words,if there is a chance that local configurations used in two
 ! consecutive calls to pbcghost are uncorrelated, it is safer to use
 ! pbcfullghost.
-use gems_program_types, only: atom_dclist,nlocal,alocal,nghost,aghost
-use gems_program_types, only: box,n1cells
-real(dp)                      :: rcut,r(dm),rold(dm)
-type ( atom_dclist ), pointer :: la, prev
-type ( atom ), pointer        :: o,o2
-type ( intergroup ), pointer  :: ig
-integer                       :: i,j,k,m
-logical                       :: updatebcr
+use gems_atoms, only: atom_dclist
+use gems_program_types, only: box,n1cells,nlocal,alocal,nghost,aghost
+real(dp)                   :: rcut,r(dm),rold(dm)
+type(atom_dclist), pointer :: la, prev
+type(atom), pointer        :: o,o2
+type(intergroup ), pointer :: ig
+integer                    :: i,j,k,m
+logical                    :: updatebcr
 ! integer                       :: ndel,nnew
 
 rcut=maxrcut+nb_dcut
@@ -1636,7 +1638,8 @@ end subroutine
                    
 subroutine pbcghost_move()
 ! Move ghost atoms to reflect the motion of their local images
-use gems_program_types, only: box,atom_dclist,nghost,aghost
+use gems_program_types, only: box,nghost,aghost
+use gems_atoms, only: atom_dclist
 type ( atom_dclist ), pointer :: la
 type ( atom ), pointer        :: o
 integer                       :: i,j
@@ -1702,8 +1705,8 @@ subroutine pbcfullghost()
 ! atoms moves "slowly" between different calls. In other words, if there is a
 ! chance that local configurations used in two consecutive calls to pbcghost are
 ! uncorrelated, it is safer to use pbcfullghost.
-use gems_program_types, only: atom_dclist,nlocal,nghost,aghost
-use gems_program_types, only: box,n1cells
+use gems_atoms, only: atom_dclist
+use gems_program_types, only: box,n1cells,nlocal,nghost,aghost, atom_dclist_destroyall
 use gems_set_properties, only: do_pbc
 real(dp)                      :: rcut,r(dm)
 type ( atom_dclist ), pointer :: la

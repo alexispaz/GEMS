@@ -32,6 +32,8 @@
 module gems_output
  use gems_inq_properties
  use gems_program_types
+ use gems_atoms
+ use gems_groups
  use gems_constants
  use gems_strings
  use gems_set_properties

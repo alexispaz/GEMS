@@ -178,7 +178,7 @@ end select
 end subroutine
        
 function polvar_group(var) result(g)
-use gems_program_types, only:group
+use gems_groups, only:group
 character(*),intent(in)  :: var
 type(polvar),pointer     :: pv
 type(group),pointer      :: g

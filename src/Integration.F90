@@ -18,6 +18,8 @@
  
 module gems_integration
 use gems_program_types         !, nghost
+use gems_groups
+use gems_atoms
 use gems_inq_properties
 use gems_set_properties
 use gems_constants, only: dp, dd, dm, kB_ui

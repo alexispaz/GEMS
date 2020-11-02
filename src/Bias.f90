@@ -26,7 +26,8 @@ module gems_bias
 ! Es decir, la fuerza se actualiza al estilo f=f+u(f)
 
 use gems_interaction, only: tepot
-use gems_program_types, only: group, atom_dclist
+use gems_groups, only: group
+use gems_atoms, only: atom_dclist
 use gems_constants, only: dp
 use gems_neighbour, only: intergroup, intergroup0_empty
 use gems_errors, only:werr

@@ -18,6 +18,8 @@
  
 module gems_analitic_pot
 use gems_program_types
+use gems_groups
+use gems_atoms
 use gems_constants
 use gems_algebra 
 use gems_neighbour, only:intergroup,intergroup0_empty

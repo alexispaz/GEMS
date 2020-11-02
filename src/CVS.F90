@@ -33,7 +33,8 @@ module gems_cvs
      
 use gems_constants,only:dp,dm
 use gems_algebra,only:real_v,integer_v
-use gems_program_types, only:group,group_l,atom,atom_dclist,group_ap
+use gems_groups, only:group,group_l,group_ap
+use gems_atoms, only:atom,atom_dclist
 use gems_inq_properties, only:group_inq_cmpos,inq_cm_vel,group_inq_rg
 use gems_errors, only:werr
 

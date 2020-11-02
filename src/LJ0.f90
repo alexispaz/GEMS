@@ -997,6 +997,7 @@ enddo
 end subroutine shofix_set
   
 subroutine shofix_interaction(ig)
+use gems_program_types, only: atom_distancetopoint
 class(intergroup),intent(inout)         :: ig
 integer     :: i,m
 real(dp)    :: vd(dm),dr,factor2(dm)
@@ -1014,7 +1015,7 @@ la => ig%a      ! sobre los atomos
 do i = 1,ig%n(1)
   la=>la%next
 
-  vd = la%o%distance(shofixr(i,:))  ! vector a-->p
+  vd = atom_distancetopoint(la%o,shofixr(i,:))  ! vector a-->p
   dr = dot_product(vd,vd) 
 
   dr=sqrt(dr)-r

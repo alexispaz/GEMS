@@ -18,7 +18,8 @@
 
 module gems_metadynamics
 use gems_constants,          only: dp,pi,ev_ui,dm,kB_ui
-use gems_program_types,      only: group,atom,atom_dclist
+use gems_atoms,       only: atom,atom_dclist
+use gems_groups,      only: group
 use gems_strings, only: operator(.ich.)
 use gems_integration,     only: integration_stepa, integration_stepb, its, integrate
 use gems_interaction,     only: interact
