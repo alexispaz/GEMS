@@ -2166,8 +2166,8 @@ subroutine outfile_commands
     do while (item<nitems)
       call reada(w1)
 
-      ln=>of%p%append_hard()
-      allocate(ln%o)
+      call of%p%append(ln)
+      call ln%alloc()
       op=>ln%o
           
       ! Read (or not) the group ID

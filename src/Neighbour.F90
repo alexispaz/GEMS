@@ -348,13 +348,14 @@ do i = 1,g%nat
   if(present(ghost)) then
     if (ghost) then
       ! Add the atom at the end of the ghost
-      call ig%a%add_before_soft(la%o)
+      call ig%a%add_before()
+      call ig%a%prev%point(la%o)
       ig%n(2:4)=ig%n(2:4)+1
     endif
   else
     ! Add the atom just at the end of the local and the begining of the ghost
-    call ig%ag%add_soft(la%o)
-    ig%ag=>ig%ag%next
+    call ig%ag%add_after(ig%ag)
+    call ig%ag%point(la%o)
     ig%n(:)=ig%n(:)+1
   endif
 
@@ -376,13 +377,14 @@ logical,intent(in),optional       :: ghost
 if(present(ghost)) then
   if (ghost) then
     ! Add the atom at the end of the ghost
-    call ig%a%add_before_soft(o)
+    call ig%a%add_before()
+    call ig%a%prev%point(o)
     ig%n(2:4)=ig%n(2:4)+1
   endif
 else
   ! Add the atom just at the end of the local and the begining of the ghost
-  call ig%ag%add_soft(o)
-  ig%ag=>ig%ag%next
+  call ig%ag%add_after(ig%ag)
+  call ig%ag%point(o)
   ig%n(:)=ig%n(:)+1
 endif
 
@@ -408,13 +410,14 @@ do i = 1,g%nat
   if(present(ghost)) then
     if (ghost) then
       ! Add the atom at the end of the ghost
-      call ig%b%add_before_soft(la%o)
+      call ig%b%add_before()
+      call ig%b%prev%point(la%o)
       ig%n(4)=ig%n(4)+1
     endif
   else
     ! Add the atom just at the end of the local and the begining of the ghost
-    call ig%bg%add_soft(la%o)
-    ig%bg=>ig%bg%next
+    call ig%bg%add_after(ig%bg)
+    call ig%bg%point(la%o)
     ig%n(3:4)=ig%n(3:4)+1
   endif
           
@@ -436,13 +439,14 @@ logical,intent(in),optional       :: ghost
 if(present(ghost)) then
   if (ghost) then
     ! Add the atom at the end of the ghost
-    call ig%b%add_before_soft(o)
+    call ig%b%add_before()
+    call ig%b%prev%point(o)
     ig%n(4)=ig%n(4)+1
   endif
 else
   ! Add the atom just at the end of the local and the begining of the ghost
-  call ig%bg%add_soft(o)
-  ig%bg=>ig%bg%next
+  call ig%bg%add_after(ig%bg)
+  call ig%bg%point(o)
   ig%n(3:4)=ig%n(3:4)+1
 endif
 
@@ -486,8 +490,6 @@ do i = g%n(1)+1,g%n(2)
     ! Delete the link
     prev => la%prev
     call la%deattach()
-    call la%destroy_node() !soft
-
     deallocate(la)
     la=>prev
        
@@ -534,7 +536,6 @@ do i = g%n(3)+1,g%n(4)
     ! Delete the link
     prev => la%prev
     call la%deattach()
-    call la%destroy_node() !soft
     deallocate(la)
     la=>prev
                                
@@ -1533,7 +1534,6 @@ do i = 1,nghost
     nghost=nghost-1
     prev => la%prev
     call la%deattach()
-    call la%destroy_node() !soft
     deallocate(la)
     la=>prev
            

@@ -173,7 +173,8 @@ else
 endif
 
 ! Add this interaction to the interal TB interaction list
-call igrtb_dl%add_soft( igr )
+call igrtb_dl%add_after()
+call igrtb_dl%next%point(igr)
 
 ! Set interaction  
 igr%interact => tb_interaction

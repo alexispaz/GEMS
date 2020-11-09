@@ -270,7 +270,8 @@ endif
 ! Lengthen the vectors, when necessary to accommodate all entered data
 if (lengthen) then
   d%size = d%size + 1
-  call d%blocks%add_before_hard()
+  call d%blocks%add_before()
+  call d%blocks%prev%alloc()
 endif
 
 ! Agrego el dato al nivel cero d%blocks. El nivel cero siempre acepta.

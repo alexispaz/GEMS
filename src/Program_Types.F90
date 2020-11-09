@@ -160,7 +160,8 @@ type ( atom ), pointer         :: o
 integer                        :: j
 
 ! The atoms are allocated in the `atoms` cdlist
-call atoms%add_before_hard()
+call atoms%add_before()
+call atoms%prev%alloc()
 o=>atoms%prev%o
 call o%init()
 natoms = natoms + 1
@@ -218,7 +219,6 @@ if (o%nigr>0) return
 ! Deallocate
 link => o%link
 call o%dest()
-call link%destroy_node()
 deallocate(link)
 
 end subroutine del_atom
@@ -255,7 +255,8 @@ o=>a(natoms)%o
 o%tag=natoms
 
 ! Adding atom to the local part
-call alocal%add_before_soft(o)
+call alocal%add_before()
+call alocal%prev%point(o)
 nlocal = nlocal + 1
 
 call group_atom_add(o, sys) ! XGHOST
@@ -270,7 +271,8 @@ call new_atom()
 o=>a(natoms)%o
 
 ! Adding atom to the ghost part
-call aghost%add_before_soft(o)
+call aghost%add_before()
+call aghost%prev%point(o)
 nghost=nghost+1
 end subroutine new_ghostatom
 
@@ -284,7 +286,6 @@ do while(.not.associated(node%next,target=node))
   aux => node%next
   call del_atom(aux%o)
   call aux%deattach()
-  call aux%destroy_node()
   deallocate(aux)
 enddo
 

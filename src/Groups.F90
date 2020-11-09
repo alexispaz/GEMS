@@ -242,7 +242,8 @@ call g%alist%init()
 g%nat = 0
 
 ! Registro el grupo en la lista de grupos
-call glist%add_soft(g)
+call glist%add_after()
+call glist%next%point(g)
 
 ! Initializo la cabeza del grupo para acciones agrupadas
 allocate(g%alist%o)
@@ -270,7 +271,6 @@ call g%alist%o%dest()
 deallocate(g%alist%o)
 
 ! Destroy head
-call g%alist%destroy_node()
 deallocate(g%alist)
 g%nat = 0
 
@@ -290,7 +290,8 @@ type(atom),target     :: a
 if(associated(atom_dcl_find(g%alist,a))) return
 
 ! agrego el atomo a la lista linkeada del grupo
-call g%alist%add_before_soft(a)
+call g%alist%add_before()
+call g%alist%prev%point(a)
 g%nat = g%nat + 1 ! numero de particulas
 
 ! agrego el grupo a la lista linkeada del atomo.
@@ -320,8 +321,8 @@ type(atom),target           :: a
 type(atom_dclist),pointer   :: ln 
 
 ! Create and asign the atom
-call g%alist%add_before_hard()
-ln=> g%alist%prev
+call g%alist%add_before(ln)
+call ln%alloc()
 call ln%o%init()
 call atom_asign(ln%o,a)
  
@@ -381,7 +382,8 @@ type(group_l),target  :: glist
 type(group),target       :: g
 
 if(group_belong(g,glist)) return
-call glist%add_soft(g)
+call glist%add_after()
+call glist%next%point(g)
 end subroutine glist_add
 
 ! Decrease
@@ -409,7 +411,6 @@ do i =1,g%nat
 
     ! saco el atomo de la lista del grupo
     call la%deattach()
-    call la%destroy_node() !soft
     deallocate(la)
     g%nat = g%nat - 1
 
@@ -446,7 +447,6 @@ do while(g%nat/=0)
   ! saco el atomo de la lista del grupo
   next => la%next
   call la%deattach()
-  call la%destroy_node() !soft
   deallocate(la)
 
   g%nat = g%nat - 1
@@ -474,7 +474,6 @@ do while(associated(lg%next))
   if (associated(lg%o,target=g)) then
     call lg%deattach(prev)
     !call lg%o%dest() I will not destroy the group.
-    call lg%destroy_node()
     deallocate(lg)
     return
   endif
