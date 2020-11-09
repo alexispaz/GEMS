@@ -50,17 +50,20 @@ To compile the following example, do not forget to add
 
     i=3
 
-    ! Add first item as a `hard node` (i.e. allocated in the list)
+    ! Add, allocate and copy and item (i.e. allocated in the list)
     ! rlist: head -> 2  
-    call rlist%add_hardcpy(2)
+    call rlist%add_after()
+    call rlist%next%source(2)
 
-    ! Add second item as another hard node
+    ! Add second item
     ! rlist: head -> 3 -> 2  
-    call rlist%add_hardcpy(i)
+    call rlist%add_after()
+    call rlist%next%source(i)
 
-    ! Add third item as a `soft node` (i.e. allcoated elswhere)  
+    ! Add third item as a pointer (i.e. allcoated elswhere)  
     ! rlist: head -> o -> 3 -> 2   with o -> i
-    call rlist%add_soft(i)
+    call rlist%add_after()
+    call rlist%next%point(i)
 
     ! Print the list (output: 3 3 2)
     ptr=>rlist
@@ -80,6 +83,23 @@ To compile the following example, do not forget to add
     end do  
      
     end program example
+
+
+# HARD and SOFT modes
+
+`HARD` and `SOFT` modes can be activated by a preprocesor variable. For example
+
+    #SOFT
+    #define _NODE integer_dlist
+    #define _CLASS integer
+    #include "dlist_body.inc"
+
+A `SOFT` declaration means that objects in the structure can only be pointers.
+
+A `HARD` declaration means that objects will be allocated in each node.
+
+If neither `SOFT` or `HARD` is used, then the strucutre can hold pointers or
+allocations.
 
 
 # Supported Dynamic Data Structures
@@ -143,6 +163,18 @@ CDLL simplify the procedures of adding and removing nodes avoiding the
 association check needed for the beginning and final nodes of a DLL. 
 
 CDLL requires a constructor, which is in contrast to LL and DLL. 
+
+Other way to iterate that does not require empty head
+
+    node => head%prev
+    do 
+      node => node%next
+
+      ... !work with node%obj
+
+      if(associated(node%next,alist)) exit
+    enddo
+
 
 ## Vector
 
