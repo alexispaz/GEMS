@@ -1,68 +1,27 @@
 #include "prep.inc"
 
-#define _AddHardAfter    _PASTE(_NODE,_add_hard_after)
-#define _AddHardcpyAfter _PASTE(_NODE,_add_hardcpy_after)
-#define _AddSoftAfter    _PASTE(_NODE,_add_soft_after)
-#define _AddHardHead     _PASTE(_NODE,_add_hard_head)
-#define _AddSoftHead     _PASTE(_NODE,_add_soft_head)
-#define _AppendHard      _PASTE(_NODE,_apend_hard)
-#define _AppendSoft      _PASTE(_NODE,_apend_soft)
-#define _DestroyNode     _PASTE(_NODE,_destroy_node)
-#define _DestroyAll      _PASTE(_NODE,_destroy_all)
-#define _Deattach        _PASTE(_NODE,_deattach)
+#define _Alloc      _PASTE(_NODE,_alloc)
+#define _Source     _PASTE(_NODE,_source)
+#define _Point      _PASTE(_NODE,_point)
+#define _Destroy    _PASTE(_NODE,_destroy)
 
-! ## Linked list template.
+#define _AddAfter   _PASTE(_NODE,_add_after)
+#define _AddHead    _PASTE(_NODE,_add_head)
+#define _Append     _PASTE(_NODE,_append)
+#define _DestroyAll _PASTE(_NODE,_destroy_all)
+#define _Deattach   _PASTE(_NODE,_deattach)
+
+#ifndef SOFT
+#ifndef HARD
+#define SOFT
+#define HARD
+#endif
+#endif
+      
+! ## Linked List (LL) template.
 !
-! Invoke this template in a module like this:
-!
-!    module name
-!
-!      ... ! module declarations
-!
-!      #declare _NODE integer_list
-!      #declare _CLASS integer
-!      #include list_header.inc
-!
-!      ... ! module declarations
-!
-!    contains
-!
-!      ... ! procedures
-!
-!      #declare _NODE integer_list
-!      #declare _CLASS integer
-!      #include list_body.inc
-!
-!      ... ! procedures
-!
-!    end module
-!
-! where integer is just an example. Any other type or object can be used. A
-! common way to iterate the list might be:
-!
-!    type(_NODE),pointer   :: list
-!    class(_NODE),pointer  :: node
-!
-!    node => a
-!    do while(associated(node))
-!      ... !work with node%o ("cycle" do not advance the node)
-!      node => node%next
-!    enddo
-!
-! "cycle" fortran keyword might be wanted to advance the node. For that case it
-! is possible to leave the first node of the list empty to allow this kind of
-! iteration:
-!
-!    node => a
-!    do while(associated(node%next))
-!      node => node%next
-!      ... !work with node%o ("cycle" advance the list)
-!    enddo
-!
-! If the node object require deallocation prior to elimination the option
-! `_ALLOCATABLE` must be defined prior to include `list_body.inc`.
-! If the object is a user type defined, this type should have declared a final
-! procedure.
+! See `../README.md` for information in how to use the template.
+
 
 ! Declaring the node
 type :: _NODE
@@ -70,46 +29,57 @@ type :: _NODE
   _CLASS, pointer        :: o   => null()
   logical               :: hard=.false.
   contains
-    procedure :: add_hard       => _AddHardAfter
-    procedure :: add_hardcpy    => _AddHardcpyAfter
-    procedure :: add_soft       => _AddSoftAfter
-    procedure :: add_head_hard  => _AddHardHead
-    procedure :: add_head_soft  => _AddSoftHead
-    procedure :: append_hard    => _AppendHard
-    procedure :: append_soft    => _AppendSoft
+    procedure :: add_after     => _AddAfter
+    procedure :: add_head      => _AddHead
+
+#ifdef HARD    
+    procedure :: alloc         => _Alloc
+    procedure :: source        => _Source
+#endif    
+
+#ifdef SOFT    
+    procedure :: point         => _Point
+#endif
+
+    procedure :: append        => _Append
+    procedure :: deattach      => _Deattach
+    procedure :: destroy_all   => _DestroyAll
+    final     :: _Destroy
 
     ! procedure :: deattach           => _Deattach
     ! Note that deattach is not used because it would consist only of 1 line:
     !   prev => node%next
     ! Where prev is the previous pointer and node is the node to deattach.
 
-    procedure :: deattach           => _Deattach
-    procedure :: destroy_node       => _DestroyNode
-    procedure :: destroy_all        => _DestroyAll
-
-    ! Bastante inestable
-    !final     :: _Destroy
-
 end type _NODE
 
-private  _AddHardAfter
-private  _AddHardcpyAfter
-private  _AddSoftAfter
-private  _AddHardHead
-private  _AddSoftHead
-private  _DestroyNode
-private  _DestroyAll
+private _AddAfter    
+private _AddHead
+#ifdef HARD
+  private _Alloc       
+  private _Source      
+#endif
+#ifdef SOFT
+  private _Point       
+#endif
+private _Append      
+private _DestroyAll  
+private _Destroy
+private _Deattach    
 
 #undef _NODE
 #undef _CLASS
-#undef _AddHardAfter
-#undef _AddHardcpyAfter
-#undef _AddSoftAfter
-#undef _AddHardHead
-#undef _AddSoftHead
-#undef _AppendHard
-#undef _AppendSoft
-#undef _DestroyNode
-#undef _DestroyAll
-#undef _Deattach
 
+#undef _Alloc
+#undef _Source
+#undef _Point 
+#undef _Destroy
+
+#undef _AddAfter
+#undef _AddHead
+#undef _Append
+#undef _DestroyAll 
+#undef _Deattach     
+
+#undef _SOFT
+#undef _HARD
