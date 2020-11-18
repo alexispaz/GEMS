@@ -66,7 +66,6 @@ subroutine polvar_link(var,val)
 character(*),intent(in)  :: var
 class(*),target          :: val
 type(polvar),pointer     :: pv
-integer                  :: i
 
 pv=>polvar_return(var)
       
@@ -121,7 +120,6 @@ subroutine polvar_save(var,w)
 character(*),intent(in)  :: var
 character(*),intent(in)  :: w
 type(polvar),pointer     :: pv
-integer                  :: i
 
 pv=>polvar_return(var)
 if(associated(pv%val)) then

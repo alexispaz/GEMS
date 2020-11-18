@@ -119,7 +119,7 @@ subroutine integrate_cli(it,w)
 use gems_errors, only: werr, wref
 use gems_input_parsing, only: readf, readl, readb
 use gems_constants, only: atm_ui, linewidth
-use gems_bias, only: igb
+use gems_bias, only: biason
 class(integrate),target  :: it
 character(*), intent(in) :: w
 character(len=linewidth) :: w1
@@ -133,7 +133,7 @@ case ('voter')
   ! the temperature of an algorithm with constant T.  Thus, this should be aplied to an iteration type that allows to get a
   ! temperature
   call werr('A constant temperature algorithm is needed',.not.associated(it%stepa,target=ermak_a))
-  call wwan('Hyperdinamics without a bias?',.not.associated(igb))
+  call wwan('Hyperdinamics without a bias?',.not.biason)
   call readb(b1)
   voter=b1
   beta=1._dp/it%p%o(8)**2 
@@ -265,7 +265,7 @@ end subroutine
      
 subroutine integration_stepb
 use gems_neighbour, only: ghost,pbcghost_move
-use gems_bias, only: igb
+use gems_bias, only: biason, bias
 integer   :: i
             
 do i=1,its%size
@@ -289,7 +289,11 @@ call posvel_changed()
 
 ! Avance del tiempo
 if(voter) then
-  if (associated(igb)) time = time + dt*exp(igb%epot*beta)
+  if (biason) then
+    time = time + dt*exp(bias*beta)
+  else
+    time = time + dt
+  endif
 else
   time = time + dt
 endif

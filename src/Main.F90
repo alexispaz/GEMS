@@ -32,7 +32,7 @@ program gems
  use gems_programs
  use gems_hyperdynamics
  use gems_neighbour, only:polvar_neighbour
- use gems_analitic_pot
+ use gems_fields
  use gems_elements
  use gems_output, only: chpmode
  use gems_mpi, only: mpi_pc
@@ -251,10 +251,10 @@ program gems
 #ifdef HAVE_MPI
 
     ! $pc$
-    call var_link('pc',mpi_pc)
+    call polvar_link('pc',mpi_pc)
 
     ! $tpc$
-    call var_link('tpc',mpi_tpc)
+    call polvar_link('tpc',mpi_tpc)
     ! write(arg,fmt='(i0)') mpi_tpc
     ! call var_name%append('tpc',trim(arg))
 

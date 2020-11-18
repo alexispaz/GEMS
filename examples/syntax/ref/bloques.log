@@ -1,66 +1,35 @@
 #  gms file
 #  
-#    ________           _____     _________
-#   /  _____/   ____   /     \   /   _____/
-#  /   \  ___ _/ __ \ /  \ /  \  \_____  \
-#  \    \_\  \\  ___//    Y    \ /        \
-#   \______  / \____\\____|__  //_______  /
-#          \/                \/         \/
-#             General Molecular Simulation
-#                         by S. Alexis Paz
-#   NOTA IMPORTANTE:
+#    ___________________   _____    _________
+#   /  _____/\_   _____/  /     \  /   _____/
+#  /   \  ___ |    __)_  /  \ /  \ \_____  \
+#  \    \_\  \|        \/    Y    \/        \
+#   \______  /_______  /\____|__  /_______  /
+#          \/        \/         \/         \/
+#        is an Extensible Molecular Simulator
 #  
-#   Señor usuario, notese que el codigo esta en pañales y esta pensado para ser
-#   publicado. Por lo tanto no esta liberado todavia. Si usted esta viendo este
-#   mensaje, es porque es considerado una persona de mi extrema confianza. Este
-#   es un desarrollo de varios años de intenso trabajo, y si le encuentran
-#   utilidad, le pido que me mantenga en colaboración. Este programa no se puede
-#   distribuir a cualquier persona sin previo consentimiento.
-#   Ante cualquier duda comuniquese a alexis.paz@gmail.com.
-#                                                     Gracias por su compresion.
-#                                                     Alexis.
+#  Copyright (C) 2020 Sergio Alexis Paz
+#  This program comes with ABSOLUTELY NO WARRANTY; for details type `warranty`.
+#  This is free software, and you are welcome to redistribute it
+#  under certain conditions; type `license` for details.
 #  
-#  Version:3203-dirty
+#  Version:eea5-dirty
 #  I/O Units:
 #    -input: bloques.gms
 #    -log:   bloques.log
 #    -chp:   bloques.chp
 #  MPI: Not compiled for MPI
+#  OpenMP: Using 4 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    607647251
-#    1012367656
-#    -1588114538
-#    -1608308576
-#    -1005535769
-#    809641163
-#    449441898
-#    132520941
-#    -812953550
-#    977711958
-#    -2089487996
-#    1208791007
-#    -304441085
-#    971321952
-#    -850358694
-#    564544816
-#    1120046848
-#    -1373400984
-#    1813724999
-#    -138785912
-#    -454714315
-#    1362446528
-#    1018384015
-#    2142266071
-#    365032458
-#    -1047911522
-#    -898142663
-#    1604641405
-#    -323980646
-#    -1103060261
-#    -343367275
-#    -1740690824
-#    0
+#    502067135
+#    299688736
+#    1143573079
+#    55175885
+#    366921879
+#    1133710388
+#    1206100884
+#    -1905503571
 # Input script for GeMS
 
 bloque repeat 12
@@ -122,6 +91,7 @@ group 1 add
 #-STD->            2 particles in group           1
 
 interact 1 under lj 1. 0.890898718140339 2
+#-STD-> The interaction label is :i1
 # NHB Not using linked cells since it would involve less than 4 cells.
 # NHB  -cut radious:    2.00000
 
@@ -132,17 +102,24 @@ time step {0.002*$tau_ps$}   (integration timestep [ps])
 > sys
 #-STD->            2 particles selected
 evolve ermak 100 1
-#-STD-> The interaction label is :1
+#-STD-> The algorithm label is :1
+# REF This feature use the following references:
+# REF - D. L. Ermak and H. Buckholz, “Numerical integration of the Langevin equation:
+# REF   Monte Carlo simulation”, J. Comput. Phys. 35, 169 (1980)
+# REF - M. P. Allen and D. J. Tildesley, "Computer simulation of liquids" Chap 9, "Brownian Dinamics", Pag 263
+# REF - I. Snook, "The ermak and Generalised Langevin Apprroach to the Dynamics of
+# REF   Atomic, Polymeric and Colloidal System". Elsevier, Sec 6.2.4 "A
+# REF   third first-order BD algorithm", Pag 118.
 evolve :1 v_verlet
 bloque load_each 3 2
 dinamica 6
 #-STD-> 1 steps reached!
 #-STD-> 1neigh searches
-#-STD-> average wall time per step:      0.000 s
+#-STD-> average wall time per step:      0.003 s
 #-STD->       0.00ps simulated!
-#-STD-> average wall time per ns:      0.000 s
+#-STD-> average wall time per ns: 40 h 55 m
 #  0.30000000E+01
 #  0.60000000E+01
-#-STD-> cpu time:      0.002 s
-#-STD-> wall time:      0.000 s
+#-STD-> cpu time:      0.024 s
+#-STD-> wall time:      0.004 s
 #-STD-> vecinos actualizados: 1 veces

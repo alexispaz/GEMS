@@ -62,7 +62,7 @@ module gems_bondboost
   !public generate_dispboost,longerdisp_lenght,bondb_disp_lenght
 
 !  real(dp)             :: qlim=0
-  real(dp)             :: alpha=0
+  ! real(dp)             :: alpha=0
 
   ! type :: linked_vector
   !   type(linked_vector),pointer  :: next  ! pointer to the next item

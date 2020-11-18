@@ -985,7 +985,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return
@@ -1019,7 +1019,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return
@@ -1054,7 +1054,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return

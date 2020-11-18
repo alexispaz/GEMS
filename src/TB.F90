@@ -17,8 +17,8 @@
 
 
 
-!SETS DE PARAMETROS HOMOATOMICOS: 
-!   (  Co-Co; Cu-Cu;  Pd-Pd; Ag-Ag; Pt-Pt; Au-Au   ) 
+!SETS DE PARAMETROS HOMOATOMICOS:
+!   (  Co-Co; Cu-Cu;  Pd-Pd; Ag-Ag; Pt-Pt; Au-Au   )
 
 !Para Interacciones HOMO, se tiene que :
 
@@ -29,184 +29,275 @@
 !SETS DE PARAMETROS HETEROATOMICOS:
 !   (  Co-Ag; Ni-Ag; Cu-Ag; Pd-Ag;  )
 !   (  Co-Au; Pt-Au                 )
- 
+
 !Para interacciones HETERO, se tiene que :
 
 ! r0=[r0(A-A)+r0(B-B)] / 2
-! rcut_1= Parametro de red (A)   
+! rcut_1= Parametro de red (A)
 ! rcut_2= Parametro de red (B)
 ! Si se cumple que : Parametro de red (A) < Parametro de red (B)
 
 
 module gems_tb
- use gems_program_types
- use gems_constants
- use gems_constants
- use gems_algebra 
- use gems_tables
- use gems_neighbour
-!$ use omp_lib 
- implicit none
+use gems_program_types
+use gems_constants
+use gems_constants
+use gems_algebra
+use gems_tables
+use gems_neighbour
+!$ use omp_lib
+implicit none
 
- private
- public tb_preinteraction,tb_interaction,tb_set, tb_parameter_set
+private
+public smatb_new, smatb_cli
 
- !Lo hago publico, para que lo vea el modulo donde esta el Intergroup puesto que lo necesita.
- public rcut_ext
+! NOTA: Si se desea declarar un tipo derivado del integroup que contenga los
+! parametros de la interaccion, se tiene el problema de que la subrrutina
+! interact tiene que tener como passed argument la clase intergroup, forzando a
+! usar select type dentro de ella. Se podría declarar al intergroup como tipo
+! abstract, permitiendo hacer que interact sea un deferred procedure, pero en
+! este caso todas las interacciones deben tener un tipo derivados, ya que los
+! abstract types no pueden ser instanciados.
+! ver http://stackoverflow.com/a/25413107/1342186
+! El problema de esto es que cada procedimiento de interact fuerza a definir un
+! nuevo tipo derivado ya que no se puede reapuntar el interact puesto que no es
+! puntero
 
- ! NOTA: Si se desea declarar un tipo derivado del integroup que contenga los
- ! parametros de la interaccion, se tiene el problema de que la subrrutina
- ! interact tiene que tener como passed argument la clase intergroup, forzando a
- ! usar select type dentro de ella. Se podría declarar al intergroup como tipo
- ! abstract, permitiendo hacer que interact sea un deferred procedure, pero en
- ! este caso todas las interacciones deben tener un tipo derivados, ya que los
- ! abstract types no pueden ser instanciados.
- ! ver http://stackoverflow.com/a/25413107/1342186
- ! El problema de esto es que cada procedimiento de interact fuerza a definir un
- ! nuevo tipo derivado ya que no se puede reapuntar el interact puesto que no es
- ! puntero
+type,extends(intergroup) :: smatb
 
+  ! The number of internal atom types
+  integer     :: nz = 0
 
- ! Lista privada de interacciones tb.
- type(intergroup_dl),target  :: igrtb_dl
+  ! The global-internal maping of atom types
+  integer     :: z(118) = 0
 
- type :: tb_parameter
+  ! Enable/disable interaction for each pair of atom types
+  logical,allocatable  ::  prm(:,:)
 
-    ! Parametros de TB
-    real(dp)    ::  a   = 0._dp,&
-                    eps = 0._dp,&
-                    p   = 0._dp,&
-                    q   = 0._dp,&
-                    r0  = 0._dp
+  ! One set of parameters for each pair of atom types
+  real(dp),allocatable ::  ca(:,:) ,&
+                           eps(:,:),&
+                           p(:,:)  ,&
+                           q(:,:)  ,&
+                           r0(:,:)
 
-    ! Regla de suavizado               
-    real(dp)    ::  rci = 0._dp,&
-                    rce = 0._dp,&
-                    b1  = 0._dp,&
-                    b2  = 0._dp,&
-                    b3  = 0._dp,&
-                    r1  = 0._dp,&
-                    r2  = 0._dp,&
-                    r3  = 0._dp
+  ! Smooth function for each pair of atom types
+  real(dp),allocatable ::  rci(:,:),&
+                           rce(:,:),&
+                           b1(:,:) ,&
+                           b2(:,:) ,&
+                           b3(:,:) ,&
+                           r1(:,:) ,&
+                           r2(:,:) ,&
+                           r3(:,:)
 
-    ! logical     ::  set_b = .false.
+  ! NOTE: 2 smatb object does not shares their density
+  real(dp),allocatable :: eband(:), band(:)
 
- end type tb_parameter
+  contains
 
- type(tb_parameter)   :: tbp(118,118)
+  procedure :: interact => smatb_interact
+  procedure,nopass :: cli => smatb_cli
 
- real(dp),allocatable :: band(:),eband(:)
-
- !Este es el radio de corte mayor utilizado para el TB.
- !TODO: Que si se seleciona otro juego de parametros que reduce el radio de
- !corte esto se tenga en cuenta
- real(dp)   :: rcut_ext=0.0_dp    
-       
+end type
 
 contains
 
-subroutine tb_parameter_set(z1,z2,a,eps,p,q,r0,rci,rce)
-integer,intent(in) :: z1,z2
+subroutine smatb_set(ig,i,j,a,eps,p,q,r0,rci,rce)
+type(smatb)         :: ig
+integer,intent(in)  :: i,j
 real(dp),intent(in) :: a,eps,p,q,r0,rce,rci
 real(dp)            :: dcut,ab,bb,cb,aux
 
-tbp(z1,z2)%a   = a  
-tbp(z1,z2)%eps = eps
-tbp(z1,z2)%p   = p  
-tbp(z1,z2)%q   = q  
-tbp(z1,z2)%r0  = r0 
+ig%prm(i,j)  = .true.
 
-!Polinomio de suavizado. 
+ig%ca(i,j)  = a
+ig%eps(i,j) = eps
+ig%p(i,j)   = p
+ig%q(i,j)   = q
+ig%r0(i,j)  = r0
+
+!Polinomio de suavizado.
 !Logsdail etal. RSC Advances 2(2012)5863. 10.1039/c2ra20309j (en el supporting esta el polinomio)
 !Logsdail dice que este polinomio machea el suavisado de Baletto etal. (2002). JCP, 116(9), 3856–3863. 10.1063/1.1448484. En este
 !paper Balleto menciona que usa entre segundos y terceros vecinos.
 !En Rapallo etal. JCP 122(2005)194308. 10.1063/1.1898223 (en este ultimo dice que rext es el 3er vecino)
-tbp(z1,z2)%rci = rci
-tbp(z1,z2)%rce = rce
+ig%rci(i,j) = rci
+ig%rce(i,j) = rce
 
 ! Aleaciones vieja tirada: Como estaba antes
-! tbp(j,j)%rci = 4.0729350596D0 !rci del Au
-! tbp(j,j)%rce = 4.4271218640D0
-
-!TODO: Que si se seleciona otro juego de parametros que reduce el radio de
-!corte esto se tenga en cuenta
-rcut_ext=max(rcut_ext,tbp(z1,z2)%rce)
+! rci = 4.0729350596D0 !rci del Au
+! rce = 4.4271218640D0
 
 ! Polinomial coefficient for band energy (ver supporting info of Logsdail et al.).
 ! Notese aqui que aux es la raiz de la energía de banda (ver supporting info of Logsdail et al.).
-dcut=tbp(z1,z2)%rce-tbp(z1,z2)%rci
-ab=-   1.0_dp/dcut**3
+dcut=rce-rci
+ab=-   1._dp/dcut**3
 bb=-(q/r0)   /dcut**2
 cb=-(q/r0)**2/dcut
-aux=eps*dexp(-q*(tbp(z1,z2)%rci/r0-1.0_dp))
-tbp(z1,z2)%b1=aux*(12.0_dp*ab-6.0_dp*bb+cb)/(2.0_dp*dcut**2)
-tbp(z1,z2)%b2=aux*(15.0_dp*ab-7.0_dp*bb+cb)/dcut
-tbp(z1,z2)%b3=aux*(20.0_dp*ab-8.0_dp*bb+cb)/2.0_dp
+aux=eps*dexp(-q*(rci/r0-1._dp))
+ig%b1(i,j)=aux*(12._dp*ab-6._dp*bb+cb)/(2._dp*dcut**2)
+ig%b2(i,j)=aux*(15._dp*ab-7._dp*bb+cb)/dcut
+ig%b3(i,j)=aux*(20._dp*ab-8._dp*bb+cb)/2._dp
 
 ! Polynomia coeffciens for repulstion energy (ver supporting info of Logsdail et al.).
-aux=a*dexp(-p*(tbp(z1,z2)%rci/r0-1.0_dp))
+aux=a*dexp(-p*(rci/r0-1._dp))
 bb=-(p/r0)   /dcut**2
 cb=-(p/r0)**2/dcut
-tbp(z1,z2)%r1=aux*(12.0_dp*ab-6.0_dp*bb+cb)/(2.0_dp*dcut**2)
-tbp(z1,z2)%r2=aux*(15.0_dp*ab-7.0_dp*bb+cb)/dcut
-tbp(z1,z2)%r3=aux*(20.0_dp*ab-8.0_dp*bb+cb)/2.0_dp
-  
-! In case of an aleation
-tbp(z2,z1)=tbp(z1,z2)
+ig%r1(i,j)=aux*(12._dp*ab-6._dp*bb+cb)/(2._dp*dcut**2)
+ig%r2(i,j)=aux*(15._dp*ab-7._dp*bb+cb)/dcut
+ig%r3(i,j)=aux*(20._dp*ab-8._dp*bb+cb)/2._dp
+
+! In case of alloys
+ig%prm(j,i) = ig%prm(i,j)
+
+ig%ca(j,i)  = ig%ca(i,j)
+ig%eps(j,i) = ig%eps(i,j)
+ig%p(j,i)   = ig%p(i,j)
+ig%q(j,i)   = ig%q(i,j)
+ig%r0(j,i)  = ig%r0(i,j)
+
+ig%rci(j,i) = ig%rci(i,j)
+ig%rce(j,i) = ig%rce(i,j)
+
+ig%b1(j,i)  = ig%b1(i,j)
+ig%b2(j,i)  = ig%b2(i,j)
+ig%b3(j,i)  = ig%b3(i,j)
+ig%r1(j,i)  = ig%r1(i,j)
+ig%r2(j,i)  = ig%r2(i,j)
+ig%r3(j,i)  = ig%r3(i,j)
 
 end subroutine
-
-subroutine tb_set(prmfile,g1,g2)
-use gems_input_parsing
+ 
+subroutine smatb_new(pg,g1,g2)
 use gems_inq_properties, only: inq_pure
-character(*),intent(in)     :: prmfile
-type(group),intent(in)    :: g1
-type(group),intent(in),optional    :: g2
-type(intergroup),pointer    :: igr
+type(smatb),pointer             :: ig
+class(intergroup),pointer       :: pg
+type(group),intent(in)          :: g1
+type(group),intent(in),optional :: g2
+type(atom_dclist),pointer       :: la
+integer                         :: n,k,i
+
+! Return a intergroup class pointer
+allocate(ig)
+pg=>ig
 
 ! Initialize the integroup
-allocate(igr)
 if(present(g2)) then
-  call igr%init(g1=g1,g2=g2)
+  call ig%init(g1=g1,g2=g2)
 else
-  call igr%init(g1=g1)
+  call ig%init(g1=g1)
 endif
 
-! Add this interaction to the interal TB interaction list
-call igrtb_dl%add_after()
-call igrtb_dl%next%point(igr)
+! Set internal types from group 1
+n=0
+la => g1%alist
+do i = 1,g1%nat
+  la => la%next
+  k=la%o%z
+  if(ig%z(k)==0) n=n+1
+  ig%z(k)=n
+enddo
 
-! Set interaction  
-igr%interact => tb_interaction
+! Set internal types from group 2
+if(present(g2)) then
+  la => g2%alist
+  do i = 1,g2%nat
+    la => la%next
+    k=la%o%z
+    if(ig%z(k)==0) n=n+1
+    ig%z(k)=n
+  enddo
+endif
+
+ig%nz=n
+
+! XXX: Just using more memory to avoid this operations
+! n=0.5_dp*n*(n+1)
+
+allocate(ig%prm(n,n))
+ig%prm(:,:)=.false.
+
+allocate(ig%ca(n,n))
+allocate(ig%eps(n,n))
+allocate(ig%p(n,n))
+allocate(ig%q(n,n))
+allocate(ig%r0(n,n))
+
+allocate(ig%rci(n,n))
+allocate(ig%rce(n,n))
+
+allocate(ig%b1(n,n))
+allocate(ig%b2(n,n))
+allocate(ig%b3(n,n))
+allocate(ig%r1(n,n))
+allocate(ig%r2(n,n))
+allocate(ig%r3(n,n))
 
 ! Alloc the band, eband
-allocate(eband(natoms))
-allocate(band(natoms))
+allocate(ig%eband(ig%n(4)))
+allocate(ig%band(ig%n(4)))
 
 ! if(allocated(band)) then
 !   call wwan('Note that TB energy of a system can not be expresed as the sum of two subsystems TB energies.'  )
 !   return
 ! endif
 
-! Parameters default
-call tb_readprm(prmfile) 
-
-! Radio de corte
-call igr%setrc(rcut_ext)
-       
-end subroutine tb_set
-          
-subroutine tb_readprm(prmfile)
-! Subrroutine to read the parameter file
+end subroutine smatb_new
+     
+subroutine smatb_cli(ig)
 use gems_input_parsing
+class(intergroup),intent(inout)  :: ig
+real(dp)                  :: a,eps,p,q,r0,rci,rce
+integer                   :: i,j
+character(len=linewidth)  :: w1
+
+select type(ig)
+type is(smatb)  
+
+  ! Parameters default
+  call reada(w1)
+  select case(w1)
+  case('read')
+    call reada(w1)
+    call smatb_readprm(ig,w1)
+  case default
+    call reread(0)
+    call readf(a)
+    call readf(eps)
+    call readf(p)
+    call readf(q)
+    call readf(r0)  ! Angstroms
+    call readf(rci) ! Angstroms
+    call readf(rce) ! Angstroms
+    do i=1,ig%nz-1
+      do j=i+1,ig%nz
+        call smatb_set(ig,i,j,a,eps,p,q,r0,rci,rce)
+      enddo
+    enddo
+  end select
+
+  ! Radio de corte
+  call ig%setrc(maxval(ig%rce))
+
+class default
+  call werr('Interaction type mismatch. Expected smatb.')
+end select  
+ 
+end subroutine smatb_cli
+
+subroutine smatb_readprm(ig,prmfile)
+! Subrroutine to read the parameter file
+use gems_input_parsing, only:opts, input_options, gems_iopts
 use gems_elements, only:inq_z
 use gems_errors, only:wlog
 use gems_algebra, only:sort_int
+type(smatb)                 :: ig
 character(*),intent(in)     :: prmfile
 type(input_options), target :: iopts
 character(90)               :: clase,w1,w2
 real(dp)                    :: a,eps,p,q,r0,rci,rce
-integer                     :: ix(2),u
+integer                     :: u,i,j
 
 ! Redirigiendo el input parsing a las opciones locales
 u = find_io(30)
@@ -231,272 +322,265 @@ do
   selectcase(clase)
   case('GUPTA','SMATB')
 
-    !a: 
-    !eps:
-    !p:
-    !q:
-    !r0: A
-    !rci: A
-    !rce: A
-
     call reada(w2) !nomb2
     call readf(a)
     call readf(eps)
     call readf(p)
     call readf(q)
-    call readf(r0)
-    call readf(rci)
-    call readf(rce)
+    call readf(r0)  ! Angstroms
+    call readf(rci) ! Angstroms
+    call readf(rce) ! Angstroms
 
-    ! Solving symmetry in bonds
-    ix(1)=inq_z(w1)
-    ix(2)=inq_z(w2)
-    call sort_int(ix(1:2))
+    ! Getting internal atom types
+    i=ig%z(inq_z(w1))
+    j=ig%z(inq_z(w2))
+
+    ! Cycle if this entree is not relevant for ig
+    if(i*j==0) cycle
+
+    ! XXX: Just using more memory to avoid this operations
+    ! ! Solving symmetry in bonds
+    ! k=min(i,j)
+    ! j=max(i,j)
+    ! i=k
+    !
+    ! ! Getting pair index
+    ! n=j+(i-1)*ig%nz-i*(i-1)/2
 
     ! Add parameters to the corresponding bondgr
-    call tb_parameter_set(ix(1),ix(2),a,eps,p,q,r0,rci,rce)
+    call smatb_set(ig,i,j,a,eps,p,q,r0,rci,rce)
+
   endselect
 enddo
- 
+
 ! Devuelvo el input parsing al gems
 opts=>gems_iopts
-close(u) 
- 
-end subroutine tb_readprm
- 
-subroutine tb_preinteraction
-  real(dp)                  :: dr,vd(dm),banda,r0
-  real(dp)                  :: drm,drm2,drm3,drm4,drm5
-  integer                   :: z1,z2
-  integer                   :: i,j,l
-  type(intergroup),pointer    :: ig
-  type(atom),pointer          :: o1,o2
-  type(intergroup_dl),pointer :: node
+close(u)
+
+! FIXME: This warning is always true if the interaction is between two groups
+call wwan('No parameters found for some atom types',any(ig%prm))
+
+end subroutine smatb_readprm
+
+subroutine smatb_preinteraction(ig)
+class(smatb)              :: ig
+real(dp)                  :: dr,vd(dm),banda,r0
+real(dp)                  :: drm,drm2,drm3,drm4,drm5
+integer                   :: z1,z2
+integer                   :: i,j,l
+type(atom),pointer        :: o1,o2
 
 
-  if(.not.allocated(band)) return
+! TODO MPI: Redimensionar band y eband si aumenta el numero de atomos
 
-  ! Redimensiono las variables si es necesario
-  if(natoms>size(band)) then
-    deallocate(band )
-    deallocate(eband)
-    allocate(band(natoms))
-    allocate(eband(natoms))
-  endif
-          
-  ! Set zeros
-  band(:)=0.0_dp
-  eband(:)=0.0_dp
+! Set zeros
+ig%band(:)=0.0_dp
+ig%eband(:)=0.0_dp
 
-  ! Interaccion
-  node => igrtb_dl
-  do while( associated(node%next) )
-    node => node%next
-    ig => node%o
+! Interaccion
 
-    !$OMP PARALLEL DO DEFAULT(NONE) &
-    !$OMP& FIRSTPRIVATE(ig)    &
-    !$OMP& PRIVATE(l,z1,j,z2,dr,vd,banda,drm,drm2,drm3,drm4,drm5,r0,o1,o2) &
-    !$OMP& SHARED(tbp,a,band,mic,nlocal) 
+!$OMP PARALLEL DO DEFAULT(NONE) &
+!$OMP& FIRSTPRIVATE(ig)    &
+!$OMP& PRIVATE(l,z1,j,z2,dr,vd,banda,drm,drm2,drm3,drm4,drm5,r0,o1,o2) &
+!$OMP& SHARED(mic,nlocal)
 
-    ! Sobre los atomos
-    do i = 1,ig%n(1)
+! Sobre los atomos
+do i = 1,ig%n(1)
 
-      o1 => ig%at(i)%o
-      z1 = o1%z
-      
-      ! sobre los vecinos
-      do l = 1, ig%nn(i)
+  o1 => ig%at(i)%o
+  z1 = ig%z(o1%z)
 
-        j  = ig%list(i,l)
-        o2 => ig%at(j)%o
-        z2 = o2%z
+  ! sobre los vecinos
+  do l = 1, ig%nn(i)
 
-        vd = vdistance( o2, o1, mic)
-        dr =  dsqrt(dot_product(vd,vd)) 
- 
-        if(dr>tbp(z1,z2)%rce) cycle
+    j  = ig%list(i,l)
+    o2 => ig%at(j)%o
+    z2 = ig%z(o2%z)
 
-        if(dr<tbp(z1,z2)%rci)then
+    vd = vdistance( o2, o1, mic)
+    dr =  dsqrt(dot_product(vd,vd))
 
-          r0=tbp(z1,z2)%r0 
-        
-          banda=tbp(z1,z2)%eps*tbp(z1,z2)%eps*exp(-2.0_dp*tbp(z1,z2)%q*(dr/r0-1.0_dp))
-      
-        else
-        
-          drm=dr-tbp(z1,z2)%rce
-          drm2=drm *drm
-          drm3=drm2*drm
-          drm4=drm3*drm
-          drm5=drm4*drm
-        
-          banda=tbp(z1,z2)%b1*drm5+tbp(z1,z2)%b2*drm4+tbp(z1,z2)%b3*drm3
-          banda=banda*banda
+    if(dr>ig%rce(z1,z2)) cycle
 
-        end if
- 
-        !OMP: Un thread puede estar accediendo al mismo sector del indice i a
-        !partir del indice j mas abajo. Me pregunto si es necesario ponerlo aca
-        !o no 
-        !!$OMP ATOMIC
-        band(i)=band(i)+banda
+    if(dr<ig%rci(z1,z2))then
 
-        if(.not.ig%newton) cycle
-        if(j>nlocal) cycle
+      r0=ig%r0(z1,z2)
 
-        !!$OMP ATOMIC
-        band(j)=band(j)+banda
-                  
-      enddo 
+      banda=ig%eps(z1,z2)*ig%eps(z1,z2)*exp(-2.0_dp*ig%q(z1,z2)*(dr/r0-1.0_dp))
 
-    enddo    
+    else
 
-    !$OMP END PARALLEL DO
+      drm=dr-ig%rce(z1,z2)
+      drm2=drm *drm
+      drm3=drm2*drm
+      drm4=drm3*drm
+      drm5=drm4*drm
 
-  enddo 
+      banda=ig%b1(z1,z2)*drm5+ig%b2(z1,z2)*drm4+ig%b3(z1,z2)*drm3
+      banda=banda*banda
 
-  ! band for the ghost
-  do i=1+ig%n(1),ig%n(2)
-    j = ig%at(i)%o%tag
-    band(i) = band(j)
+    end if
+
+    !OMP: Un thread puede estar accediendo al mismo sector del indice i a
+    !partir del indice j mas abajo. Me pregunto si es necesario ponerlo aca
+    !o no
+    !!$OMP ATOMIC
+    ig%band(i)=ig%band(i)+banda
+
+    if(.not.ig%newton) cycle
+    if(j>nlocal) cycle
+
+    !!$OMP ATOMIC
+    ig%band(j)=ig%band(j)+banda
+
   enddo
 
-  ! Aca tuvo que terminar todas las interacciones con todos
-  ! eband=band**(-0.5_dp)
-  ! !!$OMP WORKSHARE
-  eband(:)=1.0_dp/sqrt(band(:))
-  ! !!$OMP END WORKSHARE
-                         
-end subroutine tb_preinteraction
+enddo
 
-subroutine tb_interaction(ig)
-  class(intergroup),intent(inout)   :: ig
-  real(dp)                          :: dr,vd(dm),r0,aux1,aux2,lev_ui,repul
-  real(dp)                          :: drm,drm2,drm3,drm4,drm5,factor,factor2(dm),epot
-  integer                           :: z1,z2
-  integer                           :: i,j,l,n
-  type(atom),pointer                :: o1,o2
- 
-  ! Make ev_ui inside the lexical extent of OMP
-  lev_ui=ev_ui
-                                
-  epot=0._dp
+!$OMP END PARALLEL DO
 
-  !$OMP PARALLEL DO DEFAULT(NONE) &
-  !$OMP& PRIVATE(i,o1,z1,l,j,o2,z2,vd,dr,n,aux1,aux2,repul)  &
-  !$OMP& PRIVATE(factor,factor2,r0,drm,drm2,drm3,drm4,drm5)  &
-  !$OMP& SHARED(ig,lev_ui,b_gvirial,virial,eband)       &
-  !$OMP& SHARED(tbp,a,band,mic,nlocal,one_box,box)      &
-  !$OMP& REDUCTION(+:epot)
-                    
-  do i = 1,ig%n(1)
-     
-    o1 => ig%at(i)%o
-    z1 = o1%z
-  
-    do l = 1, ig%nn(i)  ! sobre los vecinos
+! band for the ghost
+do i=1+ig%n(1),ig%n(2)
+  j = ig%at(i)%o%tag
+  ig%band(i) = ig%band(j)
+enddo
 
-      j  = ig%list(i,l)
-      o2 => ig%at(j)%o
-      z2 = o2%z 
+! eband=band**(-0.5_dp)
+! !!$OMP WORKSHARE
+ig%eband(:)=1.0_dp/sqrt(ig%band(:))
+! !!$OMP END WORKSHARE
 
-      vd = vdistance( o2, o1 , mic) ! respetar el orden
-      dr =  dsqrt(dot_product(vd,vd)) 
- 
-      factor=0.0_dp
-  
-      if(dr>tbp(z1,z2)%rce) cycle
+end subroutine smatb_preinteraction
 
-      if(dr<=tbp(z1,z2)%rci)then       
-        
-        r0=tbp(z1,z2)%r0  
-  
-        ! Energia de repulsion
-        repul=tbp(z1,z2)%a*exp(-tbp(z1,z2)%p*(dr/r0-1.0_dp))
-                                   
-        ! Fuerza de repulsion y de banda
-        factor=2.0_dp*repul*(tbp(z1,z2)%p/r0)                 &
-              -tbp(z1,z2)%eps*tbp(z1,z2)%eps*1.0_dp/2.0_dp    &
-               *exp(-2.0_dp*tbp(z1,z2)%q*(dr/r0-1.0_dp))      &
-               *(2.0_dp*tbp(z1,z2)%q/r0)*(eband(i)+eband(j))
-  
-      else if(dr<=tbp(z1,z2)%rce)then 
-       
-        drm=dr-tbp(z1,z2)%rce
-        drm2=drm *drm
-        drm3=drm2*drm
-        drm4=drm3*drm
-        drm5=drm4*drm
-      
-        ! Fuerza de banda
-        factor= (  tbp(z1,z2)%b1*drm5 &
-                  +tbp(z1,z2)%b2*drm4 &
-                  +tbp(z1,z2)%b3*drm3)&
-               *(  5.0_dp*tbp(z1,z2)%b1*drm4 &
-                  +4.0_dp*tbp(z1,z2)%b2*drm3 &
-                  +3.0_dp*tbp(z1,z2)%b3*drm2)&
-               *(eband(i)+eband(j))
-  
-        ! Fuerza de repulsion
-        factor=factor-2.0_dp*(5.0_dp*tbp(z1,z2)%r1*drm4+4.0_dp*tbp(z1,z2)%r2*drm3+3.0_dp*tbp(z1,z2)%r3*drm2)
-  
-        ! Energia de repulsion
-        repul=tbp(z1,z2)%r1*drm5+tbp(z1,z2)%r2*drm4+tbp(z1,z2)%r3*drm3
-      end if
-      
-      factor2(1:dm) = factor *lev_ui * vd(1:dm)/dr
-      
-      o1%force(1:dm) = o1%force(1:dm) - factor2(1:dm) 
-      o1%epot = o1%epot + repul*lev_ui 
-      epot = epot + repul*lev_ui 
-           
-      if(j<=nlocal) then
+subroutine smatb_interact(ig)
+class(smatb),intent(inout)   :: ig
+real(dp)                     :: dr,vd(dm),r0,aux1,aux2,lev_ui,repul
+real(dp)                     :: drm,drm2,drm3,drm4,drm5,factor,factor2(dm),epot
+integer                      :: z1,z2
+integer                      :: i,j,l,n
+type(atom),pointer           :: o1,o2
 
-        if(.not.ig%newton) cycle
+call smatb_preinteraction(ig)
 
-        o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)
-        o2%epot = o2%epot + repul*lev_ui 
-        epot = epot + repul*lev_ui 
+! Make ev_ui inside the lexical extent of OMP
+lev_ui=ev_ui
 
-        if(b_gvirial) then
-          do n = 1,3
-            virial(n,:) = virial(n,:) + o2%pos(n)*factor2(:) 
-          enddo
-        endif
+epot=0._dp
 
-      else if (o2%tag>o1%tag) then  
-                
-        o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)
-        o2%epot = o2%epot + repul*lev_ui 
-        epot = epot + repul*lev_ui 
-                   
-        if(b_gvirial) then
-          do n = 1,3
-            virial(n,:) = virial(n,:) + box(n)*floor(o2%pos(n)*one_box(n))*factor2(:) 
-          enddo
-        endif
-              
+!$OMP PARALLEL DO DEFAULT(NONE) &
+!$OMP& PRIVATE(i,o1,z1,l,j,o2,z2,vd,dr,n,aux1,aux2,repul)  &
+!$OMP& PRIVATE(factor,factor2,r0,drm,drm2,drm3,drm4,drm5)  &
+!$OMP& SHARED(ig,lev_ui,b_gvirial,virial)       &
+!$OMP& SHARED(mic,nlocal,one_box,box)      &
+!$OMP& REDUCTION(+:epot)
+
+do i = 1,ig%n(1)
+
+  o1 => ig%at(i)%o
+  z1 = ig%z(o1%z)
+
+  do l = 1, ig%nn(i)  ! sobre los vecinos
+
+    j  = ig%list(i,l)
+    o2 => ig%at(j)%o
+    z2 = ig%z(o2%z)
+
+    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    dr =  dsqrt(dot_product(vd,vd))
+
+    factor=0.0_dp
+
+    if(dr>ig%rce(z1,z2)) cycle
+
+    if(dr<=ig%rci(z1,z2))then
+
+      r0=ig%r0(z1,z2)
+
+      ! Energia de repulsion
+      repul=ig%ca(z1,z2)*exp(-ig%p(z1,z2)*(dr/r0-1.0_dp))
+
+      ! Fuerza de repulsion y de banda
+      factor=2.0_dp*repul*(ig%p(z1,z2)/r0)                 &
+            -ig%eps(z1,z2)*ig%eps(z1,z2)*1.0_dp/2.0_dp    &
+             *exp(-2.0_dp*ig%q(z1,z2)*(dr/r0-1.0_dp))      &
+             *(2.0_dp*ig%q(z1,z2)/r0)*(ig%eband(i)+ig%eband(j))
+
+    else if(dr<=ig%rce(z1,z2))then
+
+      drm=dr-ig%rce(z1,z2)
+      drm2=drm *drm
+      drm3=drm2*drm
+      drm4=drm3*drm
+      drm5=drm4*drm
+
+      ! Fuerza de banda
+      factor= (  ig%b1(z1,z2)*drm5 &
+                +ig%b2(z1,z2)*drm4 &
+                +ig%b3(z1,z2)*drm3)&
+             *(  5.0_dp*ig%b1(z1,z2)*drm4 &
+                +4.0_dp*ig%b2(z1,z2)*drm3 &
+                +3.0_dp*ig%b3(z1,z2)*drm2)&
+             *(ig%eband(i)+ig%eband(j))
+
+      ! Fuerza de repulsion
+      factor=factor-2.0_dp*(5.0_dp*ig%r1(z1,z2)*drm4+4.0_dp*ig%r2(z1,z2)*drm3+3.0_dp*ig%r3(z1,z2)*drm2)
+
+      ! Energia de repulsion
+      repul=ig%r1(z1,z2)*drm5+ig%r2(z1,z2)*drm4+ig%r3(z1,z2)*drm3
+    end if
+
+    factor2(1:dm) = factor *lev_ui * vd(1:dm)/dr
+
+    o1%force(1:dm) = o1%force(1:dm) - factor2(1:dm)
+    o1%epot = o1%epot + repul*lev_ui
+    epot = epot + repul*lev_ui
+
+    if(j<=nlocal) then
+
+      if(.not.ig%newton) cycle
+
+      o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)
+      o2%epot = o2%epot + repul*lev_ui
+      epot = epot + repul*lev_ui
+
+      if(b_gvirial) then
+        do n = 1,3
+          virial(n,:) = virial(n,:) + o2%pos(n)*factor2(:)
+        enddo
       endif
 
-      !!$OMP END CRITICAL
-      
-    enddo 
-    
-    aux2=dsqrt(band(i))*lev_ui 
+    else if (o2%tag>o1%tag) then
 
-    ! Energia de coohesion por atomo
-    o1%epot = o1%epot - aux2
+      o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)
+      o2%epot = o2%epot + repul*lev_ui
+      epot = epot + repul*lev_ui
 
-    ! Energia total
-    epot = epot - aux2
+      if(b_gvirial) then
+        do n = 1,3
+          virial(n,:) = virial(n,:) + box(n)*floor(o2%pos(n)*one_box(n))*factor2(:)
+        enddo
+      endif
+
+    endif
+
+    !!$OMP END CRITICAL
 
   enddo
 
-  !$OMP END PARALLEL DO
+  aux2=dsqrt(ig%band(i))*lev_ui
 
-  ig%epot=epot
+  ! Energia de coohesion por atomo
+  o1%epot = o1%epot - aux2
 
-end subroutine  
+  ! Energia total
+  epot = epot - aux2
+
+enddo
+
+!$OMP END PARALLEL DO
+
+ig%epot=epot
+
+end subroutine
 
 end module gems_tb

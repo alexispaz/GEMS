@@ -125,7 +125,6 @@ contains
 
 subroutine box_setvars()
 use gems_input_parsing
-integer   :: i
 
 boxed=.true.
 

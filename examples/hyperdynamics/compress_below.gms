@@ -22,7 +22,7 @@ group 1 add
 time step 0.001d0  (integration timestep [ps])
 out posxyz
 
-interact 1 under tb ../../parameters/baletto_2003.prm
+interact 1 under tb read ../../parameters/baletto_2003.prm
 interact 1 under bias compress_below -30.65 0.8
         
 # outfile 1 name Pos.$jobname$.xyz

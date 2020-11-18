@@ -556,285 +556,53 @@ end select
 endsubroutine execute_command
 
 subroutine interacciones
-use gems_elements, only: inq_z
-use gems_pair_pot0
-use gems_tb
-use gems_tersoff
-use gems_analitic_pot
-use gems_forcefield
-use gems_bias, only: bias_new, bias_cli, igb
-   
-class(intergroup), pointer     :: ig
-type(group)    :: g1,g2
-logical        :: under,feels
-type(atom_dclist),pointer :: la
-integer        :: i
+use gems_neighbour,only: intergroup,igr_vop
+use gems_interaction,only: polvar_interact, interact_new
+use gems_variables,only: polvar_link
+class(intergroup),pointer  :: ig
+character(:),allocatable   :: label
+integer                    :: i
 
-call g1%init()
-call g2%init()
-
-call readi(i1)
-call reada(w1)
-
-under=.false.
-feels=.false.
-
-selectcase(w1)
-case('under')
-  under=.true.
-  call g1%add(gr(i1))
-case('with')
-  call readi(i2)
-  if (i2==i1) then
-    under=.true.
-    call g1%add(gr(i1))
-  else
-    call g1%add(gr(i1))
-    call g2%add(gr(i2))
-  endif
-case('feels')
-  feels = .true.
-  call readi(i2)
-  call g1%add(gr(i1))
-  call g2%add(gr(i2))
-case('set')
-
-  ! FIXME: insted of reading the type, GEMS should take it from the interaction id.
-  call reada(w1)
-  
-  selectcase(w1)
-  case('halfsho_plane')
-    call werr('Interaction not found',i1>igr_vop%size)
-    call analitical_cli(igr_vop%o(i1)%o,w1)
-  case default
-    call werr('Unknown command')
-  end select
-
-  call g1%dest()
-  call g2%dest()
-   
-  return
-case default
-  call werr('Bad keyword. Use `under`, `with` or `feels`')
-end select
-
-call werr('No se agrego ningun atomo',g1%nat==0)
-
-
-
+! Get label name
 call readl(w1)
-selectcase(w1)
-case('shofix') 
-  
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  call readf(f1,ev_ui)
-  call shofix_set(g1,f1)
+label=w1
 
-case('bias')
-
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  call werr("Can't call this interaction twice.",associated(igb))
-  call reada(w1)
-  ig=>bias_new(w1,g1)
-  call bias_cli(ig,w1)
-            
-case('ff')
-
-  call reada(w1)
-  call read_psf(w1)
-  call reada(w1)
-  call read_prm(w1)
-  
-case('cuw') 
-
-  call readf(f1) !epsilon
-  call readf(f2) !sigma
-  call readf(f3) !start
-  call readf(f4) !radious
-  call readi(i1) !coordinate
-  call readf(f5) !rcut
-  
-  if(under) then 
-    call cuw_set(g1,f1,f2,f3,f4,i1,f5)
-  else                                
-    call cuw_set(g1,f1,f2,f3,f4,i1,f5,g2)
-  endif
-
-case('rwca') 
-
-  call readf(f1) !epsilon
-  call readf(f2) !sigma
-  call readf(f3) !start
-  
-  if(under) then 
-    call rwca_set(g1,f1,f2,f3)
-  else
-    call rwca_set(g1,f1,f2,f3,g2)
-  endif
-        
-case('wca') 
-
-  call readf(f1)
-  call readf(f2)
-  
-  if(under) then 
-    call wca_set(g1,f1,f2)
-  else
-    call wca_set(g1,f1,f2,g2)
-  endif
-                 
-case('sm1') 
-
-  call readf(f1)
-  call readf(f2)
-  call readf(f3,ev_ui)
-  
-  if(under) then 
-    call sm1_set(g1,f1,f2,f3)
-  else                      
-    call sm1_set(g1,f1,f2,f3,g2)
-  endif
-                  
-case('slj') 
-
-  call readf(f1)
-  call readf(f2)
-  call readf(f3)
-  
-  if(under) then 
-    call slj_set(g1,f1,f2,f3)
-  else
-    call slj_set(g1,f1,f2,f3,g2)
-  endif
-                   
-case('lj') 
-
-  call readf(f1)
-  call readf(f2)
-  call readf(f3)
-  
-  if(under) then 
-    call lj_set(g1,f1,f2,f3)
-  else
-    call lj_set(g1,f1,f2,f3,g2)
-  endif
-                          
-case('plj') 
-
-  call readf(f1)
-  call readf(f2)
-  
-  if(under) then 
-    call plj_set(g1,f1,f2)
-  else
-    call plj_set(g1,f1,f2,g2)
-  endif
-
-case('sho','shocm') 
-    
-  if(under) then 
-    ig=>sho_new(w1,g1)
-  else
-    ig=>sho_new(w1,g1,g2)
-  endif
-      
-  call sho_cli(ig)
-                    
-case('halfsho_plane','sho2d','oscar2d','leiva1d','pozoa1d','voter2d') 
-  
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  ig=>analitical_new(w1,g1)
-  call analitical_cli(ig,w1)
-
-case('sho_plane') 
-  
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-
-  call readf(f1,ev_ui)
-  call readf(f2)
-  call readi(i1)
-
-  call werr("Dimension out of bound.",i1>dm)
-  call sho_plane_init(g1,f1,f2,i1)
-
-case('sho_line') 
-  
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-
-  call readf(f1,ev_ui)
-  call readf(fv) ! axis_p
-  call readf(fv2) ! axis_v
-  
-  call sho_line_set(g1,f1,fv,fv2)
-
-case('lucas1d')
-
-  ! Solo autointeraccion 
-  call werr("Only self interaction, use `under` keyword.",.not.under)
-  call readf(f1,kjm_ui)
-  call readf(f2,kjm_ui)
-  call readf(f3,kjm_ui)
-  call readf(f4)
-  call readf(f5)
-  call readf(f6)
-  call readf(f7)
-  call readf(f8)
-  call readf(f9)
-  call lucas1d_set(g1,f1,f2,f3,f4,f5,f6,f7,f8,f9)
-
-case('tb')
-
-  call reada(w1)
-  if(under) then 
-    call tb_set(w1,g1)
-  else
-    call tb_set(w1,g1,g2)
-  endif
-
-case('tersoff')
-  ! TODO ERR: SOLO PUEDE LLAMARSE UNA VEZ
-
-  ! Solo autointeraccion (esto podria cambiar)
-  call werr("Only self interaction, use `under` keyword.",.not.under)
-
-  call tsf_set(g1)
-
-case default
-  call wwan('I do not understand the last command')
-endselect
-
-call g1%dest()
-call g2%dest()
-
-
-if(feels) then
-  igr_vop%o(igr_vop%size)%o%half=.false.
-  igr_vop%o(igr_vop%size)%o%newton=.false.
+! Read user label if found 
+ig=>null()
+if(label(1:1)==':') then
+  ig=>polvar_interact(w1)
+else 
+  call reread(0)
 endif
 
+! If label is not found create new one
+if (.not.associated(ig)) then
 
-! Actualizar lista de vecinos
-! Si bien podría actualizar solamente la de la interaccion declarada
-! necesito hacer para los atomos involucrados pos_old=pos y al hacer
-! esto pyedo estar desactivando la actualizacion de alguna otra interaccion.
-! Por ejemplo, si:
-!   interact 1 ....
-!   out state
-!   dinamica 4
-!   interact 2 ....
-! Entonces si el comando `interact 2 ...` ejecuta pos_old=pos necesariamente
-! hay que actualizar la lista de `interact 1 ...`.
+  ! Create new interaction
+  call interact_new(ig)
 
- 
-! First time selection of neighboor list. Unless some particular list
-! is requested in the set procedure of the force field, all the neighboor list
-! are sablished for first time here.
+  ! Asign new label if not given by user
+  if(label(1:1)/=':') write(label,'(a,i0)') ':i',igr_vop%size
+
+  ! Create new label
+  call polvar_link(trim(label),ig)
+  call wstd('The interaction label is '//trim(label))
+
+endif
+
+! Run CLI
+call ig%cli(ig)
+     
+! Unless some neighboor list is requested, 
+! all the neighboor list are sablished here.
+! FIXME: We must search for all interactions because 
+! a new interaction implies `pos_old=pos` and can affect the pos_old of other
+! interactions. We should probably add a flag to selectively set pos_old
 do i=1,igr_vop%size
   ig => igr_vop%o(i)%o
   if(.not.associated(ig%lista)) call ig%setcells()
 enddo
-
-
+ 
 end subroutine interacciones
  
 
@@ -916,7 +684,7 @@ endif
 ! If label is not found create new one
 if (.not.associated(it)) then
 
-  ! Create new interaction
+  ! Create new evolution algoritm
   call its%append()
   it=>its%o(its%size)
 
@@ -929,7 +697,7 @@ if (.not.associated(it)) then
     ! Using label defined by default
     write(w2,'(a,i0)') ':',its%size
     call polvar_link(trim(w2),it)
-    call wstd('The interaction label is '//trim(w2))
+    call wstd('The algorithm label is '//trim(w2))
   endif
 
   ! Initialize the integrate
@@ -1410,7 +1178,7 @@ endselect
 endsubroutine checkpoint_commands
 
   subroutine set_commands
-    use gems_forcefield
+    ! use gems_forcefield
     use gems_elements, only: inq_z
 
     call readl(w1)
@@ -2046,12 +1814,12 @@ subroutine outfile_commands
   use gems_output
   use gems_hyperdynamics
   use gems_bias, only: write_bias
-  use gems_forcefield
+  use gems_forcefield, only: write_ebend, write_estretch, write_etors
   use gems_tersoff
   use gems_interaction
   use gems_neb
   use gems_metadynamics, only: write_cvs,write_E_1D
-  use gems_analitic_pot, only: write_halfsho
+  use gems_fields, only: write_halfsho
   class(outfile),pointer  :: of=>null()
   class(outpropa),pointer  :: op
   type(outpropa_l),pointer :: ln

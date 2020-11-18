@@ -1,7 +1,7 @@
 bin_PROGRAMS = gems
 
 gems_SOURCES = Algebra.F90            \
-               Analitical.f90         \
+               Fields.f90             \
                Bond_Boost.f90         \
                Checkpoint.F90         \
                CLInterpreter.F90      \
@@ -16,7 +16,7 @@ gems_SOURCES = Algebra.F90            \
                Inq_Properties.F90     \
                Integration.F90        \
                Interaction.f90        \
-               LJ0.f90                \
+               Pairs.f90                \
 	       Bias.f90	              \
                Main.F90               \
                Metadynamics.f90       \
@@ -163,16 +163,19 @@ Inq_Properties.o:   Algebra.o    Constants.o     Strings.o Constants.o    Input_
 Set_Properties.o:       Inq_Properties.o Algebra.o   Constants.o     Strings.o Constants.o    Program_Types.o
 Select_Create.o:        Set_Properties.o    Inq_Properties.o    Program_Types.o  
 Quasi_Newton.o:         Set_Properties.o    Inq_Properties.o    Algebra.o     Program_Types.o  Output.o 
-Bias.o:		Neighbour.o Program_Types.o  Interaction.o
-LJ0.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
+
+Bias.o:		Neighbour.o Program_Types.o 
+Pairs.o:	Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
 TB.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
 Tersoff.o:      Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
+
 Bond_Boost.o:   Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
 BO.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-Analitical.o:   Output.o Neighbour.o Constants.o Algebra.o    Program_Types.o
+Fields.o:   Output.o Neighbour.o Constants.o Algebra.o    Program_Types.o
 Integration.o:	 Variables.o Bias.o Algebra.o     Neighbour.o Set_Properties.o    Inq_Properties.o     Constants.o   Program_Types.o
 Neighbour.o:   Variables.o   Algebra.o     Set_Properties.o   Program_Types.o Constants.o Inq_Properties.o
-Interaction.o: Neighbour.o TB.o ForceField.o  Constants.o   Program_Types.o Output.o Neighbour.o CVS.o
+Gaph.o: Constants.o Groups.o Neighbour.o 
+Interaction.o: Neighbour.o TB.o Constants.o   Program_Types.o Output.o Neighbour.o CVS.o ForceField.o Bias.o Pairs.o Tersoff.o  
 Output.o:  	        DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
 NEB.o:         		Interaction.o Integration.o  Set_Properties.o     Inq_Properties.o     Program_Types.o   Constants.o Errors.o Output.o Algebra.o  
 
@@ -180,7 +183,7 @@ Checkpoint.o:    Input_Parsing.o Program_Types.o  Integration.o Interaction.o Ou
 
 
 MPI.o: 		 Constants.o Strings.o
-CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Analitical.o  Checkpoint.o  Errors.o  ForceField.o  Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o  Bias.o LJ0.o  NEB.o  Neighbour.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o TB.o  Tersoff.o  CVS.o  Variables.o
+CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbour.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o
 Hyperdinamics.o: Bias.o Integration.o  Quasi_Newton.o  Programs.o  Set_Properties.o     Inq_Properties.o     Program_Types.o	  
 Metadynamics.o:  Interaction.o Integration.o  Programs.o   Inq_Properties.o     Program_Types.o	  
 Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbour.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o 
@@ -255,5 +258,6 @@ if COMPILER_IS_GFORTRAN
 endif
          
 
-
+clean-local:
+	rm -f *.mod
 

@@ -51,7 +51,6 @@ module gems_neighbour
 ! b- the "subs" index of neighbour
 ! c- 2 for neighs in core (potential cut radio), 1 for all (core + shell)
 !the spirit of core-shell is update neighbour list when a shell neigh particle live the shell to the core. this event can check in the neigh loop of the force calculation.
-use gems_algebra,  only: real_v, integer_v
 use gems_program_types, only: boxed,box
 use gems_program_types
 use gems_groups
@@ -91,7 +90,7 @@ integer,parameter :: map(3,0:26) = &
 ! TODO: May be there is a way to change this to be incremental
 logical     :: nomoreigs=.false.
  
-type,public :: intergroup
+type, abstract, public :: intergroup
   
   ! Introduzco el factor 14 por la ventana. Deberia modificar esto.
   real(dp)                      :: fac14=1.0_dp
@@ -142,10 +141,6 @@ type,public :: intergroup
   ! Energia potencial
   real(dp)                      :: epot
   
-  ! Parametros del potencial
-  type(real_v)                  :: p
-  type(integer_v)               :: i
-  
   ! The index of the igr_vop vector. It is mailny used to
   ! reconect atoms that migrate to different cells to their corresponding
   ! intergourp. It is also used to select the interaction (for biasing, for
@@ -187,7 +182,6 @@ type,public :: intergroup
   integer             :: nnb_cell
 
   procedure(intergroup0),pointer :: lista=>null()  ! funcion propiamente dicha
-  procedure(intergroup0),pointer :: interact=>null()  ! funcion de interaccion
 
   contains
     procedure   :: ensure_alloc => intergroup_ensurealloc
@@ -202,17 +196,27 @@ type,public :: intergroup
     procedure   :: cleanb => intergroup_cleanb
     procedure   :: setrc => intergroup_setrc
     procedure   :: setcells => intergroup_setcells
+
+    ! The calculation
+    procedure(intergroup0),deferred :: interact
+
+    ! The CLI used to read parameters
+    procedure(intergroup0),nopass,deferred :: cli
+
+    procedure   :: destroy => intergroup_destroy
+
 endtype
 
 abstract interface
- subroutine intergroup0(this)
+ subroutine intergroup0(ig)
   import intergroup
-  class(intergroup),intent(inout)  :: this 
+  class(intergroup),intent(inout)  :: ig
  end subroutine
 end interface
      
 ! Double linked list for intergroups used for modules that require to keep track of their intergroups 
 ! (e.g. TB or EAM to perform the preinteraction)
+#define SOFT  
 #define _NODE intergroup_dl
 #define _CLASS class(intergroup)
 #include "dlist_header.inc"
@@ -237,6 +241,7 @@ real(dp)            :: maxrcut=0.0_dp       ! Maximum cut ratio
 
 contains
  
+#define SOFT  
 #define _NODE intergroup_dl
 #define _CLASS class(intergroup)
 #include "dlist_body.inc"
@@ -246,7 +251,7 @@ contains
 #include "vector_body.inc"
                           
 ! INTERGROUP PROCEDURES
-
+            
 subroutine intergroup_constructor(ig,rc,g1,g2)
 ! Si se contiene g2 pero ademas g1, agregar sin g2 y despues incluir atomos en
 ! g2 con addb
@@ -266,10 +271,6 @@ n=igr_vop%size
 igr_vop%o(n)%o=>ig
 ig%id = n
       
-! Inicializo los vectores de parametros
-call ig%p%init()
-call ig%i%init()
-    
 ! Inicializo la lista con sus marcas
 allocate(ig%a)
 call ig%a%init()    
@@ -292,6 +293,28 @@ if(present(g2)) then
 endif
 
 end subroutine intergroup_constructor
+     
+subroutine intergroup_destroy(ig)
+! Si se contiene g2 pero ademas g1, agregar sin g2 y despues incluir atomos en
+! g2 con addb
+class (intergroup),target         :: ig
+     
+! Inicializo la lista con sus marcas
+call ig%a%destroy_all()
+deallocate(ig%a)
+ig%ag=>null()
+
+call ig%b%destroy_all()
+
+if(allocated(ig%nn)   ) deallocate(ig%nn)       
+if(allocated(ig%list) ) deallocate(ig%list) 
+if(associated(ig%at)  ) deallocate(ig%at)       
+if(allocated(ig%clist)) deallocate(ig%clist)    
+                      
+if(allocated(ig%ahead)) deallocate(ig%ahead)    
+if(allocated(ig%bhead)) deallocate(ig%bhead)    
+
+end subroutine intergroup_destroy
                        
 subroutine intergroup_ensurealloc(ig)
 ! Add ghost or local atom to a group.
@@ -643,9 +666,9 @@ end subroutine intergroup_setcells
 
 ! Sin lista
 
-subroutine intergroup0_empty(g)
+subroutine intergroup0_empty(ig)
 ! FIXME???
-class(intergroup),intent(inout)       :: g
+class(intergroup),intent(inout)       :: ig
 end subroutine
 
 ! Lista de verlet.
@@ -739,7 +762,7 @@ subroutine verlet_selfhalf(g)
 ! Build neighbors list for atoms in `a` list by searching in the same `a` list.
 class(intergroup),intent(inout)       :: g
 type(atom_dclist),pointer            :: la,lb
-integer                              :: i,j,m,n,k
+integer                              :: i,j,m,n
 real(dp)                             :: rd,vd(dm)
 real(dp)                             :: rcut
 
@@ -1506,7 +1529,7 @@ use gems_program_types, only: box,n1cells,nlocal,alocal,nghost,aghost
 real(dp)                   :: rcut,r(dm),rold(dm)
 type(atom_dclist), pointer :: la, prev
 type(atom), pointer        :: o,o2
-type(intergroup ), pointer :: ig
+class(intergroup), pointer :: ig
 integer                    :: i,j,k,m
 logical                    :: updatebcr
 ! integer                       :: ndel,nnew
@@ -1711,7 +1734,7 @@ use gems_set_properties, only: do_pbc
 real(dp)                      :: rcut,r(dm)
 type ( atom_dclist ), pointer :: la
 type ( atom ), pointer        :: o,o2
-type ( intergroup ), pointer  :: ig
+class(intergroup), pointer    :: ig
 integer                       :: i,j,k,m
            
 rcut=maxrcut+nb_dcut
@@ -1803,9 +1826,9 @@ end function idoit
 function polvar_intergroup(var) result(g)
 use gems_variables, only: polvar, polvar_find
 use gems_errors, only: werr
-character(*),intent(in)  :: var
-type(polvar),pointer     :: pv
-type(intergroup),pointer      :: g
+character(*),intent(in)      :: var
+type(polvar),pointer         :: pv
+class(intergroup),pointer    :: g
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
 pv=>polvar_find(var)
@@ -1817,7 +1840,7 @@ call werr('Variable not linked',pv%hard)
    
 ! Print
 select type(v=>pv%val)
-type is (intergroup)
+class is (intergroup)
   g=>v
 class default
   call werr('I dont know how to return that')

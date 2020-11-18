@@ -177,9 +177,9 @@ select case(cite)
 case('ermak')
   call wlog('REF','- D. L. Ermak and H. Buckholz, “Numerical integration of the Langevin equation:   ')
   call wlog('REF','  Monte Carlo simulation”, J. Comput. Phys. 35, 169 (1980)                        ')
-  call wlog('REF','- "Computer simulation of liquids" de Allen Chap 9, "Brownian Dinamics", Pag 263  ')
-  call wlog('REF','- "The ermak and Generalised Langevin Apprroach to the Dynamics of                ')
-  call wlog('REF','  Atomic, Polymeric and Colloidal System" de Ian Snook de Elsevier, Sec 6.2.4 "A  ')
+  call wlog('REF','- M. P. Allen and D. J. Tildesley, "Computer simulation of liquids" Chap 9, "Brownian Dinamics", Pag 263  ')
+  call wlog('REF','- I. Snook, "The ermak and Generalised Langevin Apprroach to the Dynamics of     ')
+  call wlog('REF','  Atomic, Polymeric and Colloidal System". Elsevier, Sec 6.2.4 "A                 ')
   call wlog('REF','  third first-order BD algorithm", Pag 118.                                       ')
 endselect
 

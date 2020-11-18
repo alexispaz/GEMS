@@ -12,7 +12,6 @@ box size    13.1399  12.64396  20.0000
 
 >< read Pos.md.xyz
 sys add
-box mic f
 
 > sys
 group 1 add
@@ -20,28 +19,12 @@ group 1 add
 > sys
 set pbc t t t
 
-interact 1 under reax
-
-outfile 1 name E.$jobname$.dat
-outfile 1 cols e_reax
-outfile 1 each 1
-#                 
-# outfile 2 name Pos.$jobname$.xyz
-# outfile 2 Pos  1
-# outfile 2 each 1
+interact 1 under lj 0.1 3.890898718140339 10.
 
 outfile 3 name Energy.$jobname$.dat
 outfile 3 cols epot 1
 outfile 3 each 1
-         
-# outfile 4 name Ch.$jobname$.xyz
-# outfile 4 charge 1
-# outfile 4 each 1
-#        
-# outfile 5 name Caja.$jobname$.dat
-# outfile 5 cols box
-# outfile 5 each 1
-     
+    
 > sys
 
 dinamica_from_xyz 6 Pos.md.xyz

@@ -54,8 +54,7 @@ private
  
 ! Variables auxiliares para lectura, parsing y demas. 
 character(len=linewidth)  :: w1,w2
-integer                   :: i1,i2,i3
-real(dp)                  :: f1,f2,f3
+integer                   :: i1,i2
 
 ! The width
 integer      :: lrecl = linewidth
@@ -242,7 +241,6 @@ public                 :: ioprefix,stdin,logfile,eof
 logical                :: eof=.false.
 
 character(:), allocatable, save :: char
-logical, save :: more
 
 integer, save :: item=0, nitems=0, loc(0:80)=0, end(80)=0,               &
     line(0:10)=0, level=0, unit(0:10)
@@ -344,10 +342,7 @@ subroutine read_line(eof,inunit)
 logical, intent(out) :: eof
 integer, intent(in), optional :: inunit
 
-character(linewidth) :: w, f
-character :: term
-
-integer :: i, k, l, m, flag, iostat 
+integer :: l, m, flag, iostat 
 
 character(len=:), allocatable :: aux, iomsg
 
@@ -529,7 +524,7 @@ end subroutine parse_items
 function parse_blocks() result(flag)
 use gems_strings
 character(linewidth) :: w
-integer              :: l,i,j,k
+integer              :: k
 integer              :: flag
 integer              :: repini,repfin,repstep
 logical              :: reverse
@@ -799,7 +794,7 @@ function parse_expand(string) result(ans)
   ! It start reading from the begining, and
   ! after find a special symbol it search its end.
   character(*),intent(in)    :: string
-  character(linewidth)       :: check,med,ans
+  character(linewidth)       :: med,ans
   integer :: l, f, i, j, k, m 
 
   ans=adjustl(string)
@@ -918,13 +913,10 @@ opts%ir=n
 end subroutine stream
 
 subroutine reada(m)
-
-!  copy characters from the next item into the character variable m.
-!  if the first character is a single or double quote, the string is
-!  terminated by a matching quote and the quotes are removed.
-
+! Copy characters from the next item into `m`.
+! if the first character is a single or double quote, the string is
+! terminated by a matching quote and the quotes are removed.
 character(len=*), intent(inout) :: m
-integer :: l
 
 if (opts%clear) m=''
 !  if there are no more items on the line, m is unchanged
