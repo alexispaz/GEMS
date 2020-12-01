@@ -76,20 +76,20 @@ mpi only 3 evolve ermak 45 {1/$tau_ps$}
 
 dinamica 1000                   
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1 
-outfile 1 each 10
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1 
+outfile :f1 each 10
 # This should be in 1
 # plot [][:] 'Energy.gms.dat' u ($0*100*0.002):($4*kB_eV) w l 
                          
-# outfile 2 name Temp.$jobname$.dat
-# outfile 2 cols temp 1
-# outfile 2 each 10
+# outfile :f2 name Temp.$jobname$.dat
+# outfile :f2 cols temp 1
+# outfile :f2 each 10
          
-# outfile 3 name Pos.$jobname$.xyz
-# outfile 3 pos 1
-# outfile 3 each 1
-# outfile 3 flush on
+# outfile :f3 name Pos.$jobname$.xyz
+# outfile :f3 pos 1
+# outfile :f3 each 1
+# outfile :f3 flush on
          
 
 > sys

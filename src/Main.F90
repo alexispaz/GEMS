@@ -282,8 +282,9 @@ var_expand => polvar_expand
     call gr(i)%init('grp'//trim(.ich.i))
   enddo
   
-  ! Initialize Integration and Interaction vectors
+  ! Initialize Integration, Interaction and OutputFiles vectors
   call igr_vop%init()
+  call of_vop%init()
   call its%init()
 
 ! This is the command interpreter driver. In general execute_command subroutine is

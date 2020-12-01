@@ -271,7 +271,7 @@ class default
   call werr('I dont know how to return that')
 end select
 
-end function
+end function polvar_interact
     
 end module gems_interaction
  

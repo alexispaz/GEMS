@@ -21,9 +21,9 @@ set pbc t t t
 
 interact 1 under lj 0.1 3.890898718140339 10.
 
-outfile 3 name Energy.$jobname$.dat
-outfile 3 cols epot 1
-outfile 3 each 1
+outfile :f3 name Energy.$jobname$.dat
+outfile :f3 cols epot 1
+outfile :f3 each 1
     
 > sys
 

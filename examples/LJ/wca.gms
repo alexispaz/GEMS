@@ -43,15 +43,15 @@ getin tau_ps 0.01018
 time step {0.002*$tau_ps$}   (integration timestep [ps])
                 
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1
-outfile 1 each 10
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1
+outfile :f1 each 10
 # This should be in 1
 # plot [][:] 'Energy.gms.dat' u ($0*100*0.002):($4*kB_eV) w l 
 
-outfile 3 name Pos.$jobname$.xyz
-outfile 3 pos 1
-outfile 3 each 1
+outfile :f3 name Pos.$jobname$.xyz
+outfile :f3 pos 1
+outfile :f3 each 1
          
 
 > sys

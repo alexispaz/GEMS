@@ -17,7 +17,6 @@
  
 module gems_graphs 
 use gems_atoms, only:atom
-use gems_groups, only:group
 use gems_neighbour, only:intergroup
 use gems_constants, only:isp, dm, dp
 
@@ -35,24 +34,56 @@ type, extends(intergroup) :: graph
   integer(isp),allocatable       :: adj(:,:)
   contains
   procedure   :: init2 => graph_constructor 
-  ! procedure   :: interact => graph_block
+  procedure   :: interact => graph_block
+  procedure,nopass :: cli => graph_cli
 end type
   
+public  :: graph_new
 
 contains
 
-subroutine graph_constructor(ig,g,rc)
-class(graph)             :: ig
-type(group)              :: g
-real(dp),intent(in)      :: rc             
+subroutine graph_cli(ig)
+use gems_neighbour, only:intergroup
+class(intergroup),intent(inout)  :: ig
 
-call ig%init(g1=g)
-ig%interact => graph_block
-call ig%setrc(rc) 
-allocate(ig%adj(g%nat,g%nat))
+select type(ig)
+type is(graph)  
 
-end subroutine graph_constructor
 
+  ! Parameters default
+  call reada(w1)
+  select case(w1)
+  ! case('output')
+  case default
+    call readf(rc)
+    call ig%setrc(rc)
+  end select
+class default
+  call werr('Interaction type mismatch. Expected graph type.')
+end select  
+ 
+end subroutine graph_cli
+ 
+subroutine graph_new(pg,g1,w)
+use gems_neighbour, only:intergroup
+use gems_groups, only:group
+type(smatb),pointer       :: ig
+class(intergroup),pointer :: pg
+character(*),intent(in)   :: w
+type(group)               :: g1
+class(intergroup),pointer :: ig
+                          
+! Return a intergroup class pointer
+allocate(ig)
+pg=>ig
+                       
+! Initialize the integroup
+call ig%init(g1=g1)
+
+allocate(ig%adj(ig%n(4),ig%n(4)))
+
+end subroutine graph_new
+     
 subroutine graph_block(ig)
 ! Search neighbors and update adj matrix accordingly
 use gems_program_types, only: mic
@@ -314,4 +345,38 @@ adj(1:nnode,1:nnode) = abs(adj(1:nnode,1:nnode))
 end subroutine graph_adj_block
 
 
+subroutine write_adj(op)
+use gems_output, only: outpropa
+use gems_constants, only: ui_ev
+class(outpropa)     :: op
+
+! Escribo: La parte de energia a bostear |  El bias  | La suma
+op%f(1) = op%f(1) + biased*ui_ev
+op%f(2) = op%f(2) + bias*ui_ev
+op%f(3) = op%f(3) + (biased+bias)*ui_ev
+
+end subroutine write_adj
+ 
+subroutine write_graph(of)
+use gems_program_types
+use gems_output, only: outfile
+use gems_atoms, only: atom_dclist
+class(outfile)     :: of
+type(atom_dclist),pointer   :: la
+integer                     :: i,j
+ 
+write(of%un,*) of%g%nat
+write(of%un,*) nframe,time
+la => of%g%alist
+do i=1,of%g%nat
+  la => la%next
+  !call group_inq_cmpos(of%g)
+  !write(un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2)
+enddo
+
+if(of%flush) call flush(of%un)
+
+end subroutine
+        
 end module gems_graphs

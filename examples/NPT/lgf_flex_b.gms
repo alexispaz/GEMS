@@ -54,27 +54,27 @@ time step {0.01*$tau_ps$}   (integration timestep [ps])
 
 ((((((((((( archivos de salida  )))))))))) 
 
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1 temp 1
-outfile 1 each 10
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1 temp 1
+outfile :f1 each 10
 # This should be in 1
 # plot [][:] 'Energy.gms.dat' u ($0*100*0.002):($4*kB_eV) w l 
            
-outfile 2 name Press.$jobname$.dat
-outfile 2 cols pressure 1
-outfile 2 each 10
+outfile :f2 name Press.$jobname$.dat
+outfile :f2 cols pressure 1
+outfile :f2 each 10
                
-outfile 3 name Pos.$jobname$.xyz
-outfile 3 pos 1
-outfile 3 each 10
+outfile :f3 name Pos.$jobname$.xyz
+outfile :f3 pos 1
+outfile :f3 each 10
          
-outfile 4 name Caja.$jobname$.dat
-outfile 4 cols box
-outfile 4 each 10
+outfile :f4 name Caja.$jobname$.dat
+outfile :f4 cols box
+outfile :f4 each 10
             
-outfile 5 name Viri.$jobname$.dat
-outfile 5 cols virial 1
-outfile 5 each 10
+outfile :f5 name Viri.$jobname$.dat
+outfile :f5 cols virial 1
+outfile :f5 each 10
            
 
 > sys

@@ -49,7 +49,7 @@ use gems_neighbour
 implicit none
 
 private
-public smatb_new, smatb_cli
+public  :: smatb_new
 
 ! NOTA: Si se desea declarar un tipo derivado del integroup que contenga los
 ! parametros de la interaccion, se tiene el problema de que la subrrutina
@@ -171,6 +171,8 @@ end subroutine
  
 subroutine smatb_new(pg,g1,g2)
 use gems_inq_properties, only: inq_pure
+use gems_groups, only: group
+use gems_atoms, only: atom_dclist
 type(smatb),pointer             :: ig
 class(intergroup),pointer       :: pg
 type(group),intent(in)          :: g1
@@ -281,7 +283,7 @@ type is(smatb)
   call ig%setrc(maxval(ig%rce))
 
 class default
-  call werr('Interaction type mismatch. Expected smatb.')
+  call werr('Interaction type mismatch. Expected smatb type.')
 end select  
  
 end subroutine smatb_cli

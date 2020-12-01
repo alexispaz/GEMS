@@ -54,13 +54,13 @@ group 1 add
 
 interact 1 under tb read ../../parameters/baletto_2003.prm
 
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1
-outfile 1 each 10
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1
+outfile :f1 each 10
  
-outfile 2 name Pos.$jobname$.xyz
-outfile 2 pos 1
-outfile 2 each 50
+outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 pos 1
+outfile :f2 each 50
 
 lbfgs
 

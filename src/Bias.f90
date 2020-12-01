@@ -273,7 +273,7 @@ op%f(3) = op%f(3) + (biased+bias)*ui_ev
 ! op%f(5) = op%f(5) + btime
 ! op%f(6) = op%f(6) + nbtime
 
-end subroutine
+end subroutine write_bias
            
 
 end module gems_bias

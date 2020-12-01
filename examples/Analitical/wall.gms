@@ -64,13 +64,13 @@ bloque load_each 10 1
 time step 0.001
                 
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1 e_halfsho
-outfile 1 each 100
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1 e_halfsho
+outfile :f1 each 100
 
-outfile 3 name Pos.$jobname$.xyz
-outfile 3 pos 1
-outfile 3 each 1
+outfile :f3 name Pos.$jobname$.xyz
+outfile :f3 pos 1
+outfile :f3 each 1
 
 > sys
 evolve v_verlet

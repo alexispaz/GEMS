@@ -563,16 +563,16 @@ class(intergroup),pointer  :: ig
 character(:),allocatable   :: label
 integer                    :: i
 
-! Get label name
+! Read user label if found or assing a new one
 call readl(w1)
-label=w1
-
-! Read user label if found 
 ig=>null()
-if(label(1:1)==':') then
-  ig=>polvar_interact(w1)
+if(w1(1:1)==':') then
+  label=trim(w1)
+  ig=>polvar_interact(label)
 else 
   call reread(0)
+  write(w1,'(a,i0)') ':i',igr_vop%size+1
+  label=trim(w1)
 endif
 
 ! If label is not found create new one
@@ -581,12 +581,9 @@ if (.not.associated(ig)) then
   ! Create new interaction
   call interact_new(ig)
 
-  ! Asign new label if not given by user
-  if(label(1:1)/=':') write(label,'(a,i0)') ':i',igr_vop%size
-
   ! Create new label
-  call polvar_link(trim(label),ig)
-  call wstd('The interaction label is '//trim(label))
+  call polvar_link(label,ig)
+  call wstd('The interaction label is '//label)
 
 endif
 
@@ -865,102 +862,102 @@ call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
 
 endsubroutine create_commands
 
-  subroutine constrain_commands(w)
-    integer                    :: i,j,k
-    character(*)               :: w
-    character(1)               :: c
-    type (atom_dclist),pointer :: la
-    logical                    :: lconst=.false.
-    real(dp)                   :: aux
+subroutine constrain_commands(w)
+integer                    :: i,j,k
+character(*)               :: w
+character(1)               :: c
+type (atom_dclist),pointer :: la
+logical                    :: lconst=.false.
+real(dp)                   :: aux
 
- 
-    selectcase(w)
-    case('axis') 
-      lconst=.true.
-    case('plane') 
-      lconst=.false.
-    endselect
 
-    call readf(fv)
-    aux=dot_product(fv,fv) 
-    fv=fv/sqrt(aux)
+selectcase(w)
+case('axis') 
+  lconst=.true.
+case('plane') 
+  lconst=.false.
+endselect
 
-    la => gsel%alist
-    do i = 1,gsel%nat
-      la=>la%next
-      if(.not.allocated(la%o%pconst)) allocate(la%o%pconst(dm))
-      la%o%pconst=la%o%pos
-      la%o%vconst=fv
-      la%o%bconst=.true.
-      la%o%lconst=lconst
-    enddo 
-   
-    ! Lo de abajo creo es obsoleto....
+call readf(fv)
+aux=dot_product(fv,fv) 
+fv=fv/sqrt(aux)
 
-    return
+la => gsel%alist
+do i = 1,gsel%nat
+  la=>la%next
+  if(.not.allocated(la%o%pconst)) allocate(la%o%pconst(dm))
+  la%o%pconst=la%o%pos
+  la%o%vconst=fv
+  la%o%bconst=.true.
+  la%o%lconst=lconst
+enddo 
 
-    selectcase(w)
-    ! case('fix') 
-    !   call readl(w2)
-    !   selectcase(c) 
-    !   case('x')
-    !     k=0
-    !   case('y')
-    !     k=1
-    !   case('z')
-    !     k=2
-    !   endselect 
-    !
-    !   call gr_fix%add(gsel)
-    !   la => gsel%alist%next
-    !   do i = 1,gsel%nat
-    !     j = la%o%idv
-    !     fix(j+k) = .true.
-    !     fix_pos(j+k) = la%o%pos(k+1)
-    !     la=>la%next
-    !   enddo 
-    !
-    case('join')
-      call readl(w2)
-      selectcase(c) 
-      case('x')
-        k=0
-      case('y')
-        k=1
-      case('z')
-        k=2
-      endselect 
-    
-      njoin=0
-      la => gsel%alist%next
-      do i = 1,gsel%nat
-        j = la%o%idv
-        join(j+k) = .true.
-        njoin=njoin+1
-        la=>la%next
-      enddo 
-    endselect
+! Lo de abajo creo es obsoleto....
 
-  endsubroutine constrain_commands
- 
-  subroutine unselect_commands(g)
-    integer                    :: i
-    type(group)                :: g
-    type(group)                :: aux
-    type (atom_dclist),pointer :: la
-  
-    call aux%init()
-    call select_commands(g,aux)
+return
 
-    la => aux%alist%next
-    do i = 1,aux%nat
-      call group_atom_del(la%o, g)
-      la=>la%next
-    enddo
+selectcase(w)
+! case('fix') 
+!   call readl(w2)
+!   selectcase(c) 
+!   case('x')
+!     k=0
+!   case('y')
+!     k=1
+!   case('z')
+!     k=2
+!   endselect 
+!
+!   call gr_fix%add(gsel)
+!   la => gsel%alist%next
+!   do i = 1,gsel%nat
+!     j = la%o%idv
+!     fix(j+k) = .true.
+!     fix_pos(j+k) = la%o%pos(k+1)
+!     la=>la%next
+!   enddo 
+!
+case('join')
+  call readl(w2)
+  selectcase(c) 
+  case('x')
+    k=0
+  case('y')
+    k=1
+  case('z')
+    k=2
+  endselect 
 
-    call aux%dest()  ! Sin esto, habia un segmentation full
+  njoin=0
+  la => gsel%alist%next
+  do i = 1,gsel%nat
+    j = la%o%idv
+    join(j+k) = .true.
+    njoin=njoin+1
+    la=>la%next
+  enddo 
+endselect
 
-  endsubroutine unselect_commands
+endsubroutine constrain_commands
+
+subroutine unselect_commands(g)
+integer                    :: i
+type(group)                :: g
+type(group)                :: aux
+type (atom_dclist),pointer :: la
+
+call aux%init()
+call select_commands(g,aux)
+
+la => aux%alist%next
+do i = 1,aux%nat
+  call group_atom_del(la%o, g)
+  la=>la%next
+enddo
+
+call aux%dest()  ! Sin esto, habia un segmentation full
+
+endsubroutine unselect_commands
    
 subroutine select_commands(gini,gout)
 type(group),intent(inout)          :: gout
@@ -1177,134 +1174,134 @@ case default
 endselect
 endsubroutine checkpoint_commands
 
-  subroutine set_commands
-    ! use gems_forcefield
-    use gems_elements, only: inq_z
+subroutine set_commands
+! use gems_forcefield
+use gems_elements, only: inq_z
 
-    call readl(w1)
-    select case(w1)
-             
-    case('mass')
-      call readf(f1)
-      call set_mass(gsel,f1)
-              
-    case('cm_vel')
-      call readf(fv)
-      call set_cm_vel(gsel,fv)
+call readl(w1)
+select case(w1)
+         
+case('mass')
+  call readf(f1)
+  call set_mass(gsel,f1)
+          
+case('cm_vel')
+  call readf(fv)
+  call set_cm_vel(gsel,fv)
 
-    case('pbc') ! Establezco condiciones periodicas para ese grupo
-      call readb(bv1)
-      call set_pbc(gsel,bv1)
-    case('tempgdist') ! distribución gaussiana 
-      call readf(f1)
-      call set_gdist(gsel,f1)
-     ! call write_velocities_files(ss,'gdist') may be for reproducibilidad
-    case('cm_pos') 
-      call readf(fv)
-      call set_cm_pos(gsel,fv)
-    case('sigma') 
-      call readf(f1)
-      call set_sigma(gsel,f1)
-    case('cg_pos') 
-      call readf(fv)
-      call set_cg_pos(gsel,fv)
-    case('minpos') 
-      call readl(w2)
-      selectcase(w2)
-      case('x')
-        i1=1
-      case('y')
-        i1=2
-      case('z')
-        i1=3
-      endselect 
-      call readf(f1) 
-      call set_minpos(gsel,f1,i1) 
-    case("maxpos") 
-      call readl(w2)
-      selectcase(w2)
-      case('x')
-        i1=1
-      case('y')
-        i1=2
-      case('z')
-        i1=3
-      endselect 
-      call readf(f1) 
-      call set_maxpos(gsel,f1,i1)  
-    case("posdist") ! read position from file
-      call reada(w1)
-      i1=1
-      if (item < nitems) call readi(i1) ! The frame
-      call set_pos_from_file(gsel,trim(adjustl(w1)),i1) 
-    case("veldist") ! read velocity from file
-      call reada(w1)
-      i1=1
-      if (item < nitems) call readi(i1) ! The frame
-      call set_vel_from_file(gsel,trim(adjustl(w1)),i1)        
-    case("element")
-      call readl(w1)
-      call set_z(gsel,inq_z(w1))
-    case("min_interdist")
-      call readf(f1)
-      call minterdist(gsel,f1)
-    case('align')
-      call align(gsel)
-    case('align_mass')
-      call align_mass(gsel)
-    case('alignxy_mass')
-      call alignxy_mass(gsel)
-    case('align_by')
-      call readi(i1)
-      call bialign(gsel,gr(i1))
-    case('align_massxy_by')
-      call readi(i1)
-      call bialignxy_mass(gsel,gr(i1))
-    case('align_tutor')
-      call readf(fv)
-      call readf(fv2)
-      call align_tutor(gsel,fv,fv2)
-    case('rotateaxis')
-      call readf(f1)
-      call readf(fv)
-      call readf(fv2)
-      f1=f1*pi/180.0_dp
-      call rotate_rodrigues(gsel,f1,fv,fv2)
-   case('rotate')
-     call readl(w2)
-     selectcase(w2)
-     case('x')
-       ip=[3,2]
-     case('y')
-       ip=[1,3]
-     case('z')
-       ip=[2,1]
-     endselect 
-     call readf(f1)
-     if (item == nitems-dm) then
-       call readf(fv)
-       call rotate_axis_ref(gsel,f1,ip,fv)
-     else
-       call givens_rotation(gsel,f1,ip)
-     endif
-    case('expand')
-      fv2=0.0_dp   ! Default en el origen?
-      call readf(fv)
-      call readf(fv2)
-      call expand(gsel,fv,fv2)
-    case('move')
-      call readf(fv)
-      call move(gsel,fv)   
-    case('do_pbc')
-      call do_pbc(gsel)   
-     case('sp')
-      call readi(i1)
-      call set_sp(gsel,i1)   
- 
-    case default
-      call wwan('I do not understand the last command')
-    endselect 
-  endsubroutine set_commands
+case('pbc') ! Establezco condiciones periodicas para ese grupo
+  call readb(bv1)
+  call set_pbc(gsel,bv1)
+case('tempgdist') ! distribución gaussiana 
+  call readf(f1)
+  call set_gdist(gsel,f1)
+ ! call write_velocities_files(ss,'gdist') may be for reproducibilidad
+case('cm_pos') 
+  call readf(fv)
+  call set_cm_pos(gsel,fv)
+case('sigma') 
+  call readf(f1)
+  call set_sigma(gsel,f1)
+case('cg_pos') 
+  call readf(fv)
+  call set_cg_pos(gsel,fv)
+case('minpos') 
+  call readl(w2)
+  selectcase(w2)
+  case('x')
+    i1=1
+  case('y')
+    i1=2
+  case('z')
+    i1=3
+  endselect 
+  call readf(f1) 
+  call set_minpos(gsel,f1,i1) 
+case("maxpos") 
+  call readl(w2)
+  selectcase(w2)
+  case('x')
+    i1=1
+  case('y')
+    i1=2
+  case('z')
+    i1=3
+  endselect 
+  call readf(f1) 
+  call set_maxpos(gsel,f1,i1)  
+case("posdist") ! read position from file
+  call reada(w1)
+  i1=1
+  if (item < nitems) call readi(i1) ! The frame
+  call set_pos_from_file(gsel,trim(adjustl(w1)),i1) 
+case("veldist") ! read velocity from file
+  call reada(w1)
+  i1=1
+  if (item < nitems) call readi(i1) ! The frame
+  call set_vel_from_file(gsel,trim(adjustl(w1)),i1)        
+case("element")
+  call readl(w1)
+  call set_z(gsel,inq_z(w1))
+case("min_interdist")
+  call readf(f1)
+  call minterdist(gsel,f1)
+case('align')
+  call align(gsel)
+case('align_mass')
+  call align_mass(gsel)
+case('alignxy_mass')
+  call alignxy_mass(gsel)
+case('align_by')
+  call readi(i1)
+  call bialign(gsel,gr(i1))
+case('align_massxy_by')
+  call readi(i1)
+  call bialignxy_mass(gsel,gr(i1))
+case('align_tutor')
+  call readf(fv)
+  call readf(fv2)
+  call align_tutor(gsel,fv,fv2)
+case('rotateaxis')
+  call readf(f1)
+  call readf(fv)
+  call readf(fv2)
+  f1=f1*pi/180.0_dp
+  call rotate_rodrigues(gsel,f1,fv,fv2)
+case('rotate')
+  call readl(w2)
+  selectcase(w2)
+  case('x')
+    ip=[3,2]
+  case('y')
+    ip=[1,3]
+  case('z')
+    ip=[2,1]
+  endselect 
+  call readf(f1)
+  if (item == nitems-dm) then
+    call readf(fv)
+    call rotate_axis_ref(gsel,f1,ip,fv)
+  else
+    call givens_rotation(gsel,f1,ip)
+  endif
+case('expand')
+  fv2=0.0_dp   ! Default en el origen?
+  call readf(fv)
+  call readf(fv2)
+  call expand(gsel,fv,fv2)
+case('move')
+  call readf(fv)
+  call move(gsel,fv)   
+case('do_pbc')
+  call do_pbc(gsel)   
+ case('sp')
+  call readi(i1)
+  call set_sp(gsel,i1)   
+
+case default
+  call wwan('I do not understand the last command')
+endselect 
+endsubroutine set_commands
 
 subroutine get_commands
 use gems_random
@@ -1341,54 +1338,54 @@ call wstd(trim(var)//' = '//trim(w2))
 
 endsubroutine get_commands
 
-  subroutine mpi_commands
-    use gems_random
-    use gems_mpi, only: mpi_pc, mpi_tpc, ch_mpi_pc
-    call readl(w1)
+subroutine mpi_commands
+use gems_random
+use gems_mpi, only: mpi_pc, mpi_tpc, ch_mpi_pc
+call readl(w1)
 #ifdef HAVE_MPI
 #else
-    select case(w1)
-    case('like') ! Para establecer la semilla distinta en cada procesador
-      call readi(mpi_pc)
-      call readi(mpi_tpc)
-      call wstd(); write(logunit,*) 'Taken like MPI_PC=',mpi_pc,' MPI_TPC=',mpi_tpc 
-      return
-    endselect  
+select case(w1)
+case('like') ! Para establecer la semilla distinta en cada procesador
+  call readi(mpi_pc)
+  call readi(mpi_tpc)
+  call wstd(); write(logunit,*) 'Taken like MPI_PC=',mpi_pc,' MPI_TPC=',mpi_tpc 
+  return
+endselect  
 #endif
 
-    select case(w1)
-    case ('only')   ! Para correr una sintaxis en un procesador determinado
-      call readi(i1)  
-      call readl(w1)  
-      if(mpi_pc==i1) call execute_command(w1)
-    case default  
-      call wwan('I do not understand the last command')  
-    endselect    
+select case(w1)
+case ('only')   ! Para correr una sintaxis en un procesador determinado
+  call readi(i1)  
+  call readl(w1)  
+  if(mpi_pc==i1) call execute_command(w1)
+case default  
+  call wwan('I do not understand the last command')  
+endselect    
 
-  end subroutine  mpi_commands
+end subroutine  mpi_commands
 
-  subroutine log_commands
-  
-    if(logunit/=truelogunit) close(logunit) 
+subroutine log_commands
 
-    call readl(w1)
-    select case(w1)
-    case('>>')
-      call reada(w1)
-      logunit=find_io(30)
-      open(logunit,file=trim(w1), position='append') 
-    case('>')
-      call reada(w1)
-      logunit=find_io(30)
-      open(logunit,file=trim(w1)) 
-    case('std')
-      logunit=6
-    case('-')
-      logunit=truelogunit
-    endselect   
-    call opts%init(out=logunit)
+if(logunit/=truelogunit) close(logunit) 
 
-  end subroutine log_commands
+call readl(w1)
+select case(w1)
+case('>>')
+  call reada(w1)
+  logunit=find_io(30)
+  open(logunit,file=trim(w1), position='append') 
+case('>')
+  call reada(w1)
+  logunit=find_io(30)
+  open(logunit,file=trim(w1)) 
+case('std')
+  logunit=6
+case('-')
+  logunit=truelogunit
+endselect   
+call opts%init(out=logunit)
+
+end subroutine log_commands
 
 function print_commands() result(ans)
 use gems_random
@@ -1686,358 +1683,380 @@ endselect
 
 endsubroutine prng_commands
       
-  subroutine box_commands
-    integer   :: i,j
+subroutine box_commands
+integer   :: i,j
 
-    call readl(w1)
-    selectcase(w1)
-    case('move')
-      call inq_cm_vel(sys)
-      fv=-sys%cm_vel
-      call set_add_cmvel(sys,fv)
-    case('tsize')
-      cubic=.false.
-      do i = 1,dm
-        call read_line(eof)
-        if (eof) exit
-        do j = 1,dm
-          call readf(tbox(j,i))
-        enddo
-        tbox(:,i)=tbox(:,i)/box(i)
-        tbox(i,i)=0.0_dp
-      enddo
-      call box_setvars()
-    case('size')
-      call werr('Only cubic boxes for now',.not.cubic)
-      tbox(:,:)=0._dp
-      call readf(tbox(1,1))
-      call readf(tbox(2,2))
-      call readf(tbox(3,3))
-      call box_setvars()
-    
-    case('expand')
-      call readf(f1)
-      call readf(f2)
-      call readf(f3)
-      call box_expand(f1,f2,f3)
-      w1='(A,'//cdm//'(f10.5))'
-      call wstd(); write(logunit,trim(adjustl(w1))) '  box size:', (box(i),i=1,dm)
-    case('mic') ! Establezco condiciones periodicas para ese grupo
-      call readb(b1)
-      mic=b1
-      ghost=.not.b1
-    case default  
-      call wwan('I do not understand the last command')  
-    endselect 
+call readl(w1)
+selectcase(w1)
+case('move')
+  call inq_cm_vel(sys)
+  fv=-sys%cm_vel
+  call set_add_cmvel(sys,fv)
+case('tsize')
+  cubic=.false.
+  do i = 1,dm
+    call read_line(eof)
+    if (eof) exit
+    do j = 1,dm
+      call readf(tbox(j,i))
+    enddo
+    tbox(:,i)=tbox(:,i)/box(i)
+    tbox(i,i)=0.0_dp
+  enddo
+  call box_setvars()
+case('size')
+  call werr('Only cubic boxes for now',.not.cubic)
+  tbox(:,:)=0._dp
+  call readf(tbox(1,1))
+  call readf(tbox(2,2))
+  call readf(tbox(3,3))
+  call box_setvars()
 
-  endsubroutine box_commands
+case('expand')
+  call readf(f1)
+  call readf(f2)
+  call readf(f3)
+  call box_expand(f1,f2,f3)
+  w1='(A,'//cdm//'(f10.5))'
+  call wstd(); write(logunit,trim(adjustl(w1))) '  box size:', (box(i),i=1,dm)
+case('mic') ! Establezco condiciones periodicas para ese grupo
+  call readb(b1)
+  mic=b1
+  ghost=.not.b1
+case default  
+  call wwan('I do not understand the last command')  
+endselect 
 
-  subroutine table_commands
-    type(etable) t1
+endsubroutine box_commands
 
-    call reada(w1) ! Archivo
-    call readi(i2) ! Columna x
-    call readi(i3) ! Columna y
-    call etable_read(t1,w1,i2,i3)
+subroutine table_commands
+type(etable) t1
 
-    call readl(w2) ! Comando 
-    select case(w2)
-    !case("cspline")
-    !  call readi(i1)
-    !  t2=cspline_t(i1*(t1%pnt-1)+t1%pnt,t1)
-    !case("deriv3")
-    !  call table_deriv_tres(t1,t2)
-    !case("deriv5")
-    !  call table_deriv_cinco(t1,t2)
-    !case("fpplot")
-    !  call etable_fpplot(t1,t2,t3)
-    !  write(w2,*) trim(adjustl(w1))//'.var'
-    !  call table_write(w2,t2) 
-    !  write(w2,*) trim(adjustl(w1))//'.err'
-    !  call table_write(w2,t3) 
-    case default  
-      call wwan('I do not understand the last command')  
-    endselect 
+call reada(w1) ! Archivo
+call readi(i2) ! Columna x
+call readi(i3) ! Columna y
+call etable_read(t1,w1,i2,i3)
 
-    !if (nitems>item) then
-    !  call readl(w2)
-    !  call reada(w2)
-    !  call write_simple_table(w2,t2) 
-    !  deallocate(t1%y,t2%y)
-    !endif
+call readl(w2) ! Comando 
+select case(w2)
+!case("cspline")
+!  call readi(i1)
+!  t2=cspline_t(i1*(t1%pnt-1)+t1%pnt,t1)
+!case("deriv3")
+!  call table_deriv_tres(t1,t2)
+!case("deriv5")
+!  call table_deriv_cinco(t1,t2)
+!case("fpplot")
+!  call etable_fpplot(t1,t2,t3)
+!  write(w2,*) trim(adjustl(w1))//'.var'
+!  call table_write(w2,t2) 
+!  write(w2,*) trim(adjustl(w1))//'.err'
+!  call table_write(w2,t3) 
+case default  
+  call wwan('I do not understand the last command')  
+endselect 
 
-  endsubroutine table_commands
+!if (nitems>item) then
+!  call readl(w2)
+!  call reada(w2)
+!  call write_simple_table(w2,t2) 
+!  deallocate(t1%y,t2%y)
+!endif
 
-  subroutine mtable_commands
-    !type(etable) t1,t2,t3
+endsubroutine table_commands
 
-    call readl(w2) ! Comando 
-    !select case(w2)
-    !case("linreg")
-    !  call readl(w1) ! Archivos
-    !  call readi(i2) ! Columna x
-    !  call readi(i3) ! Columna y    case("linreg")
-    !  do i=1,size(chkey)
-    !    call etable_read(t1,chkey(i),i2,i3)
-    !    call etable_lreg(t1,f1,f2,f3)
-    !    call wstd(); write(logunit,*) 'Lin.Reg for ',trim(adjustl(chkey(i))
-    !    call wstd(); write(logunit,*) ' -Slope (m)',f1
-    !    call wstd(); write(logunit,*) ' -Ycut (b)',f2
-    !    call wstd(); write(logunit,*) ' -Correlation (r)',f3
-    !    call wstd(); write(logunit,*) 
-    !  enddo 
-    !case("yprom")
-    !  call readl(w1) ! Archivos
-    !  call readi(i2) ! Columna x
-    !  call readi(i3) ! Columna y
-    !  call etable_read(t1,chkey(1),i2,i3)
-    !  do i=2,size(chkey)
-    !    call etable_read(t3,chkey(i),i2,i3)
-    !    t2=ysum_t(t1,t3)
-    !    if(i<size(chkey)) t1%y=t2%y
-    !  enddo
-    !  t2%y(:)=t2%y(:)/size(chkey)
-    !case default  
-    !  call wwan('I do not understand the last command')  
-    !endselect 
-    !
-    !if (nitems>item) then
-    !  call readl(w2)
-    !  call reada(w2)
-    !  call table_write(w2,t2) 
-    !  deallocate(t1%y,t2%y)
-    !endif
+subroutine mtable_commands
+!type(etable) t1,t2,t3
 
-  endsubroutine mtable_commands
+call readl(w2) ! Comando 
+!select case(w2)
+!case("linreg")
+!  call readl(w1) ! Archivos
+!  call readi(i2) ! Columna x
+!  call readi(i3) ! Columna y    case("linreg")
+!  do i=1,size(chkey)
+!    call etable_read(t1,chkey(i),i2,i3)
+!    call etable_lreg(t1,f1,f2,f3)
+!    call wstd(); write(logunit,*) 'Lin.Reg for ',trim(adjustl(chkey(i))
+!    call wstd(); write(logunit,*) ' -Slope (m)',f1
+!    call wstd(); write(logunit,*) ' -Ycut (b)',f2
+!    call wstd(); write(logunit,*) ' -Correlation (r)',f3
+!    call wstd(); write(logunit,*) 
+!  enddo 
+!case("yprom")
+!  call readl(w1) ! Archivos
+!  call readi(i2) ! Columna x
+!  call readi(i3) ! Columna y
+!  call etable_read(t1,chkey(1),i2,i3)
+!  do i=2,size(chkey)
+!    call etable_read(t3,chkey(i),i2,i3)
+!    t2=ysum_t(t1,t3)
+!    if(i<size(chkey)) t1%y=t2%y
+!  enddo
+!  t2%y(:)=t2%y(:)/size(chkey)
+!case default  
+!  call wwan('I do not understand the last command')  
+!endselect 
+!
+!if (nitems>item) then
+!  call readl(w2)
+!  call reada(w2)
+!  call table_write(w2,t2) 
+!  deallocate(t1%y,t2%y)
+!endif
+
+endsubroutine mtable_commands
  
 subroutine outfile_commands
-  use gems_output
-  use gems_hyperdynamics
-  use gems_bias, only: write_bias
-  use gems_forcefield, only: write_ebend, write_estretch, write_etors
-  use gems_tersoff
-  use gems_interaction
-  use gems_neb
-  use gems_metadynamics, only: write_cvs,write_E_1D
-  use gems_fields, only: write_halfsho
-  class(outfile),pointer  :: of=>null()
-  class(outpropa),pointer  :: op
-  type(outpropa_l),pointer :: ln
-  integer                 :: j
+use gems_output
+use gems_hyperdynamics
+use gems_bias, only: write_bias
+use gems_forcefield, only: write_ebend, write_estretch, write_etors
+use gems_tersoff
+use gems_interaction
+use gems_neb
+use gems_variables,only: polvar_link
+use gems_metadynamics, only: write_cvs,write_E_1D
+use gems_fields, only: write_halfsho
+class(outfile),pointer   :: of
+class(outpropa),pointer  :: op
+type(outpropa_l),pointer :: ln
+character(:),allocatable :: label
+integer                  :: j
 
-  ! Selecciono el archivo de salida
-  call readi(i1)
-  if (i1>ofiles_max) stop 'demasiados archivos de salida'
-  of => ofiles(i1)
+! Read user label if found or assing a new one
+call readl(w1)
+if(w1(1:1)==':') then
+  label=trim(w1)
+  of=>polvar_outfile(label)
+else 
+  of=>null()
+  call reread(0)
+  write(w1,'(a,i0)') ':of',of_vop%size+1
+  label=trim(w1)
+endif
 
-  call readl(w1)
-    
-  selectcase(w1)
-  case('prom')
-    of%prom=.true.
-    call readi(of%outeach)
-    call werr('Integer must be grater than 0',of%outeach<=0)
-    of%w => outfile_prom
+! If label is not found create new one
+if (.not.associated(of)) then
 
-  case('ddda')
-    of%ddda=.true.
-    call readi(of%outeach)
-    call werr('Integer must be grater than 0',of%outeach<=0)
-    call of%reopen()
-    of%w => outfile_ddda
-     
-    ! werr declare columns first
+  ! Create new outfile
+  allocate(of)
+  call of_vop%append()
+  of_vop%o(of_vop%size)%o=>of
 
-    ! Force fields
-    ln => of%p
-    do while( associated(ln%next) )
-      ln => ln%next
+  ! Create new label
+  call polvar_link(label,of)
+  call wstd('The outfile label is '//label)
 
-      if(.not.associated(ln%o%f)) cycle
-      if(associated(ln%o%d)) cycle
-
-      allocate(ln%o%d(size(ln%o%f)))
-      do j = 1,size(ln%o%d)
-        call ln%o%d(j)%init()
-      enddo
+endif
       
-    enddo 
- 
-  case('each')
-    call readi(of%sumeach)
-
-  case('flush')
-    call reada(w2)
-    selectcase(w2)
-    case('on')
-      of%flush=.true.
-    case('off')
-      of%flush=.false.
-    case default
-      call wwan('I do not understand the last command')  
-    endselect
-
-  case('name')
-    call reada(w2)
-    of%name = trim(adjustl(w2))
-    call of%reopen()
-
-  case('off')
-    of%enable=.false.
-
-  case('on')
-    call encode_logicalvector(of%enable,of%ecode)
-
-  case('at')
-    of%enable=.false.
-
-    ! Para indicar en que momento (algoritmo) debe tratar de escribirse el archivos
-    call readl(w1)
-    select case(w1)
-    case ('common' )
-      of%enable(1)=.true. 
-    case ('eparts' )
-      of%enable(2)=.true.
-    case ('forcefield' )
-      of%enable(3)=.true.
-    case ('tersoff' )
-      of%enable(4)=.true.
-    case ('hd' )
-      of%enable(5)=.true.
-    end select
+call readl(w1)
   
-    of%ecode=decode_logicalvector(of%enable)
+selectcase(w1)
+case('prom')
+  of%prom=.true.
+  call readi(of%outeach)
+  call werr('Integer must be grater than 0',of%outeach<=0)
+  of%w => outfile_prom
+
+case('ddda')
+  of%ddda=.true.
+  call readi(of%outeach)
+  call werr('Integer must be grater than 0',of%outeach<=0)
+  call of%reopen()
+  of%w => outfile_ddda
+   
+  ! werr declare columns first
+
+  ! Force fields
+  ln => of%p
+  do while( associated(ln%next) )
+    ln => ln%next
+
+    if(.not.associated(ln%o%f)) cycle
+    if(associated(ln%o%d)) cycle
+
+    allocate(ln%o%d(size(ln%o%f)))
+    do j = 1,size(ln%o%d)
+      call ln%o%d(j)%init()
+    enddo
     
-  case('cols')
-    
+  enddo 
 
-    of%g=>null()
+case('each')
+  call readi(of%sumeach)
 
-    ! Inicializo
-    call of%reopen()
-    !TODO:! Destruir of%p
-    ! call of%p%init()
+case('flush')
+  call reada(w2)
+  selectcase(w2)
+  case('on')
+    of%flush=.true.
+  case('off')
+    of%flush=.false.
+  case default
+    call wwan('I do not understand the last command')  
+  endselect
 
-    !Adding a node, 
-    !FIXME: using add_hardcpy(op) didnt work with a very strange error
+case('name')
+  call reada(w2)
+  of%name = trim(adjustl(w2))
+  call of%reopen()
 
-    ! ANTES
-      !case ('energy'    ); call outprop_init(op_energy   ,dm    ,'Energy.'   ,'.dat' ,grout(i1))
-      !case ('border'    ); call outprop_init(op_border   ,dm    ,'Border.'   ,'.dat' ,grout(i1))
-      !case ('nebi'      ); call outprop_init(neb_opi     ,dm    ,'NebI.'     ,'.xyz' ,grout(i1))
-      !case ('nebf'      ); call outprop_init(neb_opf     ,dm    ,'NebF.'     ,'.xyz' ,grout(i1))
-      !case ('dihedrals' ); get_dihedral  =.true.
-      !! Tsf
-      !case ('tsfangs'           ); get_tsfangs   =.true.
- 
-    ! Leo las propiedades y las asigno al archivo
-    do while (item<nitems)
-      call reada(w1)
+case('off')
+  of%enable=.false.
 
-      call of%p%append(ln)
-      call ln%alloc()
-      op=>ln%o
-          
-      ! Read (or not) the group ID
-      select case(w1)
-      case('eparts','time','step','bias','box')
-        ! These does not require a selection group
-      case('e_tors','e_bend','e_stretch','e_neb','neb_info','e_halfsho')
-      case  default
-        call werr('not group selected',item==nitems)
-        call readi(i2)
-      end select
-     
-      select case(w1)
-      case('eparts'   );  call op%init(igr_vop%size,write_eparts)
-      !case('dihedrals'); call op%init(,write_dihedrals)
-      !case('angulos'  ); call op%init(,write_tsfangs)
-      case('time'     ); call op%init(1,write_time)
-      case('step'     ); call op%init(1,write_step)
-      case('bias'     ); call op%init(3,write_bias)
-      case('box'      ); call op%init(3,write_box)
-      case('e_tors'   ); call op%init(1,write_etors)
-      case('e_bend'   ); call op%init(1,write_ebend)
-      case('e_halfsho'); call op%init(2,write_halfsho)
-      case('e_stretch'); call op%init(1,write_estretch)
-      case('e_neb'    ); call op%init(1,write_eneb)
-      case('neb_info' ); call op%init(1,write_eneb)
-      case('tmoment'   ); call op%init(3,write_tmoment       ,gr(i2))
-      case('amoment'   ); call op%init(3,write_amoment       ,gr(i2))
-      case('angvel'    ); call op%init(3,write_angvel        ,gr(i2))
-      case('pressure'  ); call op%init(dm*dm,write_pressure  ,gr(i2))
-      case('virial'    ); call op%init(dm*dm,write_virial    ,gr(i2))
-      case('girrad'    ); call op%init(1,write_girrad        ,gr(i2))
-      case('cvs'       ); call op%init(6,write_cvs           ,gr(i2))
-      case('inercia'   ); call op%init(dm*dm,write_inercia   ,gr(i2))
-      case('covariance'); call op%init(dm*dm,write_covariance,gr(i2))
-      case('mainaxis'  ); call op%init(3,write_mainaxis      ,gr(i2))
-      case('ptriaxial' ); call op%init(1,write_ptriaxial     ,gr(i2))
-      case('globalerr' ); call op%init(2,write_globalerror   ,gr(i2))
-      case('energy'    ); call op%init(3,write_energy        ,gr(i2))
-      case('absenergy' ); call op%init(3,write_absenergy     ,gr(i2))
-      case('epot'      ); call op%init(1,write_epot          ,gr(i2))
-      case('ecin'      ); call op%init(1,write_ecin          ,gr(i2))
-      case('absecin'   ); call op%init(1,write_absecin       ,gr(i2))
-      case('energypa'  ); call op%init(3,write_energypa      ,gr(i2))
-      case('aenergy'   ); call op%init(3,write_aenergy       ,gr(i2))
-      case('temp'      ); call op%init(1,write_temp          ,gr(i2))
-      case('tempall'   ); call op%init(3,write_tempall       ,gr(i2))
-      !case('ctime'     ); op%w => write_ctime      ; n =1))   ; op%adv = .true. ; b1=.false.  
-      ! call wwan('Just remember that ctime must be load each 1 steps to have meaning')
-      !case('hd_f'      ); op%w => write_f          ; n =1))   ; op%adv = .false.; b1=.false.  
+case('on')
+  call encode_logicalvector(of%enable,of%ecode)
+
+case('at')
+  of%enable=.false.
+
+  ! Para indicar en que momento (algoritmo) debe tratar de escribirse el archivos
+  call readl(w1)
+  select case(w1)
+  case ('common' )
+    of%enable(1)=.true. 
+  case ('eparts' )
+    of%enable(2)=.true.
+  case ('forcefield' )
+    of%enable(3)=.true.
+  case ('tersoff' )
+    of%enable(4)=.true.
+  case ('hd' )
+    of%enable(5)=.true.
+  end select
+
+  of%ecode=decode_logicalvector(of%enable)
+  
+case('cols')
+  
+
+  of%g=>null()
+
+  ! Inicializo
+  call of%reopen()
+  !TODO:! Destruir of%p
+  ! call of%p%init()
+
+  !Adding a node, 
+  !FIXME: using add_hardcpy(op) didnt work with a very strange error
+
+  ! ANTES
+    !case ('energy'    ); call outprop_init(op_energy   ,dm    ,'Energy.'   ,'.dat' ,grout(i1))
+    !case ('border'    ); call outprop_init(op_border   ,dm    ,'Border.'   ,'.dat' ,grout(i1))
+    !case ('nebi'      ); call outprop_init(neb_opi     ,dm    ,'NebI.'     ,'.xyz' ,grout(i1))
+    !case ('nebf'      ); call outprop_init(neb_opf     ,dm    ,'NebF.'     ,'.xyz' ,grout(i1))
+    !case ('dihedrals' ); get_dihedral  =.true.
+    !! Tsf
+    !case ('tsfangs'           ); get_tsfangs   =.true.
+
+  ! Leo las propiedades y las asigno al archivo
+  do while (item<nitems)
+    call reada(w1)
+    call of%p%append(ln)
+    call ln%alloc()
+    op=>ln%o
+        
+    ! Read (or not) the group ID
+    select case(w1)
+    case('eparts','time','step','bias','box')
+      ! These does not require a selection group
+    case('e_tors','e_bend','e_stretch','e_neb','neb_info','e_halfsho')
+    case  default
+      call werr('not group selected',item==nitems)
+      call readi(i2)
+    end select
+   
+    select case(w1)
+    case('eparts'   );  call op%init(igr_vop%size,write_eparts)
+    !case('dihedrals'); call op%init(,write_dihedrals)
+    !case('angulos'  ); call op%init(,write_tsfangs)
+    case('time'     ); call op%init(1,write_time)
+    case('step'     ); call op%init(1,write_step)
+    case('bias'     ); call op%init(3,write_bias)
+    case('box'      ); call op%init(3,write_box)
+    case('e_tors'   ); call op%init(1,write_etors)
+    case('e_bend'   ); call op%init(1,write_ebend)
+    case('e_halfsho'); call op%init(2,write_halfsho)
+    case('e_stretch'); call op%init(1,write_estretch)
+    case('e_neb'    ); call op%init(1,write_eneb)
+    case('neb_info' ); call op%init(1,write_eneb)
+    case('tmoment'   ); call op%init(3,write_tmoment       ,gr(i2))
+    case('amoment'   ); call op%init(3,write_amoment       ,gr(i2))
+    case('angvel'    ); call op%init(3,write_angvel        ,gr(i2))
+    case('pressure'  ); call op%init(dm*dm,write_pressure  ,gr(i2))
+    case('virial'    ); call op%init(dm*dm,write_virial    ,gr(i2))
+    case('girrad'    ); call op%init(1,write_girrad        ,gr(i2))
+    case('cvs'       ); call op%init(6,write_cvs           ,gr(i2))
+    case('inercia'   ); call op%init(dm*dm,write_inercia   ,gr(i2))
+    case('covariance'); call op%init(dm*dm,write_covariance,gr(i2))
+    case('mainaxis'  ); call op%init(3,write_mainaxis      ,gr(i2))
+    case('ptriaxial' ); call op%init(1,write_ptriaxial     ,gr(i2))
+    case('globalerr' ); call op%init(2,write_globalerror   ,gr(i2))
+    case('energy'    ); call op%init(3,write_energy        ,gr(i2))
+    case('absenergy' ); call op%init(3,write_absenergy     ,gr(i2))
+    case('epot'      ); call op%init(1,write_epot          ,gr(i2))
+    case('ecin'      ); call op%init(1,write_ecin          ,gr(i2))
+    case('absecin'   ); call op%init(1,write_absecin       ,gr(i2))
+    case('energypa'  ); call op%init(3,write_energypa      ,gr(i2))
+    case('aenergy'   ); call op%init(3,write_aenergy       ,gr(i2))
+    case('temp'      ); call op%init(1,write_temp          ,gr(i2))
+    case('tempall'   ); call op%init(3,write_tempall       ,gr(i2))
+    !case('ctime'     ); op%w => write_ctime      ; n =1))   ; op%adv = .true. ; b1=.false.  
+    ! call wwan('Just remember that ctime must be load each 1 steps to have meaning')
+    !case('hd_f'      ); op%w => write_f          ; n =1))   ; op%adv = .false.; b1=.false.  
 !      case ('nebi'      ); ne%w => writeb_opi
 !      case ('nebf'      ); ne%w => writeb_opf       
-      case  default
-        call werr('incorrect imput')
-      end select
-
-      ! call of%p%add_hardcpy(op)
-      ! call op%destroy()
-      of%w => outfile_write
-
-    enddo
-
-  case default
-
-    b1=.true.
-
-    !TODO of%p%destroy()
-    of%ddda = .false.
-    of%prom = .false.
-
-    !xyz
-    select case(w1)
-    case('pos'        ); of%w => write_pos     
-    case('free_en_1d' ); of%w => write_E_1D     
-    case('poscr'      ); of%w => write_poscr
-    case('hd_fpp'     ); of%w => write_fpp     ; b1=.false.  
-    case('vel'        ); of%w => write_vel     
-    case('vel_rot'    ); of%w => write_vel_rot 
-    case('vel_vib'    ); of%w => write_vel_vib 
-    case('fce'        ); of%w => write_fce     
-    case('pes'        ); of%w => write_pes     
-    case('pose'       ); of%w => write_pose
-    case('dist'       ); of%w => write_dist    
-    case('charge'     ); of%w => write_charge
-   !%case ('border'   ); of%w => write_border    
     case  default
       call werr('incorrect imput')
     end select
-    
-    call of%reopen()
 
-    if(b1) then
-      call werr('not group selected',item==nitems)
-      call readi(i2)
-      of%g => gr(i2)
-    endif
-        
-    call werr('many inputs. this file not admit mor columns',item<nitems)
+    ! call of%p%add_hardcpy(op)
+    ! call op%destroy()
+    of%w => outfile_write
 
-  endselect
+  enddo
 
-  endsubroutine outfile_commands
+case default
+
+  b1=.true.
+
+  !TODO of%p%destroy()
+  of%ddda = .false.
+  of%prom = .false.
+
+  !xyz
+  select case(w1)
+  case('pos'        ); of%w => write_pos     
+  case('free_en_1d' ); of%w => write_E_1D     
+  case('poscr'      ); of%w => write_poscr
+  case('hd_fpp'     ); of%w => write_fpp     ; b1=.false.  
+  case('vel'        ); of%w => write_vel     
+  case('vel_rot'    ); of%w => write_vel_rot 
+  case('vel_vib'    ); of%w => write_vel_vib 
+  case('fce'        ); of%w => write_fce     
+  case('pes'        ); of%w => write_pes     
+  case('pose'       ); of%w => write_pose
+  case('dist'       ); of%w => write_dist    
+  case('charge'     ); of%w => write_charge
+ !%case ('border'   ); of%w => write_border    
+  case  default
+    call werr('wrong input')
+  end select
+  
+  call of%reopen()
+
+  if(b1) then
+    call werr('not group selected',item==nitems)
+    call readi(i2)
+    of%g => gr(i2)
+  endif
+      
+  call werr('many inputs. this file not admit mor columns',item<nitems)
+
+endselect
+
+endsubroutine outfile_commands
 
 end module gems_clinterpreter
 

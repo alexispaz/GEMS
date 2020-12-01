@@ -176,7 +176,7 @@ Integration.o:	 Variables.o Bias.o Algebra.o     Neighbour.o Set_Properties.o   
 Neighbour.o:   Variables.o   Algebra.o     Set_Properties.o   Program_Types.o Constants.o Inq_Properties.o
 Gaph.o: Constants.o Groups.o Neighbour.o 
 Interaction.o: Neighbour.o TB.o Constants.o   Program_Types.o Output.o Neighbour.o CVS.o ForceField.o Bias.o Pairs.o Tersoff.o  
-Output.o:  	        DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
+Output.o:   Variables.o            DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
 NEB.o:         		Interaction.o Integration.o  Set_Properties.o     Inq_Properties.o     Program_Types.o   Constants.o Errors.o Output.o Algebra.o  
 
 Checkpoint.o:    Input_Parsing.o Program_Types.o  Integration.o Interaction.o Output.o

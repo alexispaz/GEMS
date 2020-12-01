@@ -26,7 +26,7 @@ use gems_neighbour
 implicit none
 
 private
-public  :: pair_new,pair_cli
+public  :: pair_new
        
 type,extends(intergroup) :: lj
   real(dp)  :: e,s
