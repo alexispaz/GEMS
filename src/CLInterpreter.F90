@@ -1365,7 +1365,8 @@ endselect
 end subroutine  mpi_commands
 
 subroutine log_commands
-
+use, intrinsic :: iso_fortran_env, only: output_unit
+ 
 if(logunit/=truelogunit) close(logunit) 
 
 call readl(w1)
@@ -1379,7 +1380,7 @@ case('>')
   logunit=find_io(30)
   open(logunit,file=trim(w1)) 
 case('std')
-  logunit=6
+  logunit=output_unit
 case('-')
   logunit=truelogunit
 endselect   
@@ -1815,6 +1816,7 @@ use gems_forcefield, only: write_ebend, write_estretch, write_etors
 use gems_tersoff
 use gems_interaction
 use gems_neb
+use gems_graphs
 use gems_variables,only: polvar_link
 use gems_metadynamics, only: write_cvs,write_E_1D
 use gems_fields, only: write_halfsho
@@ -2027,17 +2029,18 @@ case default
 
   !xyz
   select case(w1)
-  case('pos'        ); of%w => write_pos     
-  case('free_en_1d' ); of%w => write_E_1D     
+  case('pos'        ); of%w => write_pos
+  case('graph'      ); of%w => write_graph
+  case('free_en_1d' ); of%w => write_E_1D
   case('poscr'      ); of%w => write_poscr
   case('hd_fpp'     ); of%w => write_fpp     ; b1=.false.  
-  case('vel'        ); of%w => write_vel     
-  case('vel_rot'    ); of%w => write_vel_rot 
-  case('vel_vib'    ); of%w => write_vel_vib 
-  case('fce'        ); of%w => write_fce     
-  case('pes'        ); of%w => write_pes     
+  case('vel'        ); of%w => write_vel
+  case('vel_rot'    ); of%w => write_vel_rot
+  case('vel_vib'    ); of%w => write_vel_vib
+  case('fce'        ); of%w => write_fce
+  case('pes'        ); of%w => write_pes
   case('pose'       ); of%w => write_pose
-  case('dist'       ); of%w => write_dist    
+  case('dist'       ); of%w => write_dist
   case('charge'     ); of%w => write_charge
  !%case ('border'   ); of%w => write_border    
   case  default

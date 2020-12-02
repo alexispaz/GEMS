@@ -32,26 +32,32 @@ private
     
 type, extends(intergroup) :: graph
   integer(isp),allocatable       :: adj(:,:)
+  integer(isp)                   :: nblocks
   contains
-  procedure   :: init2 => graph_constructor 
   procedure   :: interact => graph_block
   procedure,nopass :: cli => graph_cli
 end type
   
-public  :: graph_new
+public  :: graph_new, write_graph
+
+type(graph),pointer   :: gr=>null()
 
 contains
 
 subroutine graph_cli(ig)
+use gems_input_parsing, only:readf,reada
 use gems_neighbour, only:intergroup
+use gems_constants, only:linewidth
+use gems_errors, only:werr
 class(intergroup),intent(inout)  :: ig
+real(dp)                         :: rc
+character(len=linewidth)         :: w1
 
 select type(ig)
 type is(graph)  
 
-
   ! Parameters default
-  call reada(w1)
+  ! call reada(w1)
   select case(w1)
   ! case('output')
   case default
@@ -66,16 +72,22 @@ end subroutine graph_cli
  
 subroutine graph_new(pg,g1,w)
 use gems_neighbour, only:intergroup
+use gems_errors, only:werr
 use gems_groups, only:group
-type(smatb),pointer       :: ig
+type(graph),pointer       :: ig
 class(intergroup),pointer :: pg
 character(*),intent(in)   :: w
 type(group)               :: g1
-class(intergroup),pointer :: ig
                           
+! TODO: Necesito hacerlo para más de un
+! graph type pero para eso tengo que acomodar
+! las subrrutinas de escritura
+call werr('Not possible yet...',associated(gr))
+
 ! Return a intergroup class pointer
 allocate(ig)
 pg=>ig
+gr=>ig
                        
 ! Initialize the integroup
 call ig%init(g1=g1)
@@ -88,10 +100,10 @@ subroutine graph_block(ig)
 ! Search neighbors and update adj matrix accordingly
 use gems_program_types, only: mic
 use gems_inq_properties, only: vdistance
-type(graph),intent(inout)       :: ig
-integer                         :: i,j,l,n
-real(dp)                        :: vd(dm),dr
-type(atom),pointer              :: o1,o2
+class(graph),intent(inout)    :: ig
+integer                       :: i,j,l,n
+real(dp)                      :: vd(dm),dr
+type(atom),pointer            :: o1,o2
 
 ! Set zeros
 ig%adj(:,:)=0
@@ -100,6 +112,7 @@ ig%adj(:,:)=0
 do i = 1,ig%n(1)
   o1=>ig%at(i)%o
 
+  ! ig%adj(i,i)=1
   do l = 1, ig%nn(i)  ! sobre los vecinos
 
     j  = ig%list(i,l)
@@ -116,8 +129,7 @@ do i = 1,ig%n(1)
 
 enddo 
 
-call graph_adj_block (ig%adj, i)
-call ig%i%put(1,i)
+call graph_adj_block (ig%adj, ig%nblocks)
                             
 end subroutine graph_block
 
@@ -344,35 +356,20 @@ adj(1:nnode,1:nnode) = abs(adj(1:nnode,1:nnode))
 
 end subroutine graph_adj_block
 
-
-subroutine write_adj(op)
-use gems_output, only: outpropa
-use gems_constants, only: ui_ev
-class(outpropa)     :: op
-
-! Escribo: La parte de energia a bostear |  El bias  | La suma
-op%f(1) = op%f(1) + biased*ui_ev
-op%f(2) = op%f(2) + bias*ui_ev
-op%f(3) = op%f(3) + (biased+bias)*ui_ev
-
-end subroutine write_adj
- 
 subroutine write_graph(of)
-use gems_program_types
 use gems_output, only: outfile
-use gems_atoms, only: atom_dclist
-class(outfile)     :: of
-type(atom_dclist),pointer   :: la
-integer                     :: i,j
+use gems_atoms, only: atom_dclist, atom
+use gems_elements, only: csym
+class(outfile)       :: of
+type(atom),pointer   :: o
+integer              :: i,j
  
-write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
-la => of%g%alist
-do i=1,of%g%nat
-  la => la%next
-  !call group_inq_cmpos(of%g)
-  !write(un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2)
+write(of%un,*) gr%n(1)
+write(of%un,*) gr%nblocks
+
+do i = 1,gr%n(1)
+  o => gr%at(i)%o
+  write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),maxval(gr%adj(i,:))
 enddo
 
 if(of%flush) call flush(of%un)

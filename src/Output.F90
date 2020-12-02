@@ -29,6 +29,9 @@
 ! modules needs elements in output module to construct write_ subrroutines and
 ! the output module needs the write_ subrroutines from those modules.
 
+! TODO: Me parece que se podrían sacar los outfiles y dejar solo las outprop
+! que tengan una unidad asociada y que se haga estilo:
+
 module gems_output
  use gems_inq_properties
  use gems_program_types

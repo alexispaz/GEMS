@@ -124,7 +124,15 @@ if prompt Analitical; then
 
   cd ..
 fi         
-   
+              
+if prompt Graph; then
+  cd Graph
+  rm -f Graph.adj.dat
+  time exe adj.gms
+  diff -rq ref/Graph.adj.dat Graph.adj.dat  && echo -e $pass || echo -e $fail
+  cd ..
+fi         
+     
 
 if prompt WTMD; then
   cd WTMD

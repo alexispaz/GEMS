@@ -34,8 +34,9 @@ use gems_constants,     only: linewidth
 use gems_input_parsing, only: reada, readi
 use gems_bias,          only: bias_new
 use gems_fields,        only: fields_new
-use gems_pairs,     only: pair_new
+use gems_pairs,         only: pair_new
 use gems_tb,            only: smatb_new
+use gems_graphs,        only: graph_new
 use gems_tersoff,       only: tsf_new
 class(intergroup),pointer  :: ig
 type(group)                :: g1,g2
@@ -103,6 +104,9 @@ case('wca', 'sm1','sho','shocm','shofix','slj','lj','cuw','rwca','plj')
 case('halfsho_plane','sho2d','oscar2d','leiva1d','pozoa1d','voter2d','sho_plane','sho_line','lucas1d') 
   call werr("Only self interaction, use `under` keyword.",.not.under) 
   call fields_new(ig,g1,w1)
+case('adj') 
+  call werr("Only self interaction, use `under` keyword.",.not.under) 
+  call graph_new(ig,g1,w1)
 case('tb')
   if(under) then 
     call smatb_new(ig,g1)
@@ -113,7 +117,7 @@ case('tersoff')
   call werr("Only self interaction, use `under` keyword.",.not.under)
   call tsf_new(ig,g1)
 case default
-  call wwan('I do not understand the last command')
+  call werr('I do not understand the last command')
 endselect    
 
 call g1%dest()

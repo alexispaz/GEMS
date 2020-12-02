@@ -19,6 +19,7 @@
 module gems_errors
 use gems_constants,     only: dp,dm,linewidth, time1
 use gems_strings,       only: upcase
+use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
 implicit none
 
 logical :: silent=.false.
@@ -27,8 +28,8 @@ private
 public  :: msn,wlog,wwan,werr,wstd,silent,wprt,wref
 public  :: timer_start, timer_dump
 
-integer,public,target    :: logunit=6
-integer,public           :: inunit=5,truelogunit=6
+integer,public,target    :: logunit=output_unit
+integer,public           :: inunit=input_unit,truelogunit=output_unit
 integer,public,pointer   :: printunit=>null()
 
 character(linewidth)     :: msn=''
@@ -48,8 +49,10 @@ if(present(logica)) then
 endif
 
 write(logunit,'(a)',advance='no') '#-ERR-> '
+write(error_unit,'(a)',advance='no') '#-ERR-> '
 if (present(message)) then
   write(logunit,'(a)') trim(message)
+  write(error_unit,'(a)') trim(message)
 endif
 stop
 

@@ -28,6 +28,7 @@ gems_SOURCES = Algebra.F90            \
                Program_Types.F90      \
                Atoms.F90	      \
                Groups.F90	      \
+               Graphs.F90	      \
                Quasi_Newton.f90       \
                Select_Create.F90      \
                Set_Properties.f90     \
@@ -174,8 +175,8 @@ BO.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program
 Fields.o:   Output.o Neighbour.o Constants.o Algebra.o    Program_Types.o
 Integration.o:	 Variables.o Bias.o Algebra.o     Neighbour.o Set_Properties.o    Inq_Properties.o     Constants.o   Program_Types.o
 Neighbour.o:   Variables.o   Algebra.o     Set_Properties.o   Program_Types.o Constants.o Inq_Properties.o
-Gaph.o: Constants.o Groups.o Neighbour.o 
-Interaction.o: Neighbour.o TB.o Constants.o   Program_Types.o Output.o Neighbour.o CVS.o ForceField.o Bias.o Pairs.o Tersoff.o  
+Graphs.o: Constants.o Groups.o Neighbour.o 
+Interaction.o: Neighbour.o TB.o Constants.o   Program_Types.o Output.o Neighbour.o CVS.o ForceField.o Bias.o Pairs.o Tersoff.o  Graphs.o
 Output.o:   Variables.o            DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
 NEB.o:         		Interaction.o Integration.o  Set_Properties.o     Inq_Properties.o     Program_Types.o   Constants.o Errors.o Output.o Algebra.o  
 
@@ -183,7 +184,7 @@ Checkpoint.o:    Input_Parsing.o Program_Types.o  Integration.o Interaction.o Ou
 
 
 MPI.o: 		 Constants.o Strings.o
-CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbour.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o
+CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbour.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o
 Hyperdinamics.o: Bias.o Integration.o  Quasi_Newton.o  Programs.o  Set_Properties.o     Inq_Properties.o     Program_Types.o	  
 Metadynamics.o:  Interaction.o Integration.o  Programs.o   Inq_Properties.o     Program_Types.o	  
 Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbour.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o 
