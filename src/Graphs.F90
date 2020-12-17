@@ -14,6 +14,16 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
+!
+! This file incorporates work derived from the following code:
+!
+! GRAFPACK <https://people.sc.fsu.edu/~jburkardt/f_src/grafpack/grafpack.html>
+! by John Burkard, covered by the following copyright and permission notice:  
+!
+! Copyright (c) 1999 John Burkard
+!
+!  The computer code and data files described and made available on this web 
+!  page are distributed under the GNU LGPL license.
  
 module gems_graphs 
 use gems_atoms, only:atom
@@ -129,7 +139,7 @@ do i = 1,ig%n(1)
 
 enddo 
 
-call graph_adj_block (ig%adj, ig%nblocks)
+call graph_adj_block(ig%adj, ig%nblocks)
                             
 end subroutine graph_block
 
@@ -199,13 +209,13 @@ integer(isp) dad(size(adj,2))
 integer(isp) i
 integer(isp) idir
 integer(isp) ii
-integer(isp) inode(size(adj,2))
+integer(isp) inode(size(adj,2)*(size(adj,2)-1)/2)
 integer(isp) order(size(adj,2))
 integer(isp) iroot
 integer(isp) j
 integer(isp) jedge
 integer(isp) jj
-integer(isp) jnode(size(adj,2))
+integer(isp) jnode(size(inode))
 integer(isp) k
 integer(isp) l
 integer(isp) label(size(adj,2))
@@ -253,9 +263,7 @@ j = 0
 
 j = j + 1
 
-if ( nnode < j ) then
-  go to 50
-end if
+if ( nnode < j )  go to 50
 
 if ( adj(i,j) /= 0 .or. adj(j,i) /= 0 ) then
 
