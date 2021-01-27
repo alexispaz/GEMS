@@ -47,6 +47,13 @@ module gems_output
 
 implicit none
 
+! TODO: generalizar outpropa para apuntar a grupos, intergroups, interactions
+!       quizas se puede declarar distintos tipos de outpropa y que el outfile
+!       apunte a todas ellas. No se si hacer un deferred porque hay muchas propiedades
+!       parecidas (epot, ecin, temp, etc) y no vale la pena apuntar a todas ellas, pero si 2 o 3 objetos heredaros, uno para
+!       intergroups, otro para integrations, etc. otro para cosas como pos, vel, etc que se escriben sin buffer, otras con buffer.
+!       todas que esten dentro de un outfile, y que sea el outfile el que distinga cuando le ponen de un tipo incompatible con otro
+!       tipo (e.g. epot con pos)
 type :: outpropa
   type(group),pointer                :: g=>null()     ! Uno de los grout(:)
   !TODO integer                      :: units=0       ! Unidades. 0-A ps, eV 1-A ps kcm, etc

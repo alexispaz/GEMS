@@ -40,17 +40,27 @@ private
 ! The computer code and data files described and made available on this web page are distributed under [the GNU LGPL
 ! license](https://www.gnu.org/licenses/lgpl-3.0.en.html).
     
-type, extends(intergroup) :: graph
+type, extends(intergroup) :: graph_adj
   integer(isp),allocatable       :: adj(:,:)
   integer(isp)                   :: nblocks
   contains
   procedure   :: interact => graph_block
   procedure,nopass :: cli => graph_cli
 end type
-  
+                                      
+type, extends(intergroup) :: graph
+  integer,allocatable       :: order(:)
+  integer,allocatable       :: stack(:)
+  integer,allocatable       :: label(:)
+  integer                   :: ngraphs
+  contains
+  procedure   :: interact => graph_subgraphs
+  procedure,nopass :: cli => graph_cli
+end type
+                                      
 public  :: graph_new, write_graph
 
-type(graph),pointer   :: gr=>null()
+class(intergroup),pointer   :: gr=>null()
 
 contains
 
@@ -64,56 +74,62 @@ real(dp)                         :: rc
 character(len=linewidth)         :: w1
 
 select type(ig)
-type is(graph)  
-
-  ! Parameters default
-  ! call reada(w1)
-  select case(w1)
-  ! case('output')
-  case default
-    call readf(rc)
-    call ig%setrc(rc)
-  end select
+type is(graph_adj)  
+  allocate(ig%adj(ig%n(4),ig%n(4)))
+type is(graph) 
+  allocate(ig%order(ig%n(4)))
+  allocate(ig%stack(ig%n(4)))
+  allocate(ig%label(ig%n(4)))
 class default
   call werr('Interaction type mismatch. Expected graph type.')
 end select  
- 
+
+
+call readf(rc)
+call ig%setrc(rc)
+
 end subroutine graph_cli
  
-subroutine graph_new(pg,g1,w)
+subroutine graph_new(ig,g1,w)
 use gems_neighbour, only:intergroup
-use gems_errors, only:werr
+use gems_errors, only:wwan,werr
 use gems_groups, only:group
-type(graph),pointer       :: ig
-class(intergroup),pointer :: pg
+class(intergroup),pointer :: ig
 character(*),intent(in)   :: w
 type(group)               :: g1
-                          
+                                            
 ! TODO: Necesito hacerlo para más de un
 ! graph type pero para eso tengo que acomodar
 ! las subrrutinas de escritura
 call werr('Not possible yet...',associated(gr))
-
-! Return a intergroup class pointer
-allocate(ig)
-pg=>ig
+      
+select case(w)
+case('subgraphs') ; allocate(graph::ig)
+case('blocks')    ; allocate(graph_adj::ig)
+  call wwan("Output routine under construction.") 
+  ! Pensar si se puede hacer una subrrutina dedicada de escritura por type
+case default
+  call werr('Graph function not found')
+endselect
+  
+! Return an intergroup class pointer
 gr=>ig
                        
 ! Initialize the integroup
 call ig%init(g1=g1)
-
-allocate(ig%adj(ig%n(4),ig%n(4)))
+ig%half=.false.  
 
 end subroutine graph_new
      
 subroutine graph_block(ig)
 ! Search neighbors and update adj matrix accordingly
+! Then call to graph_adj_block to compute the biconected components (blocks).
 use gems_program_types, only: mic
 use gems_inq_properties, only: vdistance
-class(graph),intent(inout)    :: ig
-integer                       :: i,j,l,n
-real(dp)                      :: vd(dm),dr
-type(atom),pointer            :: o1,o2
+class(graph_adj),intent(inout)  :: ig
+integer                         :: i,j,l
+real(dp)                        :: vd(dm),dr
+type(atom),pointer              :: o1,o2
 
 ! Set zeros
 ig%adj(:,:)=0
@@ -133,7 +149,7 @@ do i = 1,ig%n(1)
 
     if(dr>ig%rcut2) cycle
 
-    ig%adj(i,j)=1
+    ig%adj(i,j)=5
  
   enddo     
 
@@ -143,6 +159,93 @@ call graph_adj_block(ig%adj, ig%nblocks)
                             
 end subroutine graph_block
 
+subroutine graph_subgraphs ( ig ) 
+! Deep-first search algoritm to find subgraphs  
+use gems_program_types, only: mic
+use gems_inq_properties, only: vdistance
+class(graph),intent(inout)    :: ig
+integer                       :: i,j,l,k,lstack
+real(dp)                      :: vd(dm),dr
+type(atom),pointer            :: o1,o2
+
+ig%order(:) = 0
+ig%stack(:) = 0
+ig%label(:) = 0
+
+k = 0         ! Visiting order counter
+i = 1         ! ID of visited atom
+lstack = 0    ! Stack of visited atoms
+ig%ngraphs=1  ! Current subgraph number
+
+main: do
+  k = k + 1
+  o1=>ig%at(i)%o
+
+  ! If never visited, save order and increase stack
+  if ( ig%order(i) == 0) then
+    ! The subgraph number
+    ig%label(i)=ig%ngraphs
+    
+    ! Save order
+    ig%order(i) = k
+
+    ! Increase stack and save the node ID
+    lstack = lstack + 1
+    ig%stack(lstack) = i
+  endif
+
+  !  Check the next neighbor.
+  do l = 1, ig%nn(i)  ! sobre los vecinos
+
+    j  = ig%list(i,l)
+
+    ! If already visited, skip
+    if ( ig%order(j) /= 0) cycle
+
+    o2 =>ig%at(j)%o
+
+    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    dr = dot_product(vd,vd) 
+
+    if(dr>ig%rcut2) cycle
+ 
+    ! Depth-first search. Follow the first (non visited) nieghbor found.
+    ! Node labels will save the order of the root node. 
+    i = j
+    cycle main
+
+  end do
+  
+  ! Check if there is nodes in the stack
+  lstack = lstack - 1
+  if ( lstack > 0 ) then
+
+    ! Go back in the stack to the previous node and search neighboors from it (i.e. depth search from second neighbor).
+    j = i
+    i = ig%stack(lstack)
+    cycle main
+
+  else
+
+    ! Stack is exhausted, look for a node we haven't visited yet.
+    do l = 1,ig%n(1)
+
+      if ( ig%order(l) /= 0 ) cycle
+      ig%ngraphs = ig%ngraphs+1
+      i = l
+      cycle main
+
+    enddo 
+ 
+
+    exit main
+    
+  end if
+
+end do main
+
+end subroutine graph_subgraphs
+     
 subroutine graph_adj_block ( adj, nblock ) 
 !Blocks of an undirected graph from its adjacency list.
 !
@@ -243,120 +346,129 @@ jedge = 0
 !Find all descendants of the parent node in this connected component
 !of the graph.
 
-10    continue
- 
-iroot = i
-k = k + 1
-order(i) = k
-label(i) = k
-lstack = lstack + 1
-stack(lstack) = i
-idir = + 1
+iroot = 1
 
-30    continue
- 
-j = 0
+main: do
+  k = k + 1
 
-!  Check the next neighbor.
+  order(i) = k
+  label(i) = k
 
-40    continue
+  ! Increase stack and save the node ID
+  lstack = lstack + 1
+  stack(lstack) = i
 
-j = j + 1
+  idir = + 1
 
-if ( nnode < j )  go to 50
+   
+  j = 0
 
-if ( adj(i,j) /= 0 .or. adj(j,i) /= 0 ) then
+  !  Check the next neighbor.
+  neigh: do
 
-  if ( 0 < adj(i,j) .or. 0 < adj(j,i) ) then
-    jedge = jedge + 1
-    inode(jedge) = i
-    jnode(jedge) = j
-  end if
+    j = j + 1
 
-  if ( order(j) == 0 ) then
+    ! Depth-first search. Follow the first (non visited) nieghbor found.
+    ! Node labels will save the order of the root node. 
+    if ( nnode >= j ) then
 
-    dad(j) = i
-    lstack = lstack + 1
-    stack(lstack) = j
-    idir = + 1
-    k = k + 1
-    i = j
-    order(i) = k
-    label(i) = k
-    go to 30
+      ! Cero matrix element. Not a neighboor, skip
+      if ( adj(i,j) == 0 .or. adj(j,i) == 0 ) cycle
 
-  else
+      ! Positive matrix element. Save the edge.
+      if ( 0 < adj(i,j) .or. 0 < adj(j,i) ) then
+        jedge = jedge + 1
+        inode(jedge) = i
+        jnode(jedge) = j
+      end if
 
-    if ( idir == +1 ) then
-      label(i) = min ( label(i), abs ( order(j) ) )
-    else
-      label(i) = min ( label(i), label(j) )
-    end if
+      if ( order(j) == 0 ) then
 
-  end if
+        ! If never visited before, continue neighbor search from it
+        dad(j) = i
+        i = j
+        cycle main
 
-end if
-
-go to 40
-
-!Searched all directions from current node.  Back up one node,
-!or, if stack is exhausted, look for a node we haven't visited,
-!which therefore belongs to a new connected component.
-
-50 continue
- 
-lstack = lstack - 1
-idir = -1
-
-if ( 0 < lstack ) then
-
-  j = i
-  i = stack(lstack)
-
-  if ( abs ( order(i) ) <= label(j) ) then
-
-    if ( 0 < order(i) ) then
-
-      if ( i /= iroot ) then
-        order(i) = - order(i)
       else
-        iroot = 0
+
+        if ( idir == +1 ) then
+          label(i) = min ( label(i), abs ( order(j) ) )
+        else
+          label(i) = min ( label(i), label(j) )
+        end if
+
+        cycle
+
       end if
 
-    end if
+    endif
 
-    nblock = nblock + 1
+    ! Go back in the stack to the previous node. 
+		! If its not the root, search neighboors from it (i.e. depth search from
+    ! second neighbor).
+		! If its the root...???
+    ! If stack is exhausted, look for a node we haven't visited,
+    ! which therefore belongs to a new connected component. 
 
-    do
+    !Searched all directions from current node.  Back up one node,
+    !or, 
+     
+    lstack = lstack - 1
+    idir = -1
 
-      ii = inode(jedge)
-      jj = jnode(jedge)
-      jedge = jedge - 1
-      adj(ii,jj) = - nblock
-      adj(jj,ii) = - nblock
+    if ( 0 < lstack ) then
 
-      if ( ii == i .and. jj == j ) then
-        exit
+      j = i
+      i = stack(lstack)
+
+      if ( abs ( order(i) ) <= label(j) ) then
+
+        if ( 0 < order(i) ) then
+
+          if ( i /= iroot ) then
+            order(i) = - order(i)
+          else
+            iroot = 0
+          end if
+
+        end if
+
+        nblock = nblock + 1
+
+        do
+
+          ii = inode(jedge)
+          jj = jnode(jedge)
+          jedge = jedge - 1
+          adj(ii,jj) = - nblock
+          adj(jj,ii) = - nblock
+
+          if ( ii == i .and. jj == j )  exit
+
+        end do
+
       end if
 
-    end do
+    else
 
-  end if
+      ! Search for new not visited node
+      lstack = 0
+      do l = 1, nnode
+        if ( order(l) == 0 ) then
+          i = l
+          iroot = i
+          cycle main
+        end if
+      end do
 
-  go to 40
-
-else
-
-  lstack = 0
-
-  do l = 1, nnode
-    if ( order(l) == 0 ) then
-      i = l
-      go to 10
+      exit main
+      
     end if
-  end do
 
-end if
+  end do neigh
+end do main
+
+
 
 !Restore the positive sign of the adjacency matrix.
 
@@ -371,16 +483,19 @@ use gems_elements, only: csym
 class(outfile)       :: of
 type(atom),pointer   :: o
 integer              :: i,j
- 
+
+select type(gr)
+type is(graph)
 write(of%un,*) gr%n(1)
-write(of%un,*) gr%nblocks
+write(of%un,*) gr%ngraphs
 
 do i = 1,gr%n(1)
   o => gr%at(i)%o
-  write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),maxval(gr%adj(i,:))
+  write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),gr%label(i)
 enddo
 
 if(of%flush) call flush(of%un)
+end select
 
 end subroutine
         

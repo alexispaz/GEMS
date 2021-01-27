@@ -2019,6 +2019,21 @@ case('cols')
 
   enddo
 
+! case('interaction')
+!   ! Read user label if found or assing a new one
+!   call readl(w1)
+!   ig=>null()
+!   if(w1(1:1)==':') then
+!     label=trim(w1)
+!     ig=>polvar_interact(label)
+!   endif
+!   call werr('Indicate a valid interaction label',.not.associated(ig))
+!   call werr('Interaction does not have a write procedure',.not.associated(ig%output))
+!
+!   of%ddda = .false.
+!   of%prom = .false.
+!   of%w => ig%output
+!
 case default
 
   b1=.true.

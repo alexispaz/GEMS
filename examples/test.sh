@@ -127,9 +127,9 @@ fi
               
 if prompt Graph; then
   cd Graph
-  rm -f Graph.adj.dat
-  time exe adj.gms
-  diff -rq ref/Graph.adj.dat Graph.adj.dat  && echo -e $pass || echo -e $fail
+  rm -f Graph.subgraphs.dat
+  time exe subgraphs.gms
+  diff -rq ref/Graph.subgraphs.dat Graph.subgraphs.dat  && echo -e $pass || echo -e $fail
   cd ..
 fi         
      
