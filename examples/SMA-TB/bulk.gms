@@ -38,14 +38,14 @@ getin d0 {sqrt(0.5)}
 
 # All the surfaces exposed are (100). 
  
-+< reply   1 0 0     25
-+< reply   0 1 0     25
-+< reply   0 0 1     25
++< reply   1 0 0     10
++< reply   0 1 0     10
++< reply   0 0 1     10
 sys add Ag
-box size 30 30 30
+box size 12 12 12
 
 > sys
-set move 2 2 2 
+set move 1 1 1 
 getin fact {2.89/$d0$}
 set expand $fact$ $fact$ $fact$
 box expand $fact$ $fact$ $fact$
@@ -56,11 +56,12 @@ interact 1 under tb read ../../parameters/baletto_2003.prm
 
 outfile :f1 name Energy.$jobname$.dat
 outfile :f1 cols energy 1
-outfile :f1 each 10
+outfile :f1 each 20
  
 outfile :f2 name Pos.$jobname$.xyz
 outfile :f2 pos 1
-outfile :f2 each 50
+outfile :f2 each 20
 
-lbfgs
+evolve ermak 1500 1.
+dinamica 220
 

@@ -1,21 +1,21 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(sprng,5)
+AC_INIT([sprng],[5])
 AC_CONFIG_SRCDIR(SRC/lfg/lfg.cpp)
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_TARGET
 
 # Avoid make to rebuild configure
 AM_MAINTAINER_MODE
 
 AC_CONFIG_MACRO_DIRS([m4])
 
-# AM_INIT_AUTOMAKE([subdir-objects])
-AM_INIT_AUTOMAKE()
+AM_INIT_AUTOMAKE([subdir-objects])
+# AM_INIT_AUTOMAKE()
 
-AM_CONFIG_HEADER(config.h:config.in)
+AC_CONFIG_HEADERS(config.h:config.in)
 
-AC_ARG_WITH(mpi, [AC_HELP_STRING([--with-mpi],[enable MPI parallelization])],
+AC_ARG_WITH(mpi, [AS_HELP_STRING([--with-mpi],[enable MPI parallelization])],
                   with_mpi=$withval, with_mpi=no)
 
 # Checks for programs.
@@ -57,7 +57,11 @@ AC_SUBST(sprng_cxxflags)
 AC_SUBST(sprng_fflags)
 
 # Checks for header files.
-AC_HEADER_STDC
+# Autoupdate added the next two lines to ensure that your configure
+# script's behavior did not change.  They are probably safe to remove.
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_CHECK_HEADERS([limits.h stddef.h stdlib.h string.h sys/time.h])
 
 AC_CHECK_SIZEOF([long int])
@@ -78,7 +82,7 @@ fi
 
 AC_SUBST(MPI_DEF)
 
-AC_ARG_WITH(testu01, [AC_HELP_STRING([--with-testu01], [path to testU01])], 
+AC_ARG_WITH(testu01, [AS_HELP_STRING([--with-testu01],[path to testU01])], 
                   with_testu01=$withval, with_testu01=no)
 if test "$with_testu01" = "no"; then
   use_testu01=n
@@ -88,9 +92,9 @@ else
   TESTU01_INCDIR=$with_testu01"/include"
 fi                 
 
-AC_ARG_WITH(testu01lib, [AC_HELP_STRING([--with-testu01lib], [path to testU01 libraries])], 
+AC_ARG_WITH(testu01lib, [AS_HELP_STRING([--with-testu01lib],[path to testU01 libraries])], 
                   with_testu01lib=$withval, with_testu01lib=no)
-AC_ARG_WITH(testu01inc, [AC_HELP_STRING([--with-testu01inc], [path to testU01 include directory])], 
+AC_ARG_WITH(testu01inc, [AS_HELP_STRING([--with-testu01inc],[path to testU01 include directory])], 
                   with_testu01inc=$withval, with_testu01inc=no)
 if test "$with_testu01lib" != "no"; then
   TESTU01_LIBDIR=$with_testu01lib
@@ -105,7 +109,7 @@ AC_SUBST(TESTU01_INCDIR)
 
 AM_CONDITIONAL(USE_TESTU01, test "$use_testu01" = "y")
 
-AC_ARG_WITH(fortran, [AC_HELP_STRING([--with-fortran],[enable fortran compilation])],
+AC_ARG_WITH(fortran, [AS_HELP_STRING([--with-fortran],[enable fortran compilation])],
                   with_fortran=$withval, with_fortran=yes)                  
                   
 if test "$with_fortran" = "yes"; then  
@@ -167,7 +171,7 @@ AC_FUNC_MEMCMP
 AC_CHECK_FUNCS([memset pow sqrt])
 
 AC_PROG_INSTALL
-AC_OUTPUT([Makefile 
+AC_CONFIG_FILES([Makefile 
 	     include/Makefile
 	     lib/Makefile
 	     SRC/Makefile
@@ -177,8 +181,9 @@ AC_OUTPUT([Makefile
 	     SRC/lfg/Makefile
 	     SRC/mlfg/Makefile
 	     SRC/pmlcg/Makefile
-		 ]) 
-# AC_OUTPUT([Makefile 
+		 ])
+AC_OUTPUT 
+# AC_CONFIG_FILES([Makefile 
 # 	     include/Makefile
 # 	     lib/Makefile
 # 	     SRC/Makefile
@@ -207,3 +212,4 @@ AC_OUTPUT([Makefile
 #      EXAMPLES/Makefile
 # 		 EXAMPLES/mpisprng/Makefile
 # 		 EXAMPLES/F77/Makefile])
+AC_OUTPUT
