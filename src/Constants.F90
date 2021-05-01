@@ -53,7 +53,7 @@ integer       :: dd=dm
 
 ! La precision del programa
 ! Evitar long integers por los indices de los arrays
-!integer, parameter    :: isp = 4 !normal=> 8 cifras
+integer, parameter    :: isp = 4 !normal=> 8 cifras
 integer, parameter    :: idp  = selected_int_kind(18) !18 cifras
 integer, parameter    :: sp   = kind(1.0)
 integer, parameter    :: dp   = kind(1.0d0)

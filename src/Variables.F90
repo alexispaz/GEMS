@@ -66,7 +66,6 @@ subroutine polvar_link(var,val)
 character(*),intent(in)  :: var
 class(*),target          :: val
 type(polvar),pointer     :: pv
-integer                  :: i
 
 pv=>polvar_return(var)
       
@@ -121,7 +120,6 @@ subroutine polvar_save(var,w)
 character(*),intent(in)  :: var
 character(*),intent(in)  :: w
 type(polvar),pointer     :: pv
-integer                  :: i
 
 pv=>polvar_return(var)
 if(associated(pv%val)) then
@@ -178,7 +176,7 @@ end select
 end subroutine
        
 function polvar_group(var) result(g)
-use gems_program_types, only:group
+use gems_groups, only:group
 character(*),intent(in)  :: var
 type(polvar),pointer     :: pv
 type(group),pointer      :: g

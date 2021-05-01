@@ -22,7 +22,8 @@ module gems_bondboost
 !carbide cluster for the growth simulation of a single-walled carbon nanotube,"
 !Computational Materials Science, vol. 39, 2007, pp. 842-848.
 
-  use gems_program_types, only: group,atom,atom_dclist
+  use gems_atoms, only: atom,atom_dclist
+  use gems_groups, only: group
   use gems_constants, only:dp,dm
   use gems_neighbour
 
@@ -61,7 +62,7 @@ module gems_bondboost
   !public generate_dispboost,longerdisp_lenght,bondb_disp_lenght
 
 !  real(dp)             :: qlim=0
-  real(dp)             :: alpha=0
+  ! real(dp)             :: alpha=0
 
   ! type :: linked_vector
   !   type(linked_vector),pointer  :: next  ! pointer to the next item

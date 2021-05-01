@@ -17,8 +17,9 @@
 
 
 module gems_set_properties
- use gems_program_types, only: group,atom,atom_dclist,group_l,gsel,sys,glist
- use gems_program_types, only: dt
+ use gems_program_types, only: dt,a,natoms,gsel,sys
+ use gems_groups, only: group, group_l,glist
+ use gems_atoms, only: atom,atom_dclist
  use gems_constants,only:dp,pi,dm,find_io
  use gems_algebra
  use gems_inq_properties
@@ -442,7 +443,8 @@ end subroutine set_pbc
 
 subroutine do_pbc_1(dclist,nat)
 ! Put the atoms inside the box using pbc
-use gems_program_types, only: box,atom_dclist
+use gems_program_types, only: box
+use gems_atoms, only: atom_dclist
 class(atom_dclist),target  :: dclist
 integer,intent(in)         :: nat
 class(atom_dclist),pointer :: la
@@ -878,21 +880,21 @@ end subroutine do_pbc_2
 
   end subroutine set_cm_pos
 
-  subroutine set_element(g,i1)
-   use gems_program_types
-   type(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i1,i
+subroutine set_element(g,i1)
+use gems_atoms, only: atom_dclist, atom_setelmnt
+type(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i1,i
 
-    la => g%alist
-    do i = 1,g%nat
-      la => la%next
-      call atom_setelmnt(la%o,i1)
-    enddo
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  call atom_setelmnt(la%o,i1)
+enddo
 
-    call mass_changed()
+call mass_changed()
 
-  end subroutine set_element
+end subroutine set_element
 
   subroutine set_cg_pos(g,v)
    real(dp)                    :: v(dm)

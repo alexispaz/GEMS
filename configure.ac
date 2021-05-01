@@ -1,9 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([gems],
-    [m4_esyscmd_s([git describe --always --abbrev=4 --dirty])],
-    [alexis.paz@gmail.com])
+AC_INIT([gems],[m4_esyscmd_s([git describe --always --abbrev=4 --dirty])],[alexis.paz@gmail.com])
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR(src/)
@@ -13,9 +11,6 @@ AM_INIT_AUTOMAKE([subdir-objects])
 
 # Avoid make to rebuild configure
 AM_MAINTAINER_MODE
-
-# To build libraries
-AC_PROG_RANLIB
 
 # Set OpenMP flags
 # : ${enable_openmp=no}
@@ -58,7 +53,7 @@ AX_PROG_FC_MPI([test x"$with_mpi" != xno],[use_mpi=yes],[
     
 # Debug options
 AC_ARG_ENABLE([debug],
-  AC_HELP_STRING([--enable-debug],[Turn on debugging]),
+  AS_HELP_STRING([--enable-debug],[Turn on debugging]),
   [case "${enableval}" in
     yes) debug=true ;;
     no)  debug=false ;;
@@ -68,7 +63,7 @@ AC_ARG_ENABLE([debug],
 
 # External software
 AC_ARG_WITH([sprng], 
-  AC_HELP_STRING([--with-sprng],[Use sprng library for random number generation]),,with_sprng=no)
+  AS_HELP_STRING([--with-sprng],[Use sprng library for random number generation]),,with_sprng=no)
 AC_CONFIG_SUBDIRS([
     lib/sprng5
     lib/fparser

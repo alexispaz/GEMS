@@ -6,7 +6,12 @@ Source: https://github.com/alexispaz/GEMS
 Files: *
 Copyright: 2020, S. Alexis Paz <alexis.paz@gmail.com>
 License: GPL-3+
-
+          
+Files: src/Graphs.f90
+Copyright: 2020, S. Alexis Paz <alexis.paz@gmail.com>
+           1999, John Burkardt (https://people.sc.fsu.edu/~jburkardt/f_src/grafpack/grafpack.html)
+License: GPL-3+
+          
 Files: src/Metadynamics.f90
 Copyright: 2020, Lucas Farigliano <lfarigliano@gmail.com>
 License: GPL-3+

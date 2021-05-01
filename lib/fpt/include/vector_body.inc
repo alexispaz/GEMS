@@ -144,12 +144,12 @@ subroutine _Increase( vec, capacity )
   integer                        :: capacity
   integer                        :: new_cap
   _TYPE, allocatable, target     :: aux(:)
-  integer                        :: i
+  ! integer                        :: i
 
   if ( capacity <= size(vec%o) ) return
 
   !new_cap = max(capacity,nint(vec%growth_rate*size(vec%o)))
-  new_cap = capacity*vec%growth_rate
+  new_cap = int(capacity*vec%growth_rate)
   
   allocate( aux(1:vec%size) )
   aux(1:vec%size) = vec%o(1:vec%size)

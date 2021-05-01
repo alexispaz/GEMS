@@ -39,8 +39,8 @@ public   :: write_ebend, write_estretch, write_etors
 public   :: boundgrs,read_psf,read_prm,boundgr_l
 
 ! Estas variables son para escribir
-logical,private   :: noadv=.true.
-real(dp),private  :: var
+! logical,private   :: noadv=.true.
+! real(dp),private  :: var
 
 ! Por cada juego de parametros leido debe haber al menos 1 enlace o 1 angulo,
 ! etc. Entonces conviene construir como objetos los parametros y que estos
@@ -320,7 +320,7 @@ integer                        :: m,n,t
 real(dp)                       :: dphidf(dm),dphidg(dm),dphidh(dm),dcosda(dm),dcosdb(dm),dsindb(dm),dsindv(dm)
 real(dp)                       :: cphi,sphi,ptors,ftors,phi
 real(dp)                       :: f(dm),g(dm),h(dm),a(dm),b(dm),v(dm)
-real(dp)                       :: ke,delta,diff,invm_a,invm_b,invm_v
+real(dp)                       :: ke,delta,invm_a,invm_b,invm_v
 
 bg%epot = 0.0_dp
 
@@ -973,7 +973,6 @@ subroutine read_prm(prmfile)
           if (f1==0._dp) then
             call wlog ('-PRM->'); write(logunit,'(a,4(a5))') 'No dihedral for:  ', zx(1:4)
             lp%next=>ln%next
-            call ln%destroy_node()
             deallocate(ln)
             exit
           endif
@@ -1065,7 +1064,6 @@ subroutine read_prm(prmfile)
           if (f1==0._dp) then
             call wlog ('-PRM->'); write(logunit,'(a,4(a5))') 'No dihedral for:  ', zx(1:4)
             lp%next=>ln%next
-            call ln%destroy_node()
             deallocate(ln)
             exit
           endif
@@ -1100,7 +1098,6 @@ subroutine read_prm(prmfile)
            'Ignoring dihedral types ', elements%o(ln%o%z(1))%sym, elements%o(ln%o%z(2))%sym,&
                                        elements%o(ln%o%z(3))%sym, elements%o(ln%o%z(4))%sym
       lp%next=>ln%next
-      call ln%destroy_node()
       deallocate(ln)
       ln=>lp
     endif
@@ -1260,8 +1257,8 @@ function boundgrs_include(z) result(bg)
   enddo
 
   ! Si no existe, creo un nuevo boundgr
-  call boundgrs%add_hard()
-  allocate(boundgrs%next%o)
+  call boundgrs%add_after()
+  call boundgrs%next%alloc()
   bg=>boundgrs%next%o
   call bg%init(z)
 
@@ -1313,7 +1310,8 @@ subroutine boundgr_add(bg,id)
   ! allocateado el enlace y en ese caso añadirlo soft. Capaz se podría hacer si
   ! se agregan de manera ordenada siguiente un uid que sea el hash de los dos
   ! atoms de manera de buscar de forma eficiente
-  call bg%list%add_hard()
+  call bg%list%add_after()
+  call bg%list%next%alloc()
   bg%n = bg%n + 1
   b=>bg%list%next%o
   allocate(b%a(size(id)))
