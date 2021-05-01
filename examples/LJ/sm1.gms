@@ -43,13 +43,13 @@ interact 1 under sm1 1. 2. 0.01
 time step 0.001
                 
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1
-outfile 1 each 1
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1
+outfile :f1 each 1
 
-# outfile 3 name Pos.$jobname$.xyz
-# outfile 3 pos 1
-# outfile 3 each 1
+# outfile :f3 name Pos.$jobname$.xyz
+# outfile :f3 pos 1
+# outfile :f3 each 1
          
 
 > sys

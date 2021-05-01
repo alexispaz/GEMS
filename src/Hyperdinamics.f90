@@ -27,7 +27,7 @@ use gems_errors
 use gems_programs
 use gems_checkpoint
 use gems_neighbour
-! use gems_bias
+use gems_bias, only: compress_below
 
 implicit none
 private
@@ -45,6 +45,7 @@ type(decorrelation)           :: dvp,dbp,dvbp
 real(dp)                      :: f
 integer                       :: ctime
 
+type(compress_below),pointer  :: igb=>null()
 
 real(dp)    :: hd_p1, hd_p2, desp
 
@@ -57,13 +58,17 @@ public :: write_f
 public :: write_ctime
                         
 contains
-  
+
+! subroutine hyperd_cli(it,w)
+!
+! end subroutine hyperd_cli(it,w)
+
 function boostfactor(x) result(f)
 real(dp)            :: f
 real(dp),intent(in) :: x
 !integer             :: i
 
-f = hd_p1*exp(x*(hd_p2-x/2.0_dp))/cdf_snorm(hd_p2-x)
+f = hd_p1*exp(x*(hd_p2-x/2._dp))/cdf_snorm(hd_p2-x)
 end function 
             
 function boostfactor2(eprime,aprime) result(f)
@@ -75,45 +80,75 @@ f=1._dp-cdf_snorm(eprime)
 f=f+exp(-aprime*(eprime-aprime/2._dp))*cdf_snorm(eprime-aprime)
 f=1._dp/f
 end function 
-            
+
+! subroutine hyperdinamics_cli()
+! use gems_bias, only: compress_below
+! use gems_neighbour, only: intergroup_dl
+! use gems_interaction, only: polvar_interact(w1)
+! class(intergroup), pointer      :: ig
+! class(compress_below), pointer  :: p
+!
+! selectcase(w1)
+! case('bias') 
+!   call reada(w1)
+!   igb=>polvar_interact(w1)
+!   select type(igb)
+!   type is(compress_below)
+!   case default
+!     call werr('Bias shoulw be of type lpe to allow hybrid HD-DM algorithm')
+!   end select
+! case default
+!   call werr('Bad keyword. Use `under`, `with` or `feels`')
+! end select
+!
+! end subroutine
+!
      
 ! METODO HIBRIDO HD_DM
 
 subroutine hybrid_ea(nsteps,msteps,lsteps,hd_f,eprime,aprime,z,t,b_out)
 ! eprom es la energia de referencia de E (i.e. enería promedio del sistema)
 ! lp1 y lp2 deben estar establecidos
-use gems_analitic_pot
+use gems_fields
 use gems_input_parsing
 use gems_tb
-use gems_bias, only: igb
+use gems_bias, only: compress_below
+use gems_interaction, only: polvar_interact, intergroup
+logical,intent(in)        :: b_out
+integer,intent(in)        :: nsteps,msteps,lsteps ! numero de bloques, pasos por bloque, equilibracion
+real(dp),intent(in)       :: hd_f,eprime,aprime,z,t
+integer                   :: i,n
+integer,save              :: uhd=0,udm=0
+real(dp)                  :: bprom,vbprom,prob,dumy,zfact,a,e!,dvbmin,aux
+logical                   :: acelerar=.false.!,dummy
+class(intergroup),pointer :: ig
 
-logical,intent(in)  :: b_out
-integer,intent(in)  :: nsteps,msteps,lsteps ! numero de bloques, pasos por bloque, equilibracion
-real(dp),intent(in) :: hd_f,eprime,aprime,z,t
-integer             :: i,n
-integer,save        :: uhd=0,udm=0
-real(dp)            :: bprom,vbprom,prob,dumy,zfact,a,e!,dvbmin,aux
-logical             :: acelerar=.false.!,dummy
 
-!FIXME call werr('Need bias_lp',.not.associated(igb%interact,target=bias_lp))
-call werr('You need a bias interaction to run hyperdinamics',.not.associated(igb))
 call dvp%init()
 call dbp%init()
 call dvbp%init()
     
 kt=(kB_ui*t) ! The temperature asociated with the mcpot part of the energy
-beta = 1.0_dp/kt
+beta = 1._dp/kt
 acelerar=.false.
-maxbias=0.0_dp
-btime=0.0_dp
-nbtime=0.0_dp
+maxbias=0._dp
+btime=0._dp
+nbtime=0._dp
 
-!! Ensure the parameters to be inside the range
-a=boostfactor2(eprime,aprime)
-e=1.0_dp-a+a*cdf_snorm(eprime)
+! Get igb (bias) association
+ig=>polvar_interact(':hybrid_ea')
+call werr('An interaction with `:hybrid_ea` label is required',.not.associated(ig))
+! call werr('',.not.same_type_as(igb,igb))
+select type(ig)
+type is (compress_below)
+  igb=>ig
+class default
+  call werr(':hybrid_ea should be of type compress_below')
+end select
 
-call igb%p%put(1,e)
-call igb%p%put(2,a)
+! Ensure the parameters to be inside the range
+igb%alpha=boostfactor2(eprime,aprime)
+igb%e=1._dp-igb%alpha+igb%alpha*cdf_snorm(eprime)
 
 call wlog('HYD'); write(logunit,*) 'El boost factor será:', a
 call wlog('HYD'); write(logunit,*) 'y la integral w será:', e
@@ -122,9 +157,9 @@ call flush(logunit)
 zfact=inv_cdf_snorm(e)-inv_cdf_snorm(eprime*z)
 
 ! Pongo parametros para que el bias sea cero
-a = 1.0_dp
+a = 1._dp
 e = -1e16
-bias_highc = 1.0e10_dp
+bias_highc = 1._dp
 
 
 if(uhd==0) then
@@ -173,7 +208,7 @@ do i=1,nsteps
     !if(.not.over_lowc) then ! Estoy debajo del bfact deseado
     !  if(f>hd_f) then ! Me canse, aumento HD
     !    !e = inv_cdf_norm(eprime,sigma=sigma) ! E-<Vb>b
-    !    !e = (e-(vmin+dvbmin)*(1.0_dp-a)+vbprom)/a
+    !    !e = (e-(vmin+dvbmin)*(1._dp-a)+vbprom)/a
     !    !aux = vmin + (e-vmin)*(a/(a-daumento))
     !    !e=aux 
     !    !a = a-daumento
@@ -187,13 +222,11 @@ do i=1,nsteps
 
     if(over_highc) then ! Demasiado bias apago la HD
       acelerar=.false.
-      a = 1.0_dp
-      e = -1e16
-      call igb%p%put(1,e)
-      call igb%p%put(2,a)
+      igb%e=-1.e16_dp
+      igb%alpha=1._dp
       over_lowc=.false.
       over_highc=.false.
-      maxbias=0.0_dp
+      maxbias=0._dp
       write(uhd,*)
     endif    
      
@@ -207,13 +240,11 @@ do i=1,nsteps
     if(acelerar) then ! Me canse, pasa a HD
 
       ! Establezco el a y e inicial
-      e = sigma*eprime+vbprom
-      a = 1.0_dp-aprime/(beta*sigma)
-      call igb%p%put(1,e)
-      call igb%p%put(2,a)
+      igb%e=sigma*eprime+vbprom       
+      igb%alpha=1._dp-aprime/(beta*sigma) 
 
-      !bias_highc = (inv_cdf_snorm(hd_phi)*sigma+(hd_e-vprom))*(1.0_dp-hd_a)/hd_a
-      bias_highc = (1.0_dp-a)*sigma*zfact
+      !bias_highc = (inv_cdf_snorm(hd_phi)*sigma+(hd_e-vprom))*(1._dp-hd_a)/hd_a
+      bias_highc = (1._dp-a)*sigma*zfact
       !bias_highc = 1e10
 
       ! Put a blank line to plot with discontinuities
@@ -231,10 +262,8 @@ do i=1,nsteps
 
     else  ! soy paciente
 
-      a = 1.0_dp
-      e = -1e16
-      call igb%p%put(1,e)
-      call igb%p%put(2,a)
+      igb%alpha = 1._dp
+      igb%e = -1e16
 
     endif
 
@@ -248,14 +277,13 @@ enddo
 
 ! FIXME Esto es porque las variables no se calculan cada vez en el write y queda
 ! el numero trabado
-! bias = 0.0_dp
-! biased = 0.0_dp
-! bfact = 1.0_dp 
+! bias = 0._dp
+! biased = 0._dp
+! bfact = 1._dp 
 
 end subroutine hybrid_ea
 
 subroutine hyperd_init(steps,b_out)
-use gems_bias, only: igb
 use gems_programs, only: dinamic
 ! Realiza `steps` pasos de HD para termalizar la configuracion inicial en el
 ! potencial con bias
@@ -266,7 +294,7 @@ real(dp)                      :: auxtime
 logical                       :: b_bias
 
 auxtime = time
-maxbias=0.0_dp
+maxbias=0._dp
 
 ! igb%disable=.true.
 call dinamic(steps,b_out,.false.) 
@@ -279,7 +307,7 @@ end subroutine
 subroutine hyperd_eprom(steps,b_out)
 ! Realiza steps pasos de DM o HD acumulando la energia media y demas variables
 ! estadisticas
-use gems_bias, only: noboost, igb, biased
+use gems_bias, only: noboost, biased
 use gems_integration, only: integration_reversea
 use gems_input_parsing, only: load_blk, execute_block, bloques
 use gems_ddda
@@ -368,20 +396,20 @@ subroutine wb2ea(w,b,e,alpha,n)
 ! esto debe ser un input porque los numeros de atomos involucrados en un
 ! potencial no necesariamente reflejan el grado de libertad. Por ejemplo, un
 ! dihedro necesita 4 atomos pero es solo un dihedro. XXX: pensar bien esto
-use gems_analitic_pot
+use gems_fields
 real(dp), intent(in)        :: w, b
 integer, intent(in)         :: n
 real(dp), intent(out)       :: e, alpha
 
 ! Ensure the parameters to be inside the range
-call werr('w must be between 0 and 1',w>1.0_dp.or.w<0.0_dp)
-call werr('Really? boost factor lower than 1??',b<1.0_dp)
+call werr('w must be between 0 and 1',w>1._dp.or.w<0._dp)
+call werr('Really? boost factor lower than 1??',b<1._dp)
 
 ! Saving w
 hd_p1=w
 
 ! Saving eprime, obtained from equation 15 for w in (Paz2015)
-hd_p2 = inv_cdf_snorm((b+w-1.0_dp)/b)
+hd_p2 = inv_cdf_snorm((b+w-1._dp)/b)
 
 ! The of the energy variance of an harmonic oscilator is (kT)**2 (Reigada1999).
 ! From the equipartition of the energy, this should arise from the variance of
@@ -395,7 +423,7 @@ call wlog('HYD');write(logunit,*) 'Maximum boostfactor for this w is near to:', 
 call werr('The boost factor is too near to the maximum allowed',alpha<=b)
 
 ! Establezco el alpha inicial
-alpha = inverte_bifuncrr(b,0.0_dp,e,boostfactor)
+alpha = inverte_bifuncrr(b,0._dp,e,boostfactor)
 e = hd_p2
 
 call wlog('HYD');write(logunit,*) 'eprime is:', e
@@ -428,7 +456,7 @@ end subroutine wb2ea
 ! kt=(kB_ui*ghd%fixtemp)
 ! hd_e=e
 ! hd_a=(hd_e-emin)*m*sqrt(kt)/((hd_e-emin)-m*sqrt(kt))
-! beta = 1.0_dp/kt
+! beta = 1._dp/kt
 ! desp=1.5_dp
 !
 ! do i = 1,nsteps
@@ -450,7 +478,7 @@ end subroutine wb2ea
 !   endif
 !
 !   call wstd(); write(logunit,*) 'MOVING! BOOST OFF:----------------------'
-!   bias=0_dp
+!   bias._dp
 !   call write_out_force(1)
 !
 !   ! Guardo el minimo en pmin
@@ -467,15 +495,15 @@ end subroutine wb2ea
 function hyperd_dinamic_safe(m,n,media,b_out)
 ! ghd es el grupo que se utiliza en esta dinamica
 ! eprom es la energia de referencia de E (i.e. enería promedio del sistema)
-use gems_bias, only: igb, biased
-use gems_analitic_pot
+use gems_bias, only: biased
+use gems_fields
 use gems_tb
 
 logical                     :: hyperd_dinamic_safe
 logical,intent(in)          :: b_out
 integer,intent(in)          :: m,n
 real(dp)                    :: medida,suma,suma2
-real(dp)                    :: timeaux,desviacion, a, e
+real(dp)                    :: timeaux,desviacion
 integer                     :: i,j
 real(dp),target             :: pmin(ghd%nat*dm)
 !real(dp),target             :: fce(ghd%nat*dm),pos(ghd%nat*dm)
@@ -486,10 +514,8 @@ logical                     :: b_bias
 hyperd_dinamic_safe=.true.
 
 ! Imprimiendo datos utiles
-e=igb%p%o(1)
-a=igb%p%o(2)
-call wstd(); write(logunit,*) '  E', e*ui_ev
-call wstd(); write(logunit,*) '  alpha', a*ui_ev
+call wstd(); write(logunit,*) '  E', igb%e*ui_ev
+call wstd(); write(logunit,*) '  alpha', igb%alpha*ui_ev
 
 !Corro la dinamica
 timeaux=0
@@ -501,7 +527,7 @@ call interact(b_out)
 
 do j=1,n
 
-  medida=0.0_dp
+  medida=0._dp
 
   do i=1,m
 
@@ -544,7 +570,7 @@ function hyperd_eprom_safe(m,n,media,desviacion,b_out) result(flag)
 ! m Numero de pasos para determinar una medida de energía potencial 
 ! n Numero de medidas para determinar la media
 use gems_programs
-use gems_bias, only: noboost, igb, biased
+use gems_bias, only: noboost, biased
 real(dp),intent(out)        :: media,desviacion
 integer                     :: i,j
 integer                     :: flag
@@ -566,7 +592,7 @@ call interact(.false.)
   
 do j = 1,n
 
-  medida=0.0_dp
+  medida=0._dp
   do i = 1,m
     dm_steps=dm_steps+1._dp
     
@@ -642,7 +668,7 @@ do j =1,dvp%size-2
 
   !Ver DDDA decorrelation_variance
   err = sqrt(ls%o%vars()/(ls%o%nsamples-1))*ui_ev
-  errerr=err/(sqrt(2.0_dp*(ls%o%nsamples-1)))
+  errerr=err/(sqrt(2._dp*(ls%o%nsamples-1)))
 
   !write(of%un,fmt='(i0,x,2(e25.12,2x),i0)')  dm_steps+j*(n/(dvp%size-2)),sqrt(var)*ui_ev+med*ui_ev,sqrt(err)*ui_ev,ls%o%nsamples
   write(of%un,fmt='(i10,x,3(e25.12,2x))')  ls%o%nsamples,err,errerr,plato*ui_ev

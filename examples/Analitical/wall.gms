@@ -25,10 +25,10 @@ box size 20 20 20
 prng lcg
 prng seed 123456
  
->< fill 10 0.25 $boxx$ $boxy$ 0.1   0. 0. 3.3  
+>< fill 10 0.25 $boxx $boxy 0.1  0. 0. 3.3  
 sys add H
 
->< fill 10 0.25 0.1 0.1 $boxz$      5. 5. 0.
+>< fill 10 0.25 0.1 0.1 $boxz    5. 5. 0.
 sys add C
 
 > sys
@@ -49,12 +49,12 @@ group 3 add
 box move (make the total velocity zero)
 
 
-interact 2 under halfsho_plane 1. 3.0 -3
-interact 2 under halfsho_plane 1. $boxz$ 3
+interact :pared 2 under halfsho_plane 1. 3.0 -3
+interact 2 under halfsho_plane 1. $boxz 3
 
 bloque save 1
-  getin r0 {3.0+(1.*$time$)}
-  interact 1 set halfsho_plane 1. $r0$  -3
+  r0 := {3.0+(1.*$time)}
+interact :pared 1. $r0$  -3
 fin
 
 
@@ -64,13 +64,13 @@ bloque load_each 10 1
 time step 0.001
                 
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1 e_halfsho
-outfile 1 each 100
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1 e_halfsho
+outfile :f1 each 100
 
-outfile 3 name Pos.$jobname$.xyz
-outfile 3 pos 1
-outfile 3 each 1
+outfile :f3 name Pos.$jobname$.xyz
+outfile :f3 pos 1
+outfile :f3 each 1
 
 > sys
 evolve v_verlet

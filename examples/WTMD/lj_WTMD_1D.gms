@@ -32,13 +32,13 @@ interact 2 with 3 lj 0.08291 3.4 200
 time step 0.005   (integration timestep [ps])
                 
                         
-outfile 1 name Energy.$jobname$.dat
-outfile 1 cols energy 1
-outfile 1 each 1e6
+outfile :f1 name Energy.$jobname$.dat
+outfile :f1 cols energy 1
+outfile :f1 each 1e6
 
-outfile 2 name Pos.$jobname$.xyz
-outfile 2 pos 1
-outfile 2 each 1e6
+outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 pos 1
+outfile :f2 each 1e6
         
 
 > sys
@@ -55,8 +55,8 @@ setwall1d 0.0 2.0 100 17.5
 setwtmd1d 0.1 0.01 9000 0.1 1e5 13 500
 wtdcm 1e3
 
-outfile 3 name E_libre.dat
-outfile 3 free_en_1d 1
-outfile 3 each 1e6
+outfile :f3 name E_libre.dat
+outfile :f3 free_en_1d 1
+outfile :f3 each 1e6
  
 out state 

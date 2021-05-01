@@ -32,15 +32,16 @@ module gems_cvs
 !       este objeto CV deberia tener un arreglo de punteros a los procedimientos
      
 use gems_constants,only:dp,dm
-use gems_algebra,only:real_v,integer_v
-use gems_program_types, only:group,group_l,atom,atom_dclist,group_ap
+! use gems_algebra,only:real_v,integer_v
+use gems_groups, only:group,group_l,group_ap
+use gems_atoms, only:atom,atom_dclist
 use gems_inq_properties, only:group_inq_cmpos,inq_cm_vel,group_inq_rg
 use gems_errors, only:werr
 
 implicit none
 private
 
-public cv_eval_cmpos, cv_eval_cm, cv_calc_sho
+public cv_eval_cmpos, cv_eval_cm, cv_calc_sho, cv_eval_rg
 public cv_jaco_cmpos, cv_jaco_cm
   
 type,extends(group),public :: cv
@@ -234,8 +235,7 @@ end subroutine cv_jaco_cm
 
 subroutine cv_eval_cm(c)
 class(cv)                  :: c
-type (atom_dclist),pointer :: la
-integer                    :: i,j
+integer                    :: j
 
 ! Add the COM pos/vel to the head
 call group_inq_cmpos(c) 
@@ -270,7 +270,7 @@ end subroutine cv_eval_cmpos
 subroutine cv_eval_rg(c)
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
-integer                    :: i,j
+integer                    :: i
 
 ! Add the COM pos/vel to the head
 call group_inq_rg(c) 

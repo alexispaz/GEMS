@@ -30,8 +30,9 @@ module gems_inq_properties
 ! pbc : efectuate the pbc
 ! disrad :
 
-use gems_program_types, only: group,atom,atom_dclist,gsel,nghost,aghost,mic,ghost
-use gems_program_types, only: dt,a,natoms,tbox,box,one_box
+use gems_program_types, only: dt,a,natoms,tbox,box,one_box,gsel,nghost,aghost,mic,ghost
+use gems_groups, only: group
+use gems_atoms, only: atom,atom_dclist
 use gems_constants,     only: sp,dp,kB_ui,ui_ev,pi,pio2,dm
 use gems_algebra
 use gems_input_parsing
@@ -984,7 +985,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return
@@ -1018,7 +1019,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return
@@ -1053,7 +1054,7 @@ end subroutine
    !previus calcs needed: g%covar_gc
    real(sp)                      :: aux(3,3),aux2(3,3)
    real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   integer                       :: nrot
+   ! integer                       :: nrot
    type(group)                   :: g
 
    if (g%b_mainaxis) return
@@ -1152,6 +1153,7 @@ end subroutine
   end function
         
   function inq_pdisrad(p,g) result(pdis)
+  use gems_program_types, only: atom_distancetopoint
     real(dp),intent(in)          :: p(dm)
     type(group),intent(in)       :: g
     real(dp)                     :: pdis(g%nat)
@@ -1162,7 +1164,7 @@ end subroutine
     la => g%alist
     do i = 1, g%nat
       la => la%next
-      vd = la%o%distance(p)
+      vd = atom_distancetopoint(la%o,p)
       pdis(i)=sqrt(dot_product(vd,vd))
     enddo
     

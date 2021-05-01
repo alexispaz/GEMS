@@ -124,7 +124,15 @@ if prompt Analitical; then
 
   cd ..
 fi         
-   
+              
+if prompt Graph; then
+  cd Graph
+  rm -f Graph.subgraphs.dat
+  time exe subgraphs.gms
+  diff -rq ref/Graph.subgraphs.dat Graph.subgraphs.dat  && echo -e $pass || echo -e $fail
+  cd ..
+fi         
+     
 
 if prompt WTMD; then
   cd WTMD
