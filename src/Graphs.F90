@@ -26,8 +26,8 @@
 !  page are distributed under the GNU LGPL license.
  
 module gems_graphs 
-use gems_atoms, only:atom
-use gems_neighbour, only:intergroup
+use gems_groups, only:atom
+use gems_neighbor, only:ngroup
 use gems_constants, only:isp, dm, dp
 
 implicit none
@@ -40,7 +40,7 @@ private
 ! The computer code and data files described and made available on this web page are distributed under [the GNU LGPL
 ! license](https://www.gnu.org/licenses/lgpl-3.0.en.html).
     
-type, extends(intergroup) :: graph_adj
+type, extends(ngroup) :: graph_adj
   integer(isp),allocatable       :: adj(:,:)
   integer(isp)                   :: nblocks
   contains
@@ -48,7 +48,7 @@ type, extends(intergroup) :: graph_adj
   procedure,nopass :: cli => graph_cli
 end type
                                       
-type, extends(intergroup) :: graph
+type, extends(ngroup) :: graph
   integer,allocatable       :: order(:)
   integer,allocatable       :: stack(:)
   integer,allocatable       :: label(:)
@@ -60,43 +60,42 @@ end type
                                       
 public  :: graph_new, write_graph
 
-class(intergroup),pointer   :: gr=>null()
+class(ngroup),pointer   :: gr=>null()
 
 contains
 
-subroutine graph_cli(ig)
+subroutine graph_cli(g)
 use gems_input_parsing, only:readf,reada
-use gems_neighbour, only:intergroup
+use gems_neighbor, only:ngroup
 use gems_constants, only:linewidth
 use gems_errors, only:werr
-class(intergroup),intent(inout)  :: ig
+class(ngroup),intent(inout)  :: g
 real(dp)                         :: rc
 character(len=linewidth)         :: w1
 
-select type(ig)
+select type(g)
 type is(graph_adj)  
-  allocate(ig%adj(ig%n(4),ig%n(4)))
+  allocate(g%adj(g%nat,g%nat))
 type is(graph) 
-  allocate(ig%order(ig%n(4)))
-  allocate(ig%stack(ig%n(4)))
-  allocate(ig%label(ig%n(4)))
+  allocate(g%order(g%nat))
+  allocate(g%stack(g%nat))
+  allocate(g%label(g%nat))
 class default
   call werr('Interaction type mismatch. Expected graph type.')
 end select  
 
 
 call readf(rc)
-call ig%setrc(rc)
+call g%setrc(rc)
 
 end subroutine graph_cli
  
-subroutine graph_new(ig,g1,w)
-use gems_neighbour, only:intergroup
+subroutine graph_new(g,w)
+use gems_neighbor, only:ngroup
 use gems_errors, only:wwan,werr
 use gems_groups, only:group
-class(intergroup),pointer :: ig
-character(*),intent(in)   :: w
-type(group)               :: g1
+class(ngroup),pointer :: g
+character(*),intent(in)  :: w
                                             
 ! TODO: Necesito hacerlo para más de un
 ! graph type pero para eso tengo que acomodar
@@ -104,110 +103,106 @@ type(group)               :: g1
 call werr('Not possible yet...',associated(gr))
       
 select case(w)
-case('subgraphs') ; allocate(graph::ig)
-case('blocks')    ; allocate(graph_adj::ig)
+case('subgraphs') ; allocate(graph::g)
+case('blocks')    ; allocate(graph_adj::g)
   call wwan("Output routine under construction.") 
   ! Pensar si se puede hacer una subrrutina dedicada de escritura por type
 case default
   call werr('Graph function not found')
 endselect
   
-! Return an intergroup class pointer
-gr=>ig
-                       
-! Initialize the integroup
-call ig%init(g1=g1)
-ig%half=.false.  
-
+! FIXME Internal 
+gr=>g
+    
 end subroutine graph_new
      
-subroutine graph_block(ig)
+subroutine graph_block(g)
 ! Search neighbors and update adj matrix accordingly
 ! Then call to graph_adj_block to compute the biconected components (blocks).
 use gems_program_types, only: mic
 use gems_inq_properties, only: vdistance
-class(graph_adj),intent(inout)  :: ig
+class(graph_adj),intent(inout)  :: g
 integer                         :: i,j,l
 real(dp)                        :: vd(dm),dr
 type(atom),pointer              :: o1,o2
 
 ! Set zeros
-ig%adj(:,:)=0
+g%adj(:,:)=0
  
 ! Search edges and fill adj matrix
-do i = 1,ig%n(1)
-  o1=>ig%at(i)%o
+do i = 1,g%nat
+  o1=>g%a(i)%o
 
-  ! ig%adj(i,i)=1
-  do l = 1, ig%nn(i)  ! sobre los vecinos
+  ! g%adj(i,i)=1
+  do l = 1, g%nn(i)  ! sobre los vecinos
 
-    j  = ig%list(i,l)
-    o2 =>ig%at(j)%o
+    j  = g%list(i,l)
+    o2 =>g%a(j)%o
 
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
-    if(dr>ig%rcut2) cycle
+    if(dr>g%rcut2) cycle
 
-    ig%adj(i,j)=5
+    g%adj(i,j)=5
  
   enddo     
 
 enddo 
 
-call graph_adj_block(ig%adj, ig%nblocks)
+call graph_adj_block(g%adj, g%nblocks)
                             
 end subroutine graph_block
 
-subroutine graph_subgraphs ( ig ) 
+subroutine graph_subgraphs ( g ) 
 ! Deep-first search algoritm to find subgraphs  
 use gems_program_types, only: mic
 use gems_inq_properties, only: vdistance
-class(graph),intent(inout)    :: ig
+class(graph),intent(inout)    :: g
 integer                       :: i,j,l,k,lstack
 real(dp)                      :: vd(dm),dr
 type(atom),pointer            :: o1,o2
 
-ig%order(:) = 0
-ig%stack(:) = 0
-ig%label(:) = 0
+g%order(:) = 0
+g%stack(:) = 0
+g%label(:) = 0
 
 k = 0         ! Visiting order counter
 i = 1         ! ID of visited atom
 lstack = 0    ! Stack of visited atoms
-ig%ngraphs=1  ! Current subgraph number
+g%ngraphs=1  ! Current subgraph number
 
 main: do
   k = k + 1
-  o1=>ig%at(i)%o
+  o1=>g%a(i)%o
 
   ! If never visited, save order and increase stack
-  if ( ig%order(i) == 0) then
+  if ( g%order(i) == 0) then
     ! The subgraph number
-    ig%label(i)=ig%ngraphs
+    g%label(i)=g%ngraphs
     
     ! Save order
-    ig%order(i) = k
+    g%order(i) = k
 
     ! Increase stack and save the node ID
     lstack = lstack + 1
-    ig%stack(lstack) = i
+    g%stack(lstack) = i
   endif
 
   !  Check the next neighbor.
-  do l = 1, ig%nn(i)  ! sobre los vecinos
+  do l = 1, g%nn(i)  ! sobre los vecinos
 
-    j  = ig%list(i,l)
+    j  = g%list(i,l)
 
     ! If already visited, skip
-    if ( ig%order(j) /= 0) cycle
+    if ( g%order(j) /= 0) cycle
 
-    o2 =>ig%at(j)%o
+    o2 =>g%a(j)%o
 
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
-    if(dr>ig%rcut2) cycle
+    if(dr>g%rcut2) cycle
  
     ! Depth-first search. Follow the first (non visited) nieghbor found.
     ! Node labels will save the order of the root node. 
@@ -222,16 +217,16 @@ main: do
 
     ! Go back in the stack to the previous node and search neighboors from it (i.e. depth search from second neighbor).
     j = i
-    i = ig%stack(lstack)
+    i = g%stack(lstack)
     cycle main
 
   else
 
     ! Stack is exhausted, look for a node we haven't visited yet.
-    do l = 1,ig%n(1)
+    do l = 1,g%nat
 
-      if ( ig%order(l) /= 0 ) cycle
-      ig%ngraphs = ig%ngraphs+1
+      if ( g%order(l) /= 0 ) cycle
+      g%ngraphs = g%ngraphs+1
       i = l
       cycle main
 
@@ -250,7 +245,7 @@ subroutine graph_adj_block ( adj, nblock )
 !Blocks of an undirected graph from its adjacency list.
 !
 !Definition:
-!        igr_vop%o(i1)%o
+!        ngindex%o(i1)%o
 !  A component of a graph is a connected subset of the graph.  If a node
 !  is in the component, then all nodes to which it is connected are also
 !  in the component.
@@ -478,7 +473,7 @@ end subroutine graph_adj_block
 
 subroutine write_graph(of)
 use gems_output, only: outfile
-use gems_atoms, only: atom_dclist, atom
+use gems_groups, only: atom_dclist, atom
 use gems_elements, only: csym
 class(outfile)       :: of
 type(atom),pointer   :: o
@@ -486,11 +481,11 @@ integer              :: i,j
 
 select type(gr)
 type is(graph)
-write(of%un,*) gr%n(1)
+write(of%un,*) gr%nat
 write(of%un,*) gr%ngraphs
 
-do i = 1,gr%n(1)
-  o => gr%at(i)%o
+do i = 1,gr%nat
+  o => gr%a(i)%o
   write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),gr%label(i)
 enddo
 
@@ -498,5 +493,37 @@ if(of%flush) call flush(of%un)
 end select
 
 end subroutine
-        
+
+subroutine select_connected(g,gini,gout)
+! Add to gout all atoms in graph conected to gini
+use gems_groups, only: group
+class(graph),intent(inout) :: g
+type(group),intent(in)     :: gini
+type(group),intent(inout)  :: gout
+real(dp)                   :: rd,rad,ctr(dm)
+type (atom),pointer        :: at
+integer                    :: i
+logical, allocatable       :: lmask(:)
+
+! Compute subraphs  
+call g%interact()
+allocate(lmask(g%ngraphs))
+
+! Get labels from atoms in gini and save them to lmask
+lmask(:)=.false.
+do i = 1,g%nat
+  at=>g%a(i)%o
+  if(any(at%gr(:)==gini%id)) lmask(g%label(i))=.true.
+enddo
+ 
+! Search the igaph again and peek atoms by its labels.
+do i = 1,g%nat
+  at=>g%a(i)%o
+  if(lmask(i)) call gout%attach(at)
+enddo  
+
+deallocate(lmask)
+
+end subroutine select_connected
+
 end module gems_graphs

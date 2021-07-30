@@ -17,9 +17,8 @@
 
 
 module gems_set_properties
- use gems_program_types, only: dt,a,natoms,gsel,sys
- use gems_groups, only: group, group_l,glist
- use gems_atoms, only: atom,atom_dclist
+ use gems_program_types, only: dt,gsel,sys
+ use gems_groups, only: group,gindex,atom,atom_dclist
  use gems_constants,only:dp,pi,dm,find_io
  use gems_algebra
  use gems_inq_properties
@@ -35,66 +34,54 @@ module gems_set_properties
 
   real(dp)     :: dc,tc
 
-  interface do_pbc
-    module procedure    :: do_pbc_1,do_pbc_2
-  end interface
-
  contains
 
 !                                     control de booleanos
 !----------------------------------------------------------
 
 subroutine mass_changed
-class(group_l),pointer :: lg
-lg => glist%next
-do while(associated(lg))
-  lg%o%b_mass    =.false.
-  lg => lg %next
+integer                :: i
+
+do i=1,gindex%size
+  gindex%o(i)%o%b_mass    =.false.
 enddo
 end subroutine mass_changed
 
 subroutine vel_changed
-class(group_l),pointer :: lg
+integer                :: i
 
-lg => glist%next
-do while(associated(lg))
-  lg%o%b_ekin    =.false.
-  lg%o%b_temp    =.false.
-  lg%o%b_tempvib =.false.
-  lg%o%b_temprot =.false.
-  lg%o%b_erot    =.false.
-  lg%o%b_evib    =.false.
-  lg%o%b_cm_vel  =.false.
-  lg%o%b_ang_mom =.false.
-  lg%o%b_ang_vel =.false.
-  lg%o%b_pressure =.false.
-  lg => lg %next
+do i=1,gindex%size
+  gindex%o(i)%o%b_ekin    =.false.
+  gindex%o(i)%o%b_temp    =.false.
+  gindex%o(i)%o%b_tempvib =.false.
+  gindex%o(i)%o%b_temprot =.false.
+  gindex%o(i)%o%b_erot    =.false.
+  gindex%o(i)%o%b_evib    =.false.
+  gindex%o(i)%o%b_cm_vel  =.false.
+  gindex%o(i)%o%b_ang_mom =.false.
+  gindex%o(i)%o%b_ang_vel =.false.
+  gindex%o(i)%o%b_pressure =.false.
 enddo
 end subroutine vel_changed
 
 subroutine pos_changed
-class(group_l),pointer :: lg
+integer                :: i
 
-lg => glist%next
-do while(associated(lg))
-  lg%o%b_erot     =.false.
-  lg%o%b_evib     =.false.
-  lg%o%b_cm_vel   =.false.
-  lg%o%b_ang_mom  =.false.
-  lg%o%b_ang_vel  =.false.
-
-  lg%o%b_maxpos   =.false.
-  lg%o%b_minpos   =.false.
-  lg%o%b_mainaxis =.false.
-  lg%o%b_cm_pos   =.false.
-  lg%o%b_rg_pos   =.false.
-  lg%o%b_covar    =.false.
-  lg%o%b_inercia  =.false.
-
-  lg%o%b_virial =.false.
-  lg%o%b_pressure =.false.
-
-  lg=>lg%next
+do i=1,gindex%size
+  gindex%o(i)%o%b_erot     =.false.
+  gindex%o(i)%o%b_evib     =.false.
+  gindex%o(i)%o%b_cm_vel   =.false.
+  gindex%o(i)%o%b_ang_mom  =.false.
+  gindex%o(i)%o%b_ang_vel  =.false.
+  gindex%o(i)%o%b_maxpos   =.false.
+  gindex%o(i)%o%b_minpos   =.false.
+  gindex%o(i)%o%b_mainaxis =.false.
+  gindex%o(i)%o%b_cm_pos   =.false.
+  gindex%o(i)%o%b_rg_pos   =.false.
+  gindex%o(i)%o%b_covar    =.false.
+  gindex%o(i)%o%b_inercia  =.false.
+  gindex%o(i)%o%b_virial =.false.
+  gindex%o(i)%o%b_pressure =.false.
 enddo
 
 call epot_changed
@@ -102,44 +89,39 @@ call epot_changed
 end subroutine pos_changed
 
 subroutine epot_changed
-class (group_l),pointer :: lg
+integer                :: i
 
-lg => glist%next
-do while(associated(lg))
-  lg%o%b_epot  =.false.
-  lg%o%b_virial =.false.
-  lg=>lg%next
+do i=1,gindex%size
+  gindex%o(i)%o%b_epot  =.false.
+  gindex%o(i)%o%b_virial =.false.
 enddo
 
 end subroutine epot_changed
 
 subroutine posvel_changed
-class(group_l),pointer :: lg
+integer                :: i
 
-lg => glist%next
-do while(associated(lg))
-  lg%o%b_ekin    =.false.
-  lg%o%b_temp    =.false.
-  lg%o%b_tempvib =.false.
-  lg%o%b_temprot =.false.
-  lg%o%b_erot    =.false.
-  lg%o%b_evib    =.false.
-  lg%o%b_cm_vel  =.false.
-  lg%o%b_rg_pos   =.false.
-  lg%o%b_ang_mom =.false.
-  lg%o%b_ang_vel =.false.
+do i=1,gindex%size
+  gindex%o(i)%o%b_ekin    =.false.
+  gindex%o(i)%o%b_temp    =.false.
+  gindex%o(i)%o%b_tempvib =.false.
+  gindex%o(i)%o%b_temprot =.false.
+  gindex%o(i)%o%b_erot    =.false.
+  gindex%o(i)%o%b_evib    =.false.
+  gindex%o(i)%o%b_cm_vel  =.false.
+  gindex%o(i)%o%b_rg_pos   =.false.
+  gindex%o(i)%o%b_ang_mom =.false.
+  gindex%o(i)%o%b_ang_vel =.false.
 
-  lg%o%b_maxpos   =.false.
-  lg%o%b_minpos   =.false.
-  lg%o%b_mainaxis =.false.
-  lg%o%b_cm_pos   =.false.
-  lg%o%b_covar    =.false.
-  lg%o%b_inercia  = .false.
+  gindex%o(i)%o%b_maxpos   =.false.
+  gindex%o(i)%o%b_minpos   =.false.
+  gindex%o(i)%o%b_mainaxis =.false.
+  gindex%o(i)%o%b_cm_pos   =.false.
+  gindex%o(i)%o%b_covar    =.false.
+  gindex%o(i)%o%b_inercia  = .false.
 
-  lg%o%b_virial =.false.
-  lg%o%b_pressure =.false.
-
-  lg => lg%next
+  gindex%o(i)%o%b_virial =.false.
+  gindex%o(i)%o%b_pressure =.false.
 enddo
 
 call epot_changed
@@ -150,7 +132,7 @@ end subroutine posvel_changed
 !----------------------------------------------------------
 
 subroutine set_z(g,z)
-type(group)               :: g
+class(group)               :: g
 class(atom_dclist),pointer :: la
 integer,intent(in)        :: z
 integer                   :: i
@@ -166,7 +148,7 @@ call mass_changed()
 end subroutine set_z
 
 subroutine set_mass(g,f)
-type(group)                :: g
+class(group)                :: g
 class(atom_dclist),pointer :: la
 real(dp),intent(in)        :: f
 integer                    :: i
@@ -191,7 +173,7 @@ call mass_changed()
 end subroutine set_mass
 
 subroutine set_molid(g,id)
-type(group)               :: g
+class(group)               :: g
 class(atom_dclist),pointer :: la
 integer,intent(in)        :: id
 integer                   :: i
@@ -210,7 +192,7 @@ enddo
 end subroutine set_molid
 
 subroutine set_sigma(g,s)
-type(group)                :: g
+class(group)                :: g
 class(atom_dclist),pointer :: la
 real(dp),intent(in)        :: s
 integer                    :: i
@@ -282,21 +264,21 @@ end subroutine set_sigma
 
 !                               distribucion de velocidades
 !----------------------------------------------------------
-  subroutine set_add_cmvel(g,f)
-    type(group)                :: g
-    class(atom_dclist),pointer  :: la
-    real(dp),intent(in)        :: f(dm)
-    integer                    :: j
+subroutine set_add_cmvel(g,f)
+class(group)                :: g
+class(atom_dclist),pointer  :: la
+real(dp),intent(in)         :: f(dm)
+integer                     :: j
 
-    call group_inq_cmpos(sys)
-    la => g%alist%next
-    do j =1, g%nat
-      la%o%vel = la%o%vel + f
-      la => la%next
-    enddo
+call group_inq_cmpos(sys)
+la => g%alist%next
+do j =1, g%nat
+  la%o%vel = la%o%vel + f
+  la => la%next
+enddo
 
-    call vel_changed()
-  end subroutine set_add_cmvel
+call vel_changed()
+end subroutine set_add_cmvel
 
 subroutine set_gdist(g,newtemp)
 use gems_random, only:rang
@@ -381,7 +363,7 @@ subroutine set_vel_from_file(g,archivo,frame)
 use gems_elements,only:ncsym
 integer                     :: i,j,u
 character(*),intent(in)     :: archivo
-type(group)                 :: g
+class(group)                 :: g
 class(atom_dclist),pointer  :: la
 character(ncsym)            :: sym
 integer,intent(in)          :: frame
@@ -426,60 +408,10 @@ end subroutine set_vel_from_file
 !                                      posición y velocidad
 !----------------------------------------------------------
 
-subroutine set_pbc(g,pbc)
-! rota un grupo un angulo r sobre el punto v
-type(group),intent(inout)  :: g
-class(atom_dclist),pointer  :: la
-logical,intent(in)         :: pbc(dm)
-integer                    :: i
-
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-  la%o%pbc = pbc
-enddo
-
-end subroutine set_pbc
-
-subroutine do_pbc_1(dclist,nat)
-! Put the atoms inside the box using pbc
-use gems_program_types, only: box
-use gems_atoms, only: atom_dclist
-class(atom_dclist),target  :: dclist
-integer,intent(in)         :: nat
-class(atom_dclist),pointer :: la
-integer                    :: i,k
-
-la => dclist
-do i = 1,nat
-  la => la%next
-
-  do k=1,dm
-    if (la%o%pbc(k)) then
-      if(la%o%pos(k)>=box(k)) then
-        la%o%pos(k)=la%o%pos(k)-box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)+1
-      elseif(la%o%pos(k)<0.0_dp) then
-        la%o%pos(k)=la%o%pos(k)+box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)-1
-      endif
-    endif
-  enddo
-enddo
-
-end subroutine do_pbc_1
-
-subroutine do_pbc_2(g)
-class(group),intent(inout)  :: g
-
-call do_pbc_1(g%alist,g%nat)
-
-end subroutine do_pbc_2
-
    subroutine move(g,r)
    ! rota un grupo un angulo r sobre el punto v
    real(dp)                   :: r(dm)
-   type(group)                :: g
+   class(group)                :: g
    class(atom_dclist),pointer  :: la
    integer                    :: i
 
@@ -499,7 +431,7 @@ end subroutine do_pbc_2
    ! [1,2]=z; [1,3]=y; etc..
    real(dp)   ,intent(in)     :: tita
    integer    ,intent(in)     :: p(2)
-   type(group),intent(in)     :: g
+   class(group),intent(in)     :: g
    real(dp)                   :: c,s,aux(2),t,v(dm)
    integer                    :: i
    class(atom_dclist),pointer  :: la
@@ -529,7 +461,7 @@ end subroutine do_pbc_2
    ! rotacion de un angulo tita (rad) usando el eje v que pasa por algun punto p.
    real(dp),intent(in)        :: p(dm),v(dm)
    real(dp),intent(in)        :: tita
-   type(group),intent(in)     :: g
+   class(group),intent(in)     :: g
    real(dp)                   :: aux(dm)
    integer                    :: i
    class(atom_dclist),pointer  :: la
@@ -547,7 +479,7 @@ end subroutine do_pbc_2
 
   subroutine rotate(g,matrix,center)
    ! rotacion usando una matriz dada y un centro
-   type(group),intent(in)     :: g
+   class(group),intent(in)     :: g
    real(dp),intent(in)        :: center(dm)
    real(dp)                   :: matrix(dm,dm)
    integer                    :: i
@@ -568,7 +500,7 @@ end subroutine do_pbc_2
   subroutine givens_rotation(g,tita,p)
    real(dp)   ,intent(in)     :: tita
    integer    ,intent(in)     :: p(2)
-   type(group),intent(in)     :: g
+   class(group),intent(in)     :: g
    real(dp)                   :: c,s,aux(2),t
    integer                    :: i
    class(atom_dclist),pointer  :: la
@@ -595,7 +527,7 @@ end subroutine do_pbc_2
 
   subroutine align(g)
    ! orienta el objeto en los ejes principales de simetria
-   type(group),intent(inout)  :: g
+   class(group),intent(inout)  :: g
    real(dp)                   :: aux3(3,3) ,aux2(dm)
 
     call inq_principal_geometric_axis(g,aux3)
@@ -612,7 +544,7 @@ end subroutine do_pbc_2
   subroutine align_mass(g)
    ! orienta el objeto en los ejes principales de simetria teniendo en cuenta la
    ! masa de cada particula
-   type(group),intent(inout)  :: g
+   class(group),intent(inout)  :: g
    real(dp)                   :: aux3(3,3) ,aux2(dm)
 
     call inq_principal_mass_axis(g,aux3)
@@ -629,7 +561,7 @@ end subroutine do_pbc_2
   subroutine alignxy_mass(g)
    ! orienta el objeto en los ejes principales de simetria teniendo en cuenta la
    ! masa de cada particula
-   type(group),intent(inout)  :: g
+   class(group),intent(inout)  :: g
    real(dp)                   :: aux3(3,3) ,aux2(dm)
 
     call inq_principal_mass_xyaxis(g,aux3)
@@ -646,7 +578,7 @@ end subroutine do_pbc_2
 
   subroutine align_tutor(g,p,eje)
   ! orienta el objeto de manera que el punto p quede en el eje eje
-   type(group),intent(inout)  :: g
+   class(group),intent(inout)  :: g
    real(dp)                   :: aux(3),phi,cphi,aux2(3)
    real(dp),intent(in)        :: p(dm),eje(dm)
 
@@ -680,7 +612,7 @@ end subroutine do_pbc_2
   subroutine bialign(g1,g2)
    ! orienta un grupo en funcion de los ejes principales de otro. Util para
    ! orientar sistemas esfericos como un octahedro truncado
-   type(group),intent(inout)  :: g1,g2
+   class(group),intent(inout)  :: g1,g2
    real(dp)                   :: aux3(3,3)
 
     call inq_principal_geometric_axis(g2,aux3)
@@ -695,7 +627,7 @@ end subroutine do_pbc_2
   subroutine bialignxy_mass(g1,g2)
    ! orienta un grupo en funcion de los ejes principales de otro. Util para
    ! orientar sistemas esfericos como un octahedro truncado
-   type(group),intent(inout)  :: g1,g2
+   class(group),intent(inout)  :: g1,g2
    real(dp)                   :: aux3(3,3),aux2(dm,dm)
 
     call inq_principal_mass_xyaxis(g2,aux3)
@@ -714,7 +646,7 @@ end subroutine do_pbc_2
 !   ! rota un grupo un angulo r sobre el punto v
 !   real(dp),intent(in)        :: v(2),r
 !   real(dp)                   :: m(2,2)
-!   type(group)                :: g
+!   class(group)                :: g
 !   class(atom_dclist),pointer  :: la
 !   integer                    :: i,j
 !
@@ -738,7 +670,7 @@ end subroutine do_pbc_2
 !   ! rota un grupo un angulo r sobre el punto v
 !   real(dp),intent(in)        :: v(dm),r(:)
 !   real(dp)                   :: m(dm,dm)
-!   type(group)                :: g
+!   class(group)                :: g
 !   class(atom_dclist),pointer  :: la
 !   integer                    :: i,j
 !
@@ -762,7 +694,7 @@ end subroutine do_pbc_2
   subroutine minterdist(g,rm)
    ! Normaliza las distancias interatomicas con la minima
    real(dp)                   :: rm,r(dm),vd(dm),rd,m
-   type(group)                :: g
+   class(group)                :: g
    class(atom_dclist),pointer  :: la,lb
    integer                    :: i,j
 
@@ -788,7 +720,7 @@ end subroutine do_pbc_2
 
   subroutine expand(g,r,v)
    real(dp)                   :: v(dm),r(dm)
-   type(group)                :: g
+   class(group)                :: g
    class(atom_dclist),pointer  :: la
    integer                    :: i,j
 
@@ -808,7 +740,7 @@ end subroutine do_pbc_2
   end subroutine expand
 
   subroutine set_sp(g,sp)
-   type(group)                 :: g
+   class(group)                 :: g
    integer,intent(in)          :: sp
    integer                     :: i
    type(atom_dclist),pointer   :: la
@@ -823,7 +755,7 @@ end subroutine do_pbc_2
 
   subroutine set_maxpos(g,r,k)
    real(dp)                    :: r
-   type(group)                 :: g
+   class(group)                 :: g
    class(atom_dclist),pointer   :: la
    integer                     :: i,k
 
@@ -843,7 +775,7 @@ end subroutine do_pbc_2
 
   subroutine set_minpos(g,r,k)
    real(dp)                    :: r
-   type(group)                 :: g
+   class(group)                 :: g
    class(atom_dclist),pointer   :: la
    integer                     :: i,k
 
@@ -863,7 +795,7 @@ end subroutine do_pbc_2
 
   subroutine set_cm_pos(g,v)
    real(dp)                    :: v(dm)
-   type(group)                 :: g
+   class(group)                 :: g
    class(atom_dclist),pointer   :: la
    integer                     :: i
 
@@ -881,8 +813,8 @@ end subroutine do_pbc_2
   end subroutine set_cm_pos
 
 subroutine set_element(g,i1)
-use gems_atoms, only: atom_dclist, atom_setelmnt
-type(group)                 :: g
+use gems_groups, only: atom_dclist, atom_setelmnt
+class(group)                 :: g
 class(atom_dclist),pointer   :: la
 integer                     :: i1,i
 
@@ -896,91 +828,91 @@ call mass_changed()
 
 end subroutine set_element
 
-  subroutine set_cg_pos(g,v)
-   real(dp)                    :: v(dm)
-   type(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i
+subroutine set_cg_pos(g,v)
+real(dp)                    :: v(dm)
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i
 
-    call inq_cg(g)
+ call inq_cg(g)
 
-    v = v - g % cg_pos
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % pos = la % o % pos + v
-      la => la%next
-    enddo
+ v = v - g % cg_pos
+ la => g%alist%next
+ do i = 1,g%nat
+   la % o % pos = la % o % pos + v
+   la => la%next
+ enddo
 
-    call pos_changed()
+ call pos_changed()
 
-  end subroutine set_cg_pos
+end subroutine set_cg_pos
 
-  subroutine set_pos_from_file(g,archivo,frame)
-    ! read atoms from file
-    use gems_elements,only:ncsym
-    integer                     :: i,j,u
-    character(*),intent(in)     :: archivo
-    type(group)                 :: g
-    class(atom_dclist),pointer  :: la
-    character(ncsym)            :: sym
-    integer,intent(in)          :: frame
-    character(3)                :: ext
+subroutine set_pos_from_file(g,archivo,frame)
+! read atoms from file
+use gems_elements,only:ncsym
+integer                     :: i,j,u
+character(*),intent(in)     :: archivo
+class(group)                 :: g
+class(atom_dclist),pointer  :: la
+character(ncsym)            :: sym
+integer,intent(in)          :: frame
+character(3)                :: ext
 
-    i=len(trim(adjustl(archivo)))
-    ext=archivo(i-2:i)
+i=len(trim(adjustl(archivo)))
+ext=archivo(i-2:i)
 
-    u = find_io(30)
-    open(u,action='read',file=trim(adjustl(archivo)))
+u = find_io(30)
+open(u,action='read',file=trim(adjustl(archivo)))
 
-    select case(ext)
-    case ('xyz')
+select case(ext)
+case ('xyz')
 
-      ! In case a specific frame wants to be loaded
-      do i=1,frame-1
-        read(u,*) j
-        read(u,*)
-        do j = 1, j
-          read(u,*)
-        enddo
-      enddo
-
-      ! Reading the frame
-      read(u,*) j
+  ! In case a specific frame wants to be loaded
+  do i=1,frame-1
+    read(u,*) j
+    read(u,*)
+    do j = 1, j
       read(u,*)
-      la => g%alist%next
-      do i = 1,g%nat
-        read(u,*) sym, la%o%pos
-        la => la%next
-      enddo
-
-    case default
-      call werr(); write(logunit,*) 'File format ',trim(ext),' unknown'
-    end select
-
-    close(u)
-
-    call pos_changed()
-  end subroutine set_pos_from_file
-
-  subroutine set_clean_acel(g)
-   type(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i
-
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % acel  = 0.0_dp
-      la % o % acel2 = 0.0_dp
-      la % o % acel3 = 0.0_dp
-      la % o % acel4 = 0.0_dp
-      la => la%next
     enddo
+  enddo
 
-  end subroutine set_clean_acel
+  ! Reading the frame
+  read(u,*) j
+  read(u,*)
+  la => g%alist%next
+  do i = 1,g%nat
+    read(u,*) sym, la%o%pos
+    la => la%next
+  enddo
+
+case default
+  call werr(); write(logunit,*) 'File format ',trim(ext),' unknown'
+end select
+
+close(u)
+
+call pos_changed()
+end subroutine set_pos_from_file
+
+subroutine set_clean_acel(g)
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i
+
+la => g%alist%next
+do i = 1,g%nat
+  la % o % acel  = 0.0_dp
+  la % o % acel2 = 0.0_dp
+  la % o % acel3 = 0.0_dp
+  la % o % acel4 = 0.0_dp
+  la => la%next
+enddo
+
+end subroutine set_clean_acel
 
   subroutine set_cm_vel(g,v)
    real(dp)                    :: v(dm)
-   type(group)                 :: g
+   class(group)                 :: g
    class(atom_dclist),pointer   :: la
    integer                     :: i
 

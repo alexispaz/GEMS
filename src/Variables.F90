@@ -31,6 +31,7 @@ module gems_variables
 ! En el input aparecen como `$nombre` cuando se queire recuperar su valor y
 ! como `getin nombre value` cuando se establece su valor. El valor se copia textual, no se expande a menos que aparezca como 
 
+! TODO: Incorporate all the procedures inside polvar type
 
 use gems_errors, only: werr
 use gems_constants, only: dp,linewidth
@@ -38,12 +39,13 @@ use gems_strings, only: chset_var,chset_l
 private
 
 public    :: polvars, polvar_expand, polvar_link, polvar_hard, polvar_find, polvar_save
-public    :: polvar_integrate
+public    :: polvar_integrate, polvar_readonly
  
 type, public   :: polvar
   character(linewidth)  :: var
   class(*),pointer      :: val=>null()
   logical               :: hard=.true.
+  logical               :: readonly=.false.
   contains
 end type
  
@@ -79,6 +81,14 @@ pv%hard=.false.
 
 end subroutine  
  
+subroutine polvar_readonly(var)
+character(*),intent(in)  :: var 
+type(polvar),pointer     :: pv
+pv=>polvar_find(var)
+if(.not.associated(pv)) return
+pv%readonly=.true.
+end subroutine  
+
 subroutine polvar_hard(var,val)
 ! Set a value hard
 character(*),intent(in)  :: var
@@ -123,6 +133,7 @@ type(polvar),pointer     :: pv
 
 pv=>polvar_return(var)
 if(associated(pv%val)) then
+  call werr('This variable is read only',pv%readonly)
   call polvar_set(pv,w)
 else 
   call polvar_hard(var,w)

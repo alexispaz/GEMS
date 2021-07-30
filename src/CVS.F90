@@ -33,8 +33,7 @@ module gems_cvs
      
 use gems_constants,only:dp,dm
 ! use gems_algebra,only:real_v,integer_v
-use gems_groups, only:group,group_l,group_ap
-use gems_atoms, only:atom,atom_dclist
+use gems_groups, only:igroup,group_ap,atom,atom_dclist
 use gems_inq_properties, only:group_inq_cmpos,inq_cm_vel,group_inq_rg
 use gems_errors, only:werr
 
@@ -44,7 +43,7 @@ private
 public cv_eval_cmpos, cv_eval_cm, cv_calc_sho, cv_eval_rg
 public cv_jaco_cmpos, cv_jaco_cm
   
-type,extends(group),public :: cv
+type,extends(igroup),public :: cv
  
   ! Array of asociated groups (CV that use many groups)
   ! type(group_ap),allocatable  :: gs(:)
@@ -55,6 +54,7 @@ type,extends(group),public :: cv
   
   ! Parametros enteros de la variable colectiva
   ! type(integer_v) :: ir
+  integer              :: dm=0
   integer,allocatable  :: ir(:)
              
   ! real(dp),allocatable :: zt(:)     ! The CV
@@ -77,16 +77,16 @@ type,extends(group),public :: cv
   logical                    :: b_flag=.false.
 
   contains
-    ! Constructor
-    procedure :: cv_init
 
-    ! La interfaz del procedimiento para set no es conocido a priori ya que no
-    ! se sabe el numero de parametros necesario. Por ello, hay que llamarlo con
-    ! un call directo como se hace con los potenciales
-    ! procedure :: cv_set
+  procedure :: grow => cv_grow
+  ! Constructor
+  ! procedure :: init => cv_init
 
-    ! procedure :: eval => inq_prop
-    generic   :: init => cv_init
+  ! La interfaz del procedimiento para set no es conocido a priori ya que no
+  ! se sabe el numero de parametros necesario. Por ello, hay que llamarlo con
+  ! un call directo como se hace con los potenciales
+  ! procedure :: cv_set
+
 end type cv
              
 abstract interface
@@ -122,31 +122,29 @@ contains
 ! #define _NODE cv_v
 ! #define _CLASS type(cv)
 ! #include "vector_body.inc"
-    
-subroutine cv_init(c,n,g)
-! n is the cv dimension
-class(cv)               :: c
-type(group),intent(in)  :: g
-integer,intent(in)      :: n
-
-call werr('The CV is already created',allocated(c%t))
-
-call c%group_initialize()
-call c%add(g)
-
-allocate(c%j(n,c%nat,dm))
-allocate(c%t(n))
-allocate(c%tf(n))
-allocate(c%z(n))
-! allocate(c%gs(m))
-             
-c%b_flag=.false.
-                 
-! allocate(pr())
-! allocate(ir())
-              
-end subroutine cv_init
   
+subroutine cv_grow(g)
+class(cv)         :: g
+integer           :: n, m
+
+call g%igroup%grow()
+
+if(allocated(g%j)) then
+  if(g%nat<size(g%j,2)) return
+  deallocate(g%j)
+endif
+
+n=g%nat+g%pad
+m=g%dm
+
+allocate(g%j(m,n,dm))
+allocate(g%t(m))
+allocate(g%tf(m))
+allocate(g%z(m)) 
+
+end subroutine cv_grow
+            
+!   
 ! subroutine cv_setg(c,ind,g)
 ! ! Set pointer to group
 ! type(group),target   :: g  

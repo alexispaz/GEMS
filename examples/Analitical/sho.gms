@@ -47,8 +47,8 @@ group 3 add
 
 box move (make the total velocity zero)
 
-interact 2 under sho_plane 1. 3.3 3
-interact 3 under sho_line  1.  5. 5. 0.   0. 0. 1
+interact 2 field sho_plane 1. 3.3 3
+interact 3 field sho_line  1.  5. 5. 0.   0. 0. 1
 
 time step 0.001
                 

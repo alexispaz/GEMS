@@ -17,7 +17,6 @@
 
 
 module gems_program_types
-use gems_atoms
 use gems_groups
 use gems_constants,only:sp,dp,dm,find_io
 use gems_elements,only:elements,ncsym,element,inq_z
@@ -83,46 +82,57 @@ integer,public,parameter   :: nb_max=150 ! Vecinos maximos
 integer,public             :: ncell
 
 
-! Objetos
+! Objects
+! =======
 
-! Lista dura, con locales, ghost, y remotos
-integer,public                            :: natoms=0
-type(atom_dclist),target,public           :: atoms
-type(atom_ap),target,allocatable,public   :: a(:)
-
-! Lista blanda con atomos locales
-integer,public                      :: nlocal=0
-type(atom_dclist),target,public     :: alocal
+! Atoms
+! -----
 
 ! Lista blanda con atomos fantasma
 logical,public                      :: mic=.true.
-logical,public                      :: ghost=.false.
-logical,public                      :: fullghost=.false.
-integer,public                      :: nghost=0
-type(atom_dclist),target,public     :: aghost
 
-
-public :: new_ghostatom, del_atom
-
-public :: ghost_group_add
- 
-public :: atoms_group_add, atom_distancetopoint, atom_distancetoaxis, atom_dclist_destroyall
+public :: atom_distancetopoint
+public :: atom_dclist_destroyall
+public :: atom_distancetoaxis
+public :: vdistance
+public :: do_pbc, set_pbc
 
 
 logical,public,target,allocatable      :: fix(:),join(:)
 integer,public                         :: njoin=0
 
-! Declaraciones de Tipos
+! Groups
+! ------
 
-type(group),target,public       :: sys     ! Systema total
-integer,parameter,public        :: mgr=9
-type(group),target,public       :: gr(mgr) ! Selecciones
-type(group),target,public       :: gsel    ! grupo seleccionado
-type(group),target,public       :: gnew    ! grupo creacion
+! System/Local atoms, index to allow reference by `tag`.
+type(igroup),target,public  :: sys
+     
+! Groups stored in memory via CLI with `group 1 add`.
+! TODO, use labels
+integer,parameter,public     :: mgr=9
+type(group),target,public    :: gr(mgr) ! Selecciones
 
- 
+! Groups for selection
+type(group),target,public    :: gsel    ! current selection
+type(group),target,public    :: gnew    ! selection of atoms in creation
+type(group),target,public    :: ghost
+     
 contains
 
+! subroutine new_atom(o)
+! type(atom),pointer          :: o
+!
+! allocate(o)
+! call o%init()  
+! call sys%attach(o)
+! o%id=sys%nat
+!
+! end subroutine new_atom
+  
+                       
+! Box
+! ===
+           
 subroutine box_setvars()
 use gems_input_parsing
 
@@ -151,145 +161,73 @@ call box_setvars()
 
 end subroutine box_expand
 
+! PBC
+! ---
 
-subroutine new_atom()
-! agrega un nuevo atomo (vacio) al sistema. Luego este puede ser referenciado
-! via a(natoms)%o
-type ( atom ), pointer         :: o
-integer                        :: j
+subroutine set_pbc(g,pbc)
+! rota un grupo un angulo r sobre el punto v
+class(group),intent(inout)  :: g
+class(atom_dclist),pointer  :: la
+logical,intent(in)         :: pbc(dm)
+integer                    :: i
 
-! The atoms are allocated in the `atoms` cdlist
-call atoms%add_before()
-call atoms%prev%alloc()
-o=>atoms%prev%o
-call o%init()
-natoms = natoms + 1
-
-! Link the atom with its node in the `atoms` cdlist
-o%link => atoms%prev
-o%id  = natoms
-
-! Indice para acomodar en vectores
-j = (natoms-1)*dm+1
-
-! The atom is registred in the array of pointers `a`
-call atoms_increaseby(1)
-a(natoms)%o => o
-
-end subroutine new_atom
-
-subroutine del_atom(o)
-! Attempt to delete an atom. If an intergroup is still pointing to it, do not
-! delete it but flag it as to be deleted.
-! AN alternative would be just to delete it and check in the intergroups if the
-! node is associated, but, I would like to have a flag system so in the future I
-! can parallelize the system by regions and instead of delete it, move it to the
-! other processors.
-type(atom), target          :: o
-type(atom_dclist), pointer  :: link
-integer                     :: i
-
-! Delete from pointer of arrays only once
-if(.not.o%delete) then
-
-  ! Flag the atom for deletion
-  o%delete=.true.
-
-  ! Delete from array of pointers
-  natoms = natoms - 1
-  do i=o%id,natoms
-    a(i)%o => a(i+1)%o
-    a(i)%o%id = i
-  enddo
-  a(natoms+1)%o=>null()
-
-  ! Deattach from the hard list but keep allocated
-  call o%link%deattach()
-endif
-
-! Return if there is an intergroup pointing to this atom to avoid segfault in
-! that alghoritm.
-if (o%nigr>0) return
-
-! WARNING
-! El atomo puede quedar en alguna otra lista que no sea un intergrup
-! Como por ejemplo en la lista de fantasmas o en la lista de locales
-
-! Deallocate
-link => o%link
-call o%dest()
-deallocate(link)
-
-end subroutine del_atom
-
-subroutine atoms_increaseby(m)
-! Arganda el systema de a pasos de spd, para asegurar m atomos puedan ser
-! alojados.
-integer,intent(in)             :: m
-integer                        :: n,n2
-type (atom_ap),allocatable     :: t_a(:)
-integer,parameter              :: spd=100
-
-n=m+natoms
-n2=n+spd
-if(.not.allocated(a)) then
-  allocate( a(n2) )
-endif
-
-! Agrando el array of pointers si hace falta
-if(n>size(a)) then
-  allocate( t_a(n2) )
-  t_a(1:natoms)    = a(1:natoms)
-  call move_alloc(to=a,from=t_a)
-endif
-
-endsubroutine
-
-subroutine new_localatom()
-type ( atom ), pointer         :: o
-
-! Creating a new atom
-call new_atom()
-o=>a(natoms)%o
-o%tag=natoms
-
-! Adding atom to the local part
-call alocal%add_before()
-call alocal%prev%point(o)
-nlocal = nlocal + 1
-
-call group_atom_add(o, sys) ! XGHOST
-
-end subroutine new_localatom
-
-subroutine new_ghostatom()
-type ( atom ), pointer         :: o
-
-! Creating a new atom
-call new_atom()
-o=>a(natoms)%o
-
-! Adding atom to the ghost part
-call aghost%add_before()
-call aghost%prev%point(o)
-nghost=nghost+1
-end subroutine new_ghostatom
-
-subroutine atom_dclist_destroyall(node)
-! This subrroutine can be replaced by the instrinisc _DestroyAll when final
-! procedures be implmented.
-type ( atom_dclist ),target     :: node
-type ( atom_dclist ), pointer   :: aux
-
-do while(.not.associated(node%next,target=node))
-  aux => node%next
-  call del_atom(aux%o)
-  call aux%deattach()
-  deallocate(aux)
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  la%o%pbc = pbc
 enddo
 
-end subroutine atom_dclist_destroyall
+end subroutine set_pbc
+
+subroutine do_pbc(g)
+class(group),intent(inout)  :: g
+class(atom_dclist),pointer :: la
+integer                    :: i,k
+
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+
+  do k=1,dm
+    if (la%o%pbc(k)) then
+      if(la%o%pos(k)>=box(k)) then
+        la%o%pos(k)=la%o%pos(k)-box(k)
+        la%o%boxcr(k)=la%o%boxcr(k)+1
+      elseif(la%o%pos(k)<0.0_dp) then
+        la%o%pos(k)=la%o%pos(k)+box(k)
+        la%o%boxcr(k)=la%o%boxcr(k)-1
+      endif
+    endif
+  enddo
+enddo
      
+end subroutine do_pbc
+   
+function vdistance(i,j,mic) result(vd)
+!calculates the distance of two atoms with or without minimum image convention
+real(dp),dimension(dm)  :: vd
+type(atom),intent(in)   :: i,j
+logical,intent(in)      :: mic
+logical                 :: pbc(dm)
+integer                 :: l
+  
+! Distancia
+vd=i%pos-j%pos
+
+! Convencion de imagen minima
+if(.not.mic) return
+
+! Mas rapido usar idnint que un if
+pbc=i%pbc.or.j%pbc
+do l = 1,dm
+  if (pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
+enddo
+
+end function vdistance
+                        
+! Atoms
+! =====
+         
 subroutine dovirial(vi,virial_tmp)
 use gems_constants, only:kcm_ui
 real(dp),intent(in) :: virial_tmp(3,3)
@@ -327,8 +265,8 @@ end do
 
 end subroutine dovirial
 
-
 ! Distancias
+! ----------
 
 function atom_distancetopoint(a,r) result(vd)
 !calculates the distance of two atoms also in pbc case
@@ -345,7 +283,6 @@ enddo
 
 end function atom_distancetopoint
 
-
 function atom_distancetoaxis(a,p,r) result(vd)
 ! a es el atomo, p y r dan la recta(t)=p+t*r
 !calculates the distance of two atoms also in pbc case
@@ -357,58 +294,25 @@ real(dp),intent(in)    :: r(dm),p(dm)
  vd=aux-(dot_product(aux,r))*r
 
 end function atom_distancetoaxis
-               
 
-subroutine ghost_group_add(g)
-! s1 debe ser allocateado.
-type(group),intent(in)         :: g
-type ( atom_dclist ), pointer  :: la
-type ( atom ), pointer         :: o
-integer                        :: i
+! dclist
+! ------
+ 
+subroutine atom_dclist_destroyall(node)
+! This subrroutine can be replaced by the instrinisc _DestroyAll when final
+! procedures be implmented.
+type(atom_dclist),target    :: node
+type(atom_dclist),pointer   :: aux
 
-call atoms_increaseby(g%nat)
-
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-
-  ! Creating a new atom
-  call new_ghostatom()
-  o=>a(natoms)%o
-  call atom_asign(o,la%o)
-
+do while(.not.associated(node%next,target=node))
+  aux => node%next
+  call aux%o%dest()
+  call aux%deattach()
+  deallocate(aux)
 enddo
 
-end subroutine ghost_group_add
-            
+end subroutine atom_dclist_destroyall
+ 
 
-subroutine atoms_group_add(g)
-! Agrego atomos del grupo a la lista de atoms
-type(group),intent(in)         :: g
-type ( atom_dclist ), pointer  :: la
-type ( atom ), pointer         :: o
-integer                        :: i
-
-! Although new_atom check for space, this ensure only 1 reallocation.
-call atoms_increaseby(g%nat)
-
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-
-  ! Creating a new atom
-  ! New atoms are always added at the end. It does not matters if this are
-  ! located after ghost atoms, since the local list always can recover only the
-  ! local atoms. It his really matters, then, do the a reassociations of
-  ! everything below... this should not change the tag of the atoms if this are
-  ! defined at the creation routine
-  call new_localatom()
-  o=>a(natoms)%o
-  call atom_asign(o,la%o)
-
-enddo
-
-end subroutine atoms_group_add
-      
 end module gems_program_types
  

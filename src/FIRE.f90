@@ -25,7 +25,7 @@ module gems_fire
 
  use gems_program_types
  use gems_constants
- use gems_neighbour
+ use gems_neighbor
  use gems_integration
  use gems_interaction
  use gems_output

@@ -19,7 +19,7 @@ group 1 add
 > sys
 set pbc t t t
 
-interact 1 under lj 0.1 3.890898718140339 10.
+interact 1 pair lj 0.1 3.890898718140339 10.
 
 outfile :f3 name Energy.$jobname$.dat
 outfile :f3 cols epot 1

@@ -35,7 +35,6 @@
 module gems_output
  use gems_inq_properties
  use gems_program_types
- use gems_atoms
  use gems_groups
  use gems_constants
  use gems_strings
@@ -47,11 +46,11 @@ module gems_output
 
 implicit none
 
-! TODO: generalizar outpropa para apuntar a grupos, intergroups, interactions
+! TODO: generalizar outpropa para apuntar a grupos, ngroups, interactions
 !       quizas se puede declarar distintos tipos de outpropa y que el outfile
 !       apunte a todas ellas. No se si hacer un deferred porque hay muchas propiedades
 !       parecidas (epot, ecin, temp, etc) y no vale la pena apuntar a todas ellas, pero si 2 o 3 objetos heredaros, uno para
-!       intergroups, otro para integrations, etc. otro para cosas como pos, vel, etc que se escriben sin buffer, otras con buffer.
+!       ngroups, otro para integrations, etc. otro para cosas como pos, vel, etc que se escriben sin buffer, otras con buffer.
 !       todas que esten dentro de un outfile, y que sea el outfile el que distinga cuando le ponen de un tipo incompatible con otro
 !       tipo (e.g. epot con pos)
 type :: outpropa
@@ -134,8 +133,8 @@ end interface
 type(outfile_vop),public :: of_vop
              
 ! Precision de salida
-character(5),public        :: prf='20.7'
-character(2),public        :: pri='0'
+character(:),allocatable,public    :: prf!='20.7'
+character(:),allocatable,public    :: pri!='0'
   
 public :: outfile, polvar_outfile
 public :: outfile_write,outfile_prom,outfile_ddda
@@ -624,11 +623,13 @@ enddo
 endsubroutine
 
 subroutine write_screenshot(archivo,g)
-use gems_program_types
-type(group),intent(in)  :: g
-character(*)            :: archivo
-type (atom_dclist),pointer :: la
-integer            :: i,j,u
+type(group),intent(in)      :: g
+character(*)                :: archivo
+type (atom_dclist),pointer  :: la
+integer                     :: i,u
+real(dp)                    :: f(3)
+
+f(:)=0._dp 
 
 u = find_io(30)
 
@@ -638,7 +639,8 @@ write(u,*)
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  write(u,'(a'//csym//',3(e13.5),2x,i2)') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2),la%o%molid
+  f(1:dm)=la%o%pos(1:dm)
+  write(u,'(a'//csym//',3(e13.5),2x,i2)') la%o%sym,f(:),la%o%molid
 enddo
 close(u)
 
@@ -901,7 +903,10 @@ subroutine write_pos(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
+
+f(:)=0._dp 
  
 write(of%un,*) of%g%nat
 write(of%un,*) nframe,time
@@ -910,7 +915,8 @@ do i=1,of%g%nat
   la => la%next
   !call group_inq_cmpos(of%g)
   !write(un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%pos(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -920,15 +926,20 @@ end subroutine
 subroutine write_poscr(of)
 class(outfile)            :: of
 type(atom_dclist),pointer :: la
-integer                   :: i,j 
+integer                   :: i,g(3)
+real(dp)                  :: f(3)
+
+f(:)=0._dp
+g(:)=0._dp
 
 write(of%un,*) of%g%nat
 write(of%un,*) nframe,time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12),(3(2x,i0)))') la%o%sym,&
-     (la%o%pos(j),j=1,dm),(0._dp,j=dm,2),(la%o%boxcr(j),j=1,dm),(0,j=dm,2)
+  f(1:dm)=la%o%pos(1:dm)
+  g(1:dm)=la%o%boxcr(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12),(3(2x,i0)))') la%o%sym,f(:),g(:)
 enddo
  
 if(of%flush) call flush(of%un)
@@ -967,15 +978,19 @@ subroutine write_fce(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
 write(of%un,*) nframe,time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%force(j)*ui_kcm,j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%force(1:dm)*ui_kcm
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -986,15 +1001,19 @@ subroutine write_vel(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
 write(of%un,*) nframe,time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%vel(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1006,12 +1025,11 @@ use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
 integer                     :: i,j
-
+ 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,fmt='(e25.12,'//cdm//'(x,e25.12))') &
-   (la%o%pos(j),j=1,dm),la%o%epot*ui_ev
+  write(of%un,fmt='(e25.12,'//cdm//'(x,e25.12))') (la%o%pos(j),j=1,dm),la%o%epot*ui_ev
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1022,15 +1040,19 @@ subroutine write_pose(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
 write(of%un,*) nframe,time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),la%o%epot*ui_ev,(0._dp,j=dm+1,2)
+  f(1:dm)=la%o%pos(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:),la%o%epot*ui_ev
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1079,8 +1101,11 @@ subroutine write_vel_rot(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 call inq_angular_energy(of%g) 
 
 write(of%un,*) of%g%nat
@@ -1089,7 +1114,8 @@ write(of%un,*) nframe,time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel_rot(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%vel_rot(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1100,7 +1126,10 @@ subroutine write_vel_vib(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
+
+f(:)=0._dp 
 
 call inq_angular_energy(of%g) 
 
@@ -1110,7 +1139,8 @@ write(of%un,*) nframe,time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel_vib(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%vel_vib(1:dm)
+  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)

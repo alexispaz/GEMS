@@ -27,7 +27,7 @@ module gems_forcefield
 use gems_constants
 use gems_program_types
 use gems_algebra
-use gems_neighbour
+use gems_neighbor
 use gems_output
 
 implicit none
@@ -87,7 +87,7 @@ type :: boundgr
   procedure(boundgr0),pointer :: interact=>null()  ! funcion de interaccion
 
   contains
-    procedure   :: add => boundgr_add
+    procedure   :: attach => boundgr_add
     procedure   :: init => boundgr_init
     procedure   :: destroy => boundgr_destroy
     ! final       :: boundgr_destroy
@@ -810,7 +810,7 @@ subroutine read_prm(prmfile)
   character(*),intent(in)  :: prmfile
   type(boundgr_l),pointer   :: ln,lp
   type(input_options), target   :: iopts
-  character(90)            :: clase,w1,w2,w3,w4
+  character(:),allocatable :: clase,w1,w2,w3,w4
   character(ncsym)         :: zx(4)
   real(dp)                 :: f1,f2
   integer                  :: ix(4),u,i1,i2,i
@@ -1111,6 +1111,7 @@ end subroutine read_prm
 
 subroutine read_psf(topfile)
   use gems_elements, only: add_z, inq_z
+  use gems_groups, only: atom_setelmnt
   character(*),intent(in)  :: topfile
   character(9)             :: clase
   integer                  :: i,j,k,l,u,n,natoms,m,ioflag,ix(4),iy(4)
@@ -1143,7 +1144,7 @@ subroutine read_psf(topfile)
       do m=1,n
         read(u,*) i,seg,j,resn,nomb,tipo,carga,masa
         call add_z(tipo,masa,carga)
-        call atom_setelmnt(a(i)%o,inq_z(tipo))
+        call atom_setelmnt(sys%a(i)%o,inq_z(tipo))
       enddo
 
     case('!NBOND:')
@@ -1154,12 +1155,12 @@ subroutine read_psf(topfile)
         if(mod(m,4)==0) read(u,*)
 
         ! Solving symmetry in bonds. Need to do it in ix???
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(2))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(2))%o%z
         call sort_int(iy(1:2))
 
         bg=>boundgrs_include(iy(1:2))
-        call bg%add(ix(1:2))
+        call bg%attach(ix(1:2))
 
       enddo
 
@@ -1170,14 +1171,14 @@ subroutine read_psf(topfile)
         if(mod(m,3)==0) read(u,*)
 
         ! Solving symmetry in angles.
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(3))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(3))%o%z
         call sort_int(iy(1:2))
         iy(3)=iy(2)
-        iy(2)=a(ix(2))%o%z
+        iy(2)=sys%a(ix(2))%o%z
 
         bg=>boundgrs_include(iy(1:3))
-        call bg%add(ix(1:3))
+        call bg%attach(ix(1:3))
 
       enddo
 
@@ -1188,19 +1189,19 @@ subroutine read_psf(topfile)
         if(mod(m,2)==0) read(u,*)
 
         ! Solving symmetry in torsion.
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(2))%o%z
-        iy(3)=a(ix(3))%o%z
-        iy(4)=a(ix(4))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(2))%o%z
+        iy(3)=sys%a(ix(3))%o%z
+        iy(4)=sys%a(ix(4))%o%z
         if(iy(1)>iy(4)) then
           iy(1)=iy(4)
           iy(2)=iy(3)
-          iy(3)=a(ix(2))%o%z
-          iy(4)=a(ix(1))%o%z
+          iy(3)=sys%a(ix(2))%o%z
+          iy(4)=sys%a(ix(1))%o%z
         endif
 
         bg=>boundgrs_include(iy(1:4))
-        call bg%add(ix(1:4))
+        call bg%attach(ix(1:4))
 
       enddo
     case('!NIMPHI:')
@@ -1317,7 +1318,7 @@ subroutine boundgr_add(bg,id)
   allocate(b%a(size(id)))
 
   do i=1,size(id)
-    b%a(i)%o => a(id(i))%o
+    b%a(i)%o => sys%a(id(i))%o
   enddo
 
 end subroutine boundgr_add

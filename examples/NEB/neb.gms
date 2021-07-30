@@ -25,7 +25,7 @@ set move 0.5 0.5 0.5
 > element Pt
 group 2 add
 
-interact 1 under tb read test.prm
+interact 1 tb read test.prm
  
 # Outfiles
 outfile :f1 name Energy.$jobname$.dat

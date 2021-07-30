@@ -17,22 +17,169 @@
 
 
 module gems_groups
-use gems_atoms
 use gems_constants,only:sp,dp,dm,find_io
 use gems_elements,only:elements,ncsym,element,inq_z
+use gems_algebra,only:integer_v
 
 implicit none
 private
 
+! Atom type
+! =========
+
+type, public :: atom
+
+  ! Group membership
+  ! ----------------
+              
+  ! The number of the groups that holds the atom
+  integer                :: ngr=0
+              
+  ! The ids of the groups that holds the atom
+  integer,allocatable    :: gr(:)
+
+  ! The atom id for each igroup (regular groups has a 0)
+  integer,allocatable    :: id(:)
+
+  ! If the aotm is a ghost, point to the real image
+  class(atom),pointer    :: ghost=>null()
+                         
+  ! Element properties
+  ! ------------------
+
+  ! Propiedades que defino afuera de e para que se mas rapidamente accedida
+  ! (en general la 1/masa esta en los cuellos de botella de los algoritmos)
+  integer           :: z=119 ! The generic element
+  real(dp)          :: mass=1.0_dp,one_mass=1.0_dp,one_sqrt_mass=1.0_dp
+  real(dp)          :: q=0.0_dp  ! Carga
+  real(dp)          :: s=1.0_dp  ! sigma
+  real(dp)          :: e=0.0_dp  ! epsilon
+  character(ncsym)  :: sym
+  integer           :: sp=0      ! Hybridization
+
+  ! Constrain. Si bconst=true el atomo tiene un constrain. Se colapsa la
+  ! fuerza en direccion al vector vconst si lconst=T o se borra la componente
+  ! de la fueza en direccion al vector si lconst=F. Idem con la velocidad. Asi
+  ! la particula queda fija en un plano o en un eje. Tambien la puedo forzar
+  ! directamente haciendolo con la posicion
+  real(dp)              :: vconst(dm)=0.0_dp
+  real(dp),allocatable  :: pconst(:) ! posicion incial del constrain
+  logical               :: bconst=.false.,lconst=.false.
+
+  !  Enlaces y moleculas.... TOFIX
+  integer      :: abondid(20)=0  ! el indicie dentro de la molecula de los asociados
+  integer      :: abonds=0  ! el numero de asociados
+  integer      :: molid=0   ! el indice de la molecula
+  integer      :: amolid=0  ! el indice dentro de la molecula
+
+  ! ----- Propiedades mecanicas
+  real(dp),pointer       :: pos(:)=>null(),   &!propieties of atom. [a][..][m/s][..]
+                            force(:)=>null(), &
+                            acel(:)=>null(),  & !aceleracion
+                            vel(:)=>null()
+
+  !In a local atom it has the info to unwrap coordinates. In the ghost atom,
+  !it has the info of the subdomain/processor it belongs.
+  integer                :: boxcr(dm)=0
+  logical                :: pbc(dm)=.false. !PBC para ese atomo
+
+  real(dp),dimension(dm) :: acel2  =0._dp,& !derivada primera de la aceleración
+                            acel3  =0._dp,& !derivada segunda de la aceleración
+                            acel4  =0._dp,& !derivada tercera de la aceleración
+                            pos_eq =0._dp,& !para ver el desplazamiento y decidir entrar al hyperespacio
+                            pos_v  =0._dp,& !posicion relativa al punto v
+                            vel_v  =0._dp,& !velocidad relativa al punto v
+                            vel_rot=0._dp,& !velocidad de rotacion
+                            vel_vib=0._dp,& !velocidad de vibracion
+                            pos_cm =0._dp,& !posicion relativa al cm del grupo
+                            vel_cm =0._dp   !velocidad relativa al cm del grupo
+
+  !para ver el desplazamiento en la lista de vecinos. Esto lo establezco bien
+  !grande para forzar la primera actualizacion del verlet
+  real(dp),dimension(dm) :: pos_old =1.e8_dp
+
+  real(dp)               :: epot=0.d0,                & !energia potencial total[ev]
+                            erot=0.d0,erot_ss=0.d0,   & !energia rotacional relative to system and ss [ev]
+                            evib=0.d0,evib_ss=0.d0,   & !energia vibracional relative to system and ss [ev]
+                            rho=0.d0,cord=0.d0,       & !densidad.. o algun otro parametro
+                            border=0.d0                 !Orden de Enlace
+
+  real(dp)               :: maxdisp2=0 !desplazamiento maximo a un determinada T de grupo
+
+  contains
+
+  procedure :: init => atom_allocate
+  procedure :: dest => atom_destroy
+
+  procedure :: setz => atom_setelmnt_byz
+  procedure :: setsym => atom_setelmnt_bysym
+
+  !procedure :: del => atom_atom_del
+  !procedure :: delall => atom_allatom_del
+  !procedure :: addatom => atom_include
+  !procedure :: atom_asign
+  !generic   :: assignment(=) => atom_asign
+
+  ! Group membership
+  ! TODO: This should be an atom extenison defined in Group module. 
+  ! See del_atom in Group module.
+  procedure :: addgr => atom_addgr
+  procedure :: delgr => atom_delgr
+  procedure :: index => atom_index
+  procedure :: gid => atom_id
+  procedure :: try_dest => atom_destroy_attempt
+
+end type atom
+
+! Double Circular Linked List of atoms
+#define _NODE atom_dclist
+#define _CLASS class(atom)
+#include "cdlist_header.inc"
+public :: atom_dclist
+                                  
+! Array of Pointers to atoms
+#define _NODE atom_ap
+#define _CLASS class(atom)
+#include "arrayofptrs_header.inc"
+public :: atom_ap
+
+
+! Module procedures 
+
+interface atom_setelmnt
+  module procedure atom_setelmnt_bysym,atom_setelmnt_byz
+end interface
+public :: atom_setelmnt,atom_asign
+                   
+
+! Group type
+! ==========
+
+! All groups must be declared with target atribute so they can be indexed in
+! gindex
+
 type, public :: group
 
-  ! An string helping to identify the group. Usefull in debug problems.
-  character(4)                 :: nam='JDoe'
+  ! Group ID
+  ! ---------
 
-  ! Lista de atomos
+  ! All groups are indexed using the `group_vop` `gindex`.
+  ! This ID is particularly useful to quickly know the group memberships of
+  ! an atom. It can also be made using pointers... but I think an ID is
+  ! clearer, and is the same approach taken with atom IDs, which has further
+  ! advantages. See `id` properti inside `atom` type. 
+  integer                :: id=0
+ 
+  ! Flag this group to include ghost atoms. If a ghost is created, it will be
+  ! included in any group that hold its image and have this flag true.
+  logical                :: ghost=.false.
+                       
+  ! Atom members
+  ! ------------
   integer                     :: nat=0
   type(atom_dclist),pointer   :: alist=>null()
-
+ 
+  ! TODO: DELETE
   ! hypervectores: vectores en el espacio de las fases
   !------------------------------------------------------------------------------
   ! Ciertas subrutinas (i.e. lbfgs) necesitan de un vector del espacio de las
@@ -41,13 +188,10 @@ type, public :: group
   ! De alli estas declaraciones. La forma de asociar estas variables con los
   ! objetos correspondientes, es recurrir a las subrutinas de asociacion para
   ! estos vectores al final de este modulo :
-
   real(dp),pointer            :: pp(:)=>null(),pv(:)=>null(),pf(:)=>null(),pa(:)=>null() ! vectores actuales
 
-  ! -----Grupos allocateados
-  logical                     :: empty=.true. ! Boolean for faster empty test
-
-  !================Propiedades Mecanicas
+  !Propiedades Mecanicas
+  !=====================
 
   ! Estas propiedades deben calcularse usando el modulo de inquire_properties.
   ! Sus definiciones estan estrechamente relacionadas con este modulo
@@ -136,168 +280,340 @@ type, public :: group
 
   contains
 
-  procedure :: group_initialize
-  generic :: init => group_initialize
+  procedure :: init => group_construct
+  
+  ! TODO: Make this FINAL
   procedure :: dest => group_destroy
- !   !procedure :: del => group_atom_del
- !   procedure :: delall => group_allatom_del
-  procedure :: add => group_include
-  procedure :: atom => group_atombyindex ! devuelve un puntero correspondiendo a un indice desde el head
+
+  !procedure :: delall => group_all_detach
+  procedure :: detach_atom => group_atom_detach
+  procedure :: detach_all => group_all_detach
+  generic   :: detach => detach_all, detach_atom
+
+  procedure :: try_destroy_all => group_all_destroy_attempt
+  procedure :: destroy_all => group_all_destroy
+
+  procedure :: attach_atom => group_attach_atom
+  procedure :: attach_group => group_attach_group
+  generic   :: attach => attach_group,attach_atom
+
+  ! devuelve un puntero correspondiendo a un indice desde el head
+  ! XXX: Note that igroup might be a better resource
+  procedure :: atom => group_atombyindex 
 
 end type group
+ 
+! An indexed group with atom pointers sorted in an array. A second index
+! given by `id` is found useful to establish a link to other indexed groups.
+type, extends(group), public :: igroup
 
-! Linked List of groups
-#define _NODE group_l
-#define _CLASS class(group)
-#include "list_header.inc"
-public :: group_l
-public :: glist_add
- 
-! This linked list holds all allocated group.
-type(group_l),public      :: glist
- 
+  ! The array of pointers.
+  type(atom_ap),allocatable :: a(:)
+    
+  ! The growth speed for reallocation
+  integer                 :: pad=100
+
+  contains
+  procedure :: init => igroup_construct
+  procedure :: dest => igroup_destroy
+
+  procedure :: grow => igroup_grow
+
+  procedure :: detach_atom => igroup_atom_detach
+  procedure :: attach_atom => igroup_attach_atom
+                                 
+end type igroup
+
 ! Array of Pointers to groups
 #define _NODE group_ap
 #define _CLASS class(group)
 #include "arrayofptrs_header.inc"
 public :: group_ap
- 
+  
+#define _NODE group_vop
+#define _TYPE type(group_ap)
+#include "vector_header.inc"
 
-! Module procedures 
 
-! public system_group_add
-! public system_increase
-public :: group_destroy
-public :: group_atom_add
-public :: dgroup_atom_add
-public :: group_atom_del
-public :: group_allatom_del
+! Basic Groups
+! ------------
+
+! Index of groups (see `id` in group type)
+type(group_vop),target,public   :: gindex
+
+! TODO
 public :: group_switch_vectorial
 public :: group_switch_objeto
-         
 
 contains
+      
+! atom events
+! ===========
+ 
+#define _NODE atom_dclist
+#define _CLASS class(atom)
+#include "cdlist_body.inc"
+ 
+subroutine atom_allocate(a)
+use gems_errors
+! inicializo los punteros y allocateables que no
+! se pueden inicializar en la declaración
+class(atom),intent(inout)    :: a
 
-#define _NODE group_l
-#define _CLASS class(group)
-#include "list_body.inc"
+! crear un atomo
+allocate(a%pos(dm))
+allocate(a%vel(dm))
+allocate(a%force(dm))
+allocate(a%acel(dm))
+a%acel(:)=0._dp
+a%pos(:)=0._dp
+a%vel(:)=0._dp
+a%force(:)=0._dp
+call atom_setelmnt(a,119)
 
+end subroutine atom_allocate
 
-! Constructor
+subroutine atom_destroy(a)
+class(atom)         :: a
+integer             :: i,j
 
-! subroutine alocal2aghost(la)
-! type ( atom_dclist ), pointer :: la
-! integer,intent(in)            ::i
-!
-! ! Deattach from alocal list
-! la%prev%next => la%next
-! la%next%prev => la%prev
-! nlocal=nlocal-1
-!
-! ! Attach to aghost list
-! la%prev => aghost%prev
-! la%next => aghost
-! la%prev%next => la
-! la%next%prev => la
-! nghost=nghost+1
-!
-! end subroutine alocal2aghost
+deallocate(a%pos)
+deallocate(a%vel)
+deallocate(a%force)
+deallocate(a%acel)
 
-! ---------------------------- Linked List Events
+! Dettach the atom from all the groups
+do i=1,a%ngr
+  j=a%gr(i)
+  call gindex%o(j)%o%detach(a)
+enddo
+if (allocated(a%gr)) deallocate(a%gr,a%id)
 
-! Search
+end subroutine atom_destroy
+ 
+subroutine atom_destroy_attempt(a)
+class(atom)         :: a
 
-!function glist_check( glist, g )
-!! Esta es una lista doble circular
-!  type ( group_dclist ),pointer :: glist
-!  type ( group_dclist ),pointer :: l1,l2
-!  type ( group ),pointer        :: g
-!  logical                       :: glist_check
-!
-!  glist_check = .true.
-!
-!  l1 => glist ! Para fijar el principio
-!  l2 => l1%next
-!  do while (.not.associated(l1,target=l2))
-!    if (associated(l2%g,target=g)) return
-!    l2 => l2%next
-!  enddo
-!
-!  glist_check = .false.
-!
-!end function glist_check
+! Skip detroy if there is a group reference to this atom
+if(a%ngr>0) return
 
+! Destroy
+call a%dest
 
-! ---------------------------- Group Events
+end subroutine atom_destroy_attempt
+ 
+subroutine atom_asign(a1,a2)
+! Copia la informacion de a2 en a1. Esto se hace sin importar como estan !
+! conformados los objetos, pudiendo por ejemplo a2%pos ser un puntero slice
+! o un arreglo duro, no importa.
+type(atom) :: a1,a2
 
-! Constructor
+a1 % pos(:)   = a2 % pos(:)
+a1 % vel(:)   = a2 % vel(:)
+a1 % force(:) = a2 % force(:)
+a1 % acel(:)  = a2 % acel(:)
+call atom_setelmnt(a1,a2%z)
 
-subroutine group_initialize( g,nam)
-class(group),target        :: g
-character(4),optional      :: nam
+a1 % acel(:)    = a2 % acel(:)
+a1 % acel2(:)   = a2 % acel2(:)
+a1 % acel3(:)   = a2 % acel3(:)
+a1 % acel4(:)   = a2 % acel4(:)
+a1 % pos_old(:) = a2 % pos_old(:)
+a1 % pos_v(:)   = a2 % pos_v(:)
+a1 % vel_v(:)   = a2 % vel_v(:)
 
-! Inicializo la lista linkeada de atomos
+a1 % epot    = a2 % epot
+a1 % erot    = a2 % erot
+a1 % erot_ss = a2 % erot_ss
+a1 % evib    = a2 % evib
+a1 % evib_ss = a2 % evib_ss
+a1 % rho     = a2 % rho
+a1 % molid   = a2 % molid
+a1 % sp      = a2 % sp
+a1 % s       = a2 % s
+
+end subroutine atom_asign
+
+! group membership
+! ----------------
+ 
+subroutine atom_addgr(a,uid)
+! Register group uid into internal atom records  
+class(atom)         :: a
+integer,intent(in)  :: uid
+integer,allocatable :: t_id(:),t_gr(:)
+integer             :: n  
+
+n=a%ngr
+
+if(allocated(a%gr)) then
+  if(n<size(a%gr)) then
+    a%ngr=n+1 
+    a%gr(n+1)=uid
+    a%id(n+1)=0
+    return
+  endif
+endif
+
+allocate(t_id(n+5))
+allocate(t_gr(n+5))
+t_gr(1:n) = a%gr(1:n)
+t_id(1:n) = a%id(1:n)
+call move_alloc(to=a%id,from=t_id)
+call move_alloc(to=a%gr,from=t_gr)
+
+a%ngr=n+1
+a%gr(n+1)=uid
+a%id(n+1)=0
+ 
+end subroutine atom_addgr
+
+subroutine atom_delgr(a,uid)
+! Unregister group from atom records
+class(atom)         :: a
+integer,intent(in)  :: uid
+integer             :: i,j
+
+j=0
+do i=1,a%ngr
+  if (j/=0) then
+    a%gr(i-j)=a%gr(i)
+    a%id(i-j)=a%id(i)
+  endif
+  if (a%gr(i)==uid) j=j+1
+enddo
+a%ngr=a%ngr-j
+ 
+end subroutine atom_delgr
+
+function atom_index(a,uid) result(id)
+! Return 0 if atom do not belong to the group (given by uid)
+!        i if atom belongs and group is registred in the ith element
+class(atom)         :: a
+integer,intent(in)  :: uid
+integer             :: i,id
+
+id=0 
+do i=1,a%ngr
+  if (a%gr(i)==uid) then
+    id=i
+    return
+  endif
+enddo
+ 
+end function atom_index
+               
+function atom_id(a,uid) result(id)
+! Return -1 if atom do not belong to this group (given by uid)
+!        0  if atom do not have an id for this group
+!        id if atom belongs and has id in the group
+class(atom)         :: a
+integer,intent(in)  :: uid
+integer             :: i,id
+
+id=0 
+do i=1,a%ngr
+  if (a%gr(i)==uid) then
+    id=a%id(i)
+    return
+  endif
+enddo
+ 
+end function atom_id
+               
+! others
+! -------
+
+subroutine atom_setelmnt_byz(a,z)
+! Establece las propiedades relacionadas al elemento en un atomo
+class(atom)               :: a
+integer                   :: z
+
+! FIXME: What if is not there???
+
+a%z = z
+a%mass = elements%o(z)%mass
+a%sym = elements%o(z)%sym
+if(a%mass==0._dp) then
+  a%one_mass = 0._dp
+  a%one_sqrt_mass = 0._dp
+else
+  a%one_mass = 1.0_dp/a%mass
+  a%one_sqrt_mass = sqrt(a%one_mass)
+endif
+
+end subroutine
+
+subroutine atom_setelmnt_bysym(a,sym)
+use gems_elements,only:add_z, inq_z
+class(atom)    :: a
+character(*)   :: sym
+
+! Adding z just in case is not there
+call add_z(sym)
+
+call atom_setelmnt_byz(a,inq_z(sym))
+end subroutine
+
+! group events
+! ============
+               
+#define _NODE group_vop
+#define _TYPE type(group_ap)
+#include "vector_body.inc"
+       
+subroutine group_construct(g)
+class(group),target :: g
+
+! Init atom list
 allocate(g%alist)
 call g%alist%init()
 g%nat = 0
 
-! Registro el grupo en la lista de grupos
-call glist%add_after()
-call glist%next%point(g)
-
-! Initializo la cabeza del grupo para acciones agrupadas
+! Init head para acciones agrupadas
 allocate(g%alist%o)
 call g%alist%o%init()
 
-if(present(nam)) g%nam=nam
+! Index the group
+call gindex%append()
+g%id=gindex%size
+gindex%o(g%id)%o=>g
 
-end subroutine group_initialize
-
-! Destructor
+end subroutine group_construct
 
 subroutine group_destroy ( g )
-class(group)         :: g
+class(group)    :: g
+integer         :: i
 
-! Not needed this:
-! call g%alist%destroy_all()
-! If we do this:
-call group_allatom_del( g )
-
-! Borro al grupo de la lista de grupos
-call group_group_del(glist,g)
-
-! Destroy node
-call g%alist%o%dest()
-deallocate(g%alist%o)
-
-! Destroy head
-deallocate(g%alist)
-g%nat = 0
+! Deindex the group
+do i=g%id,gindex%size-1
+  gindex%o(i)%o=>gindex%o(i+1)%o
+  gindex%o(i)%o%id=gindex%o(i)%o%id-1
+enddo
+ 
+! Remove atoms
+call g%detach_all()
 
 end subroutine group_destroy
 
-! Increase
-
-subroutine group_atom_add ( a, g )
-! Agrega a g un atomo dado por el puntero a.
-! IMPORTANTE: Este debe ser un puntero
-type(group),target    :: g
-type(atom),target     :: a
+! Include atoms
+! -------------
+ 
+subroutine group_attach_atom(g,a)
+! Add a `soft atom`, i.e. a new link to atom a
+class(group)          :: g
+class(atom),target    :: a
 
 ! Check if this atom is already in group g
-! FIXME: I can do this quickly if the atom
-! has an integer list of group uids.
-if(associated(atom_dcl_find(g%alist,a))) return
+if(a%index(g%id)>0) return
 
-! agrego el atomo a la lista linkeada del grupo
+! Add atom to group `alist`
 call g%alist%add_before()
 call g%alist%prev%point(a)
 g%nat = g%nat + 1 ! numero de particulas
 
-! agrego el grupo a la lista linkeada del atomo.
-! call a%glist%add_soft(g) 
-! FIXME: I can do this quickly if the atom
-! has an integer list of group uids.
+! Add group id to atom `gr` 
+call a%addgr(g%id)
 
 ! propiedades basicas para modificar
 g%mass = g%mass + a % mass ! masa
@@ -310,197 +626,142 @@ if(associated(g%pp)) then
   deallocate(g%pf)
 endif
 
-if(g%nat>0) g%empty = .false.
+end subroutine group_attach_atom
 
-end subroutine group_atom_add
-
-subroutine dgroup_atom_add( a,g )
-! Agrego un hard atomo, util para los grupos draft del select create
-type(group),target          :: g
-type(atom),target           :: a
-type(atom_dclist),pointer   :: ln 
-
-! Create and asign the atom
-call g%alist%add_before(ln)
-call ln%alloc()
-call ln%o%init()
-call atom_asign(ln%o,a)
- 
-!FIXME: Le doy un id al atomo
-ln%o%id = g%nat + 1
-                           
-g%nat = g%nat + 1 ! numero de particulas
-          
-! agrego el grupo a la lista linkeada del atomo.
-! call a%glist%add_soft(g)
-! FIXME: I can do this quickly if the atom
-! has an integer list of group uids.
- 
-! propiedades basicas para modificar
-g%mass = g%mass + a % mass ! masa
-
-! si esta vectorial, ahora no tiene sentido
-if(associated(g%pp)) then
-  deallocate(g%pp)
-  deallocate(g%pv)
-  deallocate(g%pa)
-  deallocate(g%pf)
-endif
-
-if(g%nat>0) g%empty = .false.
-
-end subroutine dgroup_atom_add  
-
-subroutine group_include(g2,g1)
+subroutine group_attach_group(g,g1)
 ! agrega los atomos del g1 al g2
-class(group)              :: g2
-type(group)               :: g1
+class(group)              :: g
+class(group)              :: g1
 type(atom_dclist),pointer :: la
 integer                   :: i
 
 la => g1%alist
 do i = 1,g1%nat
   la => la%next
-  call group_atom_add(la%o,g2)
+  call g%attach(la%o)
 enddo
 
-! si esta vectorial, ahora no tiene sentido
-if(associated(g2%pp)) then
-  deallocate(g2%pp)
-  deallocate(g2%pv)
-  deallocate(g2%pa)
-  deallocate(g2%pf)
-endif
+end subroutine group_attach_group
 
-if(g1%nat>0) g1%empty = .false.
+! Remove atoms
+! ------------
 
-end subroutine group_include
-
-subroutine glist_add(glist,g)
-! Add g to glist
-type(group_l),target  :: glist
-type(group),target       :: g
-
-if(group_belong(g,glist)) return
-call glist%add_after()
-call glist%next%point(g)
-end subroutine glist_add
-
-! Decrease
-
-subroutine group_atom_del ( a, g )
-! destruye el eslabon solo si esta asociado a un atomo identificado
-type  ( group ),target         :: g
-type  ( group ),pointer        :: pg
-type ( atom_dclist ), pointer :: la
-type ( atom ),target          :: a
-integer                       :: i
-
-pg => g
+subroutine group_atom_detach(g,a)
+! Detach atom from group `alist`
+class(group)               :: g
+type(atom_dclist), pointer :: la
+class(atom),target         :: a
+integer                    :: i
 
 la => g%alist
 do i =1,g%nat
   la => la%next
 
-  if (la%o%id==a%id) then
+  ! Find the link to the atom
+  if (.not.associated(la%o,target=a)) cycle
+ 
+  ! Delete group from atom register
+  call la%o%delgr(g%id)
+                    
+  ! Delete group id from atom `gr` list
+  call la%deattach()
+  deallocate(la)
+  g%nat = g%nat - 1
 
-    ! saco el grupo de la lista del atomo
-    ! call group_group_del(a%glist,g)
-    ! FIXME: I can do this quickly if the atom
-    ! has an integer list of group uids.
+  ! TODO: propiedades extras para modificar?
+  g%mass = g%mass - a%mass
 
-    ! saco el atomo de la lista del grupo
-    call la%deattach()
-    deallocate(la)
-    g%nat = g%nat - 1
-
-    ! propiedades extras para modificar
-    g%mass = g%mass - a % mass
-
-    if(g%nat==0) g%empty = .true.
-
-    return
-
-  endif
-
+  return
 enddo
 
-end subroutine group_atom_del
+end subroutine group_atom_detach
 
-subroutine group_allatom_del(g)
-! destruye los eslabones... mas no la inicialicion
-type  ( group ),target         :: g
-type  ( group ),pointer        :: pg
-type ( atom_dclist ), pointer :: la,next
-
-pg => g
+subroutine group_all_detach(g)
+! Detach all atoms from group
+class(group)               :: g
+type(atom_dclist), pointer :: la,next
 
 ! Circulo por la lista hasta que la vacio
 la => g%alist%next
 do while(g%nat/=0)
-
-  ! saco el grupo de la lista del atomo
-  ! call group_group_del(la%o%glist,g)
-  ! FIXME: I can do this quickly if the atom
-  ! has an integer list of group uids.
-
-  ! saco el atomo de la lista del grupo
   next => la%next
+    
+  ! Delete group id from atom `gr` list
+  call la%o%delgr(g%id)
+    
+  ! Deattach the link from the group
   call la%deattach()
   deallocate(la)
-
   g%nat = g%nat - 1
 
   la=>next
 enddo
 
-! propiedades extras para modificar
-g%mass = 0.0_dp
-g%empty = .true.
+! TODO: propiedades extras para modificar?
+g%nat = 0
+g%mass = 0._dp
 
-end subroutine group_allatom_del
+end subroutine group_all_detach
 
-subroutine group_group_del(glist,g)
-! destruye el eslabon solo si esta asociado al grupo g
-type(group),target        :: g
-type(group_l),target   :: glist
-type(group_l),pointer  :: prev,lg
+subroutine group_all_destroy_attempt(g)
+! Detach all atoms from group
+class(group)               :: g
+type(atom_dclist), pointer :: la,next
 
-lg => glist
-
-do while(associated(lg%next))
-  prev=>lg
-  lg=>lg%next
-  if (associated(lg%o,target=g)) then
-    call lg%deattach(prev)
-    !call lg%o%dest() I will not destroy the group.
-    deallocate(lg)
-    return
+! Circulo por la lista hasta que la vacio
+la => g%alist
+do while(g%nat/=0)
+  next => la%next
+    
+  if (la%o%ngr==1) then
+    ! Destroy atom, since `g` is its only group
+    call la%o%try_dest()
+  else
+    ! Delete group id from atom `gr` list
+    call la%o%delgr(g%id)
   endif
+           
+  ! Deattach the link from the group
+  call la%deattach()
+  deallocate(la)
+
+  la=>next
 enddo
 
-end subroutine group_group_del
+! TODO: propiedades extras para modificar?
+g%nat = 0
+g%mass = 0._dp
 
-function group_belong(g,glist) result(check)
-! Check if g is in glist.
-type(group),target       :: g
-type(group_l),target  :: glist
-type(group_l),pointer :: lg
-logical                  :: check
+end subroutine group_all_destroy_attempt
 
-check = .true.
+subroutine group_all_destroy(g)
+! Detach all atoms from group
+class(group)               :: g
+type(atom_dclist), pointer :: la,next
 
-lg => glist%next
-do while(associated(lg))
-  if (associated(lg%o,target=g)) return
-  lg => lg%next
+! Circulo por la lista hasta que la vacio
+la => g%alist
+do while(g%nat/=0)
+  next => la%next
+    
+  ! Destroy atom
+  call la%o%dest()
+         
+  ! Deattach the link from the group
+  call la%deattach()
+  deallocate(la)
+
+  la=>next
 enddo
 
-check = .false.
+! TODO: propiedades extras para modificar?
+g%nat = 0
+g%mass = 0._dp
 
-end function group_belong
+end subroutine group_all_destroy
 
-! Seleccion
+! Select atoms
+! ------------
 
 function group_atombyindex(this,i) result(at)
 class(group)            :: this
@@ -519,36 +780,114 @@ at => la%o
 
 endfunction
 
-! ---------------------------- Hyper vector Constructors
+! igroup events (indexed atoms)
+! =============================
 
-  ! DEL PROBLEMA FUNDAMENTAL DEL GMD
+subroutine igroup_construct(g)
+class(igroup),target    :: g
+call group_construct(g)
+allocate(g%a(g%pad))
+end subroutine igroup_construct
 
-  ! El echo de que el grupo sea una lista linkeada esta indicando que es una
-  ! selecciona caprichosa de atomos. Esto permite aplicar disitntas subrutinas a
-  ! distintas selecciones caprichosas.
+subroutine igroup_destroy (g)
+class(igroup) :: g
+call group_destroy(g)
+! TODO: No needed, allocatable components are deallocated at type deallocation
+deallocate(g%a) 
+end subroutine igroup_destroy
 
-  ! En muchas subrutinas, y para muchas cosas, es util constar con vectores que
-  ! representen el estado de este grupo.
+! Include atoms
+! -------------
 
-  ! Fotran no puede associar a un unico puntero a una selccion
-  ! caprichosa de los componentes de un vector (i.e. v(1) v(4) y v(9)), y menos
-  ! a la selccion caprichosa de los componendes de distintos vectores (i.e. v(1)
-  ! v(4) y r(9)).
+subroutine igroup_grow(g)
+! Increase size of group array
+class(igroup)              :: g
+type(atom_ap),allocatable  :: t_a(:)
+integer                    :: n  
 
-  ! De esta manera, los punteros de posicion velocidad fuerza y aceleracion de
-  ! un grupo (estos son g%pp, g%pv, gp%f y g%pa ) no pueden exisitr, ya que, una
-  ! seleccion de atomos caprichosa por parte de un grupo es a priori imposible
-  ! de odenar en forma vectorial.
+if(allocated(g%a)) then
+  n=size(g%a)
+  if(g%nat<n) return
+endif
 
-  ! Las subrutinas que siguen a continuacion son un parche para lograr esto. Las
-  ! variables atomicas, se encuentran inicialmente apuntando a vectores en el
-  ! systema. Luego de la seleccion caprichos por un grupo, se puede copiar
-  ! las variables atomicas a un vector y asociar los atomos a ese vector,
-  ! logrando asi un ordenamiento del grupo de forma vectorial. Si este
-  ! ordenamiento no existe, los punteros del grupo tendran la condicion null. Si
-  ! por el contrario este ordenamiento existe, los punteros del grupo apuntaran
-  ! al vector determinado. Esto involucra ciertos manejos que se deben realizar
-  ! con las siguientes subrutinas:
+allocate(t_a(g%nat+g%pad))
+t_a(1:n) = g%a(1:n)
+call move_alloc(to=g%a,from=t_a)
+       
+end subroutine igroup_grow
+  
+subroutine igroup_attach_atom(g,a)
+class(igroup)        :: g
+class(atom),target   :: a
+integer              :: i,n  
+
+! Save current atom number
+n=g%nat
+
+! Attach
+call g%group%attach(a)
+call g%grow()
+
+! Index new atom
+n=g%nat-n
+if(n==1) then
+  g%a(g%nat)%o=>a
+  i=a%index(g%id)
+  a%id(i)=g%nat
+endif
+
+end subroutine igroup_attach_atom
+           
+! Remove atoms
+! ------------
+
+subroutine igroup_atom_detach(g,a)
+! Remove soft atom (i.e. detach) from `alist` and `a`
+class(igroup)              :: g
+class(atom),target         :: a
+class(atom),pointer        :: aj
+integer                    :: i,j,n
+ 
+! Search index of `a`
+i=a%index(g%id)
+if(i==0) return  
+n=a%id(i)
+
+! Update index
+do j=n,g%nat-1
+  aj=>g%a(j+1)%o
+  aj%id(i)=j
+  g%a(j)%o=>aj
+enddo
+g%a(j)%o=>null()
+              
+! Detach atom
+call g%group%detach(a)
+
+end subroutine igroup_atom_detach
+
+! Index
+! -----
+
+! Hyper vector Constructors
+! =========================
+
+! El echo de que el grupo sea una lista linkeada esta indicando que es una
+! selecciona caprichosa de atomos. Esto permite aplicar disitntas subrutinas a
+! distintas selecciones caprichosas.
+
+! En muchas subrutinas, y para muchas cosas, es util constar con vectores que
+! representen el estado de este grupo.
+
+! Las subrutinas que siguen a continuacion son un parche para lograr esto. Las
+! variables atomicas, se encuentran inicialmente apuntando a vectores en el
+! systema. Luego de la seleccion caprichos por un grupo, se puede copiar
+! las variables atomicas a un vector y asociar los atomos a ese vector,
+! logrando asi un ordenamiento del grupo de forma vectorial. Si este
+! ordenamiento no existe, los punteros del grupo tendran la condicion null. Si
+! por el contrario este ordenamiento existe, los punteros del grupo apuntaran
+! al vector determinado. Esto involucra ciertos manejos que se deben realizar
+! con las siguientes subrutinas:
 
 subroutine group_switch_vectorial(g,switched)
 class(group),intent(inout)     :: g

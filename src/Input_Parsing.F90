@@ -53,7 +53,7 @@ private
  
  
 ! Variables auxiliares para lectura, parsing y demas. 
-character(len=linewidth)  :: w1,w2
+character(len=:),allocatable :: w1,w2
 integer                   :: i1,i2
 
 ! The width
@@ -233,8 +233,8 @@ type(input_options), public, pointer   :: opts=>null()
 
 
 ! Variables relacionadas con los nombres del input output log etc.
-character(linewidth)   :: ioprefix
-character(linewidth)   :: stdin,logfile
+character(:),allocatable   :: ioprefix
+character(:),allocatable   :: stdin,logfile
 integer                :: stdinlen
 public                 :: ioprefix,stdin,logfile,eof
 
@@ -344,7 +344,7 @@ integer, intent(in), optional :: inunit
 
 integer :: l, m, flag, iostat 
 
-character(len=:), allocatable :: aux, iomsg
+character(len=:), allocatable :: aux, iomsg, aux2
 
 iomsg=''
 eof=.false.
@@ -422,7 +422,9 @@ lines: do
     ! no para que definan o accedan los usuarios
     call werr('Variable name should not start with underscore',adjustl(char(:1))=='_')
  
-    call var_save(trim(adjustl(char(:l-1))),parse_expand(trim(adjustl(char(l+2:)))))
+    aux=trim(adjustl(char(:l-1)))
+    aux2=parse_expand(trim(adjustl(char(l+2:))))
+    call var_save(aux,aux2)
     cycle lines
   else 
     l=index(char,'=')
@@ -432,7 +434,9 @@ lines: do
       ! no para que definan o accedan los usuarios
       call werr('Variable name should not start with underscore',adjustl(char(:1))=='_')
             
-      call var_save(trim(adjustl(char(:l-1))),trim(adjustl(char(l+1:))))
+      aux=trim(adjustl(char(:l-1)))
+      aux2=trim(adjustl(char(l+1:)))
+      call var_save(aux,aux2)
       cycle lines
     endif
   endif
@@ -523,11 +527,11 @@ end subroutine parse_items
 
 function parse_blocks() result(flag)
 use gems_strings
-character(linewidth) :: w
 integer              :: k
 integer              :: flag
 integer              :: repini,repfin,repstep
 logical              :: reverse
+character(len=:), allocatable :: aux,w
 
 
 flag=1
@@ -578,12 +582,15 @@ case('repeat')
   repfin=max(i1,i2)
   if(i1>i2) then
     reverse=.true.
-    call var_set('ci',trim(int2char(repfin)))
+    aux=trim(int2char(repfin))
+    call var_set('ci',aux)
     call var_set('i',repfin)
   else
     reverse=.false.
-    call var_set('ci',trim(int2char0(repini,repfin)))
-    call var_set('i', int2char(repini))
+    aux=trim(int2char(repfin))
+    call var_set('ci',aux)
+    aux=trim(int2char(repini))
+    call var_set('i',aux)
   endif
   if(item<nitems) call readi(repstep)
  
@@ -916,7 +923,7 @@ subroutine reada(m)
 ! Copy characters from the next item into `m`.
 ! if the first character is a single or double quote, the string is
 ! terminated by a matching quote and the quotes are removed.
-character(len=*), intent(inout) :: m
+character(:),allocatable,intent(out) :: m
 
 if (opts%clear) m=''
 !  if there are no more items on the line, m is unchanged
@@ -937,8 +944,7 @@ end subroutine reada
 subroutine readf_sbrace(f,m)
 ! lee un escrito de la forma flotante[string] y devuelve flotante en a y string
 ! en m. Util para las unidades.
-
-character(len=*), intent(inout) :: m
+character(len=:),allocatable, intent(out)  :: m
 integer :: l,j,i
 real(dp) :: f
 
@@ -1089,7 +1095,7 @@ subroutine read_energy(a,flag,factor)
 integer,optional                :: flag
 double precision, intent(inout) :: a
 double precision, intent(in), optional :: factor
-character(linewidth) :: m
+character(len=:),allocatable  :: m
 
 if (present(flag)) flag=0
 call readf_sbrace(a,m)
@@ -1135,8 +1141,7 @@ subroutine read_vector(a,factor)
 integer                         :: i
 double precision, intent(inout) :: a(:)
 double precision, intent(in), optional :: factor
-
-character(linewidth) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) a=0d0
 
@@ -1179,8 +1184,7 @@ subroutine read_double(a,factor)
 
 double precision, intent(inout) :: a
 double precision, intent(in), optional :: factor
-
-character(linewidth) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) a=0d0
 
@@ -1216,8 +1220,7 @@ subroutine readb(b)
 !  read an integer from the current record
 
 logical, intent(inout) :: b
-
-character(linewidth) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) b=.false.
 
@@ -1249,7 +1252,7 @@ subroutine readb_vector(b)
 
 logical, intent(inout) :: b(:)
 integer           :: i
-character(linewidth) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) b=.false.
 
@@ -1286,7 +1289,7 @@ use gems_elements, only: inq_z, ncsym
 ! devuelve su numero atomico.  basicamente es la readi pero no se enoja si no es
 ! un entero.
 integer, intent(inout) :: i
-character(len=ncsym) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) i=0
 
@@ -1319,8 +1322,8 @@ subroutine readia(i,m)
 ! Si es string devuelve m y no cambia i
 ! Basicamente es el readi, pero no chilla si no es entero, sino que devuelve lo
 ! que lee
-character(*), intent(inout) :: m
 integer, intent(inout) :: i
+character(len=:),allocatable, intent(out)  :: m
 
 if (opts%clear) i=0
 
@@ -1374,8 +1377,7 @@ subroutine readi(i)
 
 integer, intent(inout) :: i
 real(dp)               :: f
-
-character(linewidth) :: string
+character(len=:),allocatable  :: string
 
 if (opts%clear) i=0
 
@@ -1412,7 +1414,7 @@ end subroutine readi
 !-----------------------------------------------------------------------
 
 subroutine readu(m)
-character(len=*) m
+character(len=:),allocatable  :: m
 
 call reada(m)
 call upcase(m)
@@ -1422,7 +1424,7 @@ end subroutine readu
 !-----------------------------------------------------------------------
 
 subroutine readl(m)
-character(len=*) m
+character(len=:),allocatable  :: m
 
 call reada(m)
 call locase(m)
@@ -1483,9 +1485,8 @@ end subroutine geti
 
 subroutine geta(m)
 !  get a character string
-character(len=*) m
-
-logical eof
+character(len=:),allocatable  :: m
+logical       :: eof
 
 do
   if (item < nitems) then
@@ -1525,13 +1526,12 @@ end subroutine reread
 !----------------------------------------------------------------
 
 subroutine read_colour(fmt, colour, clamp)
-
-character(len=*), intent(in) :: fmt
-real(dp), intent(out) :: colour(3)
+character(len=*), intent(in)  :: fmt
+real(dp), intent(out)         :: colour(3)
 logical, intent(in), optional :: clamp
-character(len=6) :: x
-integer :: i, r, g, b
-real(dp) :: c
+character(len=:),allocatable  :: x
+integer      :: i, r, g, b
+real(dp)     :: c
 
 select case(fmt)
 case("grey","gray")
@@ -1603,17 +1603,19 @@ use gems_strings
   integer,intent(in)        :: repini,repfin,repstep
   logical,intent(in)        :: reverse
   integer                   :: i,j,l
-  character(len=linewidth)  :: w
+  character(len=:),allocatable  :: w,aux
 
   ! Proforming the repeat loop
   outer: do j = repini,repfin,repstep
   
     if(reverse) then
       i=repfin-(j-repini)
-      call var_set('ci',trim(int2char0(i,repfin)))
+      aux=trim(int2char0(i,repfin))
+      call var_set('ci',aux)
       call var_set('i',i)
     else
-      call var_set('ci',trim(int2char0(j,repfin)))
+      aux=trim(int2char0(j,repfin))
+      call var_set('ci',aux)
       call var_set('i', j)
     endif 
   

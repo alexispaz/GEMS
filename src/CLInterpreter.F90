@@ -33,7 +33,7 @@ use gems_set_properties
 
 use gems_select_create
 use gems_checkpoint
-use gems_neighbour
+use gems_neighbor
 use gems_integration
 use gems_interaction
 use gems_output
@@ -53,7 +53,8 @@ real(dp)                  :: fv(dm),fv2(dm),fv3(dm)
 logical                   :: b1,bv1(dm)!,b2,b3
 
 ! Variables auxiliares para lectura, parsing y demas. 
-character(len=linewidth)  :: w1,w2,w3
+character(:),allocatable  :: w1,w2,w3
+character(linewidth)      :: wfix
 integer                   :: i1,i2,i3,i4,i5,i6,i7,i8
 real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16 
 
@@ -75,6 +76,8 @@ use gems_metadynamics, only:  metadynamics, wtmd2D_set,dm_cv_set,&
                                wall1D_set,wtmetad_set,posicion1d_set
                               
 character(*)  :: com
+
+! TODO: should I add this to the `groups` dclist?
 type(group)   :: gsel_aux
 
 select case(com)
@@ -113,6 +116,7 @@ case('cycle')
    
 case('<') ! Crea
   call create_commands(gnew)
+  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
 
 case('+<') ! Crea y agrega a la seleccion previa
 
@@ -120,28 +124,36 @@ case('+<') ! Crea y agrega a la seleccion previa
   ! agreguen a gs (gout) incrementan el gini.... esto puede traer conflicto
   ! call create_commands(gnew,gsel)
 
-  call gsel_aux%init('gsax')
-  call create_commands(gnew,gsel_aux)
-  call gsel%add(gsel_aux)
+  call gsel_aux%init()
+  call create_commands(gsel_aux)
+  call gnew%attach(gsel_aux)
+  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
+
+  call gsel%attach(gsel_aux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
+
   call wwan('empty selection',gsel%nat==0)  
+  call gsel_aux%detach_all()
   call gsel_aux%dest()
 
 case('><') ! Crea y selecciona lo creado
 
-  call gsel_aux%init('gsax')
-  call create_commands(gnew,gsel_aux)
-  call group_allatom_del(gsel)
-  call gsel%add(gsel_aux)
-  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
-  call wwan('empty selection',gsel%nat==0) 
-  call gsel_aux%dest()
+  call gsel_aux%init()
+  call create_commands(gsel_aux)
+  call gnew%attach(gsel_aux)
+  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
 
-! Seleccion en la creacion
+  call gsel%detach_all()
+  call gsel%attach(gsel_aux)
+  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
+
+  call wwan('empty selection',gsel%nat==0) 
+  call gsel_aux%detach_all()
+  call gsel_aux%dest()
 
 case('.>') ! Seleccioname esto de la creacion
 
-  call group_allatom_del(gsel)
+  call gsel%detach_all()
   call select_commands(gnew,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
@@ -156,7 +168,7 @@ case('.+') ! Agrega esto a mi seleccion (Union de conjuntos)
 
 case('>') ! Seleccioname esto del sistema
 
-  call group_allatom_del(gsel)
+  call gsel%detach_all()
   call select_commands(sys,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
@@ -171,10 +183,10 @@ case('+') ! Agrega esto a mi seleccion (Union de conjuntos)
 
 case('>>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
 
-  call gsel_aux%init('gsax')
+  call gsel_aux%init()
   call select_commands(gsel,gsel_aux)
-  call group_allatom_del(gsel)
-  call gsel%add(gsel_aux) 
+  call gsel%detach_all()
+  call gsel%attach(gsel_aux) 
   call gsel_aux%dest()
 
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
@@ -194,33 +206,34 @@ case('temp') ! Solo para usar unidades de kT
   call readf(temp)
   kt=dsqrt(kB_ui*temp)
 case('prng')
-  call prng_commands
+  call prng_commands()
 ! otros comandos
 case('prueba')
-  call write_state
+  call write_state()
 case('constrain')
   call readl(w1)
   call constrain_commands(w1)
 case('set')
-  call set_commands
+  call set_commands()
 case('interact')
-  call interacciones
+  call interacciones()
 case('getin') ! 
-  call get_commands
+  call get_commands()
 case('sys')
-  call sys_commands
+  call sys_commands()
 case('group')
-  call group_commands
+  call group_commands()
 case('mpi')
-  call mpi_commands
+  call mpi_commands()
 case('log')
-  call log_commands
+  call log_commands()
 case('outfile')
-  call outfile_commands
+  call outfile_commands()
 case('print')
   i2=print_commands()
   do i1 =1, i2
-    write(w1,'(a,i0,a)') '_ans[',i1,']'
+    write(wfix,'(a,i0,a)') '_ans[',i1,']'
+    w1=trim(wfix)
     w2=polvar_expand(w1)
     call wprt(w2)
   enddo
@@ -276,8 +289,8 @@ case('lbfgs')
   b1=.true.
   if (nitems>item) call readb(b1)
   call lbfgs_minimizator(gsel,b1)
-case('fix_lbfgs')
-  call fix_lbfgs_minimizator(gsel,.true.)
+! case('fix_lbfgs')
+  ! call fix_lbfgs_minimizator(gsel,.true.)
 ! case('escape')
 !  call readf(f1)
 !  call escape_dinamic(gsel,f1,.true.) 
@@ -556,12 +569,11 @@ end select
 endsubroutine execute_command
 
 subroutine interacciones
-use gems_neighbour,only: intergroup,igr_vop
+use gems_neighbor,only: ngroup,ngindex
 use gems_interaction,only: polvar_interact, interact_new
 use gems_variables,only: polvar_link
-class(intergroup),pointer  :: ig
+class(ngroup),pointer  :: ig
 character(:),allocatable   :: label
-integer                    :: i
 
 ! Read user label if found or assing a new one
 call readl(w1)
@@ -571,8 +583,8 @@ if(w1(1:1)==':') then
   ig=>polvar_interact(label)
 else 
   call reread(0)
-  write(w1,'(a,i0)') ':i',igr_vop%size+1
-  label=trim(w1)
+  write(wfix,'(a,i0)') ':i',ngindex%size+1
+  label=trim(wfix)
 endif
 
 ! If label is not found create new one
@@ -587,31 +599,25 @@ if (.not.associated(ig)) then
 
 endif
 
+
 ! Run CLI
 call ig%cli(ig)
-     
-! Unless some neighboor list is requested, 
-! all the neighboor list are sablished here.
-! FIXME: We must search for all interactions because 
-! a new interaction implies `pos_old=pos` and can affect the pos_old of other
-! interactions. We should probably add a flag to selectively set pos_old
-do i=1,igr_vop%size
-  ig => igr_vop%o(i)%o
-  if(.not.associated(ig%lista)) call ig%setcells()
-enddo
- 
+
+! Update  
+if(useghost) call pbcfullghost()
+call update()  
+       
 end subroutine interacciones
- 
 
 subroutine help(w)
   character(*),intent(in)   :: w
-  ! character(:)              :: line
-  integer                   :: i,j
-  integer                   :: stat 
-  character(50)             :: buffer  
-  integer :: nch
+  ! ! character(:)              :: line
+  ! integer                   :: i,j
+  ! integer                   :: stat 
+  ! character(50)             :: buffer  
+  ! integer :: nch
      
-  j = find_io(30)
+  ! j = find_io(30)
   ! open(j,file=help_file)
   !
   !   line = ''
@@ -626,7 +632,6 @@ subroutine help(w)
   !
   !   end do
   !
-  !   print *, line
   ! close(j)
 
 endsubroutine help
@@ -651,10 +656,10 @@ case('add')    !FIXME Makeme remember the previously group selecction...
   ! call system_group_add(gsel)
 
   ! Agrego los atomos XGHOST
-  call atoms_group_add(gsel)
+  call sys%attach(gsel)
           
   call inq_mass(sys) 
-  call wstd(); write(logunit,*) natoms, 'particles in the system '
+  call wstd(); write(logunit,*) sys%nat, 'particles in the system '
 
 case default  
   call wwan('I do not understand the last command')  
@@ -666,7 +671,6 @@ use gems_integration,only: polvar_integrate
 use gems_variables,only: polvar_link
 use gems_integration,only: integrate_cli, integrate
 type(integrate),pointer   :: it
-integer                   :: i
 
 ! Get label name
 call readl(w1)
@@ -713,7 +717,7 @@ use gems_cvs
 ! ! Esto es beta, pero la idea es ir agregando atomos al grupo de interaccion
 ! case('igr')
 !   call readi(i1)
-!   call igr(i1)%adda(gsel)
+!   call igr(i1)%attacha(gsel)
 
 ! CVS
 call readl(w2)
@@ -726,25 +730,33 @@ case('cm')
   call readl(w1)
   select case(w1)
   case('x') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=1
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('y') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=2
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('z') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=3
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('xyz','zxy','yzx','xzy','yxz','zyx') 
-    call cvs(ncvs)%init(3,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=3
+    call cvs(ncvs)%attach(gsel)
     cvs(ncvs)%eval => cv_eval_cmpos
     cvs(ncvs)%jaco => cv_jaco_cmpos
   case default  
@@ -772,9 +784,9 @@ subroutine clean_commands
 call readl(w1)
 selectcase(w1)
 case('creation')
-  call group_allatom_del(gsel)
-  call gsel%add(sys)
-  call group_allatom_del(gnew)
+  call gsel%detach_all()
+  call gsel%attach(sys)
+  call gnew%try_destroy_all()
   call wstd(); write(logunit,*) 'sys is selected'
 case default  
   call wwan('I do not understand the last command')  
@@ -786,22 +798,19 @@ call readi(i1)
 call readl(w1)
 selectcase(w1)
 case('add')
-  call gr(i1)%add(gsel) 
+  call gr(i1)%attach(gsel) 
   call wstd(); write(logunit,*) gr(i1)%nat, 'particles in group', i1
 case('clean')
-  call group_allatom_del(gr(i1)) 
+  call gr(i1)%detach_all()
   call wstd(); write(logunit,*) gr(i1)%nat, 'particles in group', i1 
 case default  
   call wwan('I do not understand the last command')  
 endselect      
 endsubroutine group_commands
 
-subroutine create_commands(gn,gs)
-! Agrega lo nuevo a gn y agrega en seleccion a gs si este esta presente
-! Hay que tener en cuenta que gsel puede ser usado, asique no es cuestion 
-! de borrarlo asi como asi, lo mismos sys
+subroutine create_commands(gn)
+! Create atoms and add them to `gn` group
 type(group),intent(inout)            :: gn
-type(group),intent(inout),optional   :: gs
 integer     :: i
 
 call readl(w1)
@@ -809,10 +818,10 @@ selectcase(w1)
 case('reply')
   call readf(fv)
   call readi(i1)
-  call create_reply(gsel,fv,i1,gn,gs)
+  call create_reply(gsel,fv,i1,gn)
 case('atom')
   call readf(fv)
-  call create_atom(fv,gn,gs)
+  call create_atom(fv,gn)
 case('fillpbc')     ! Llena con n atomos agregados sequencialmente al pbc
   call wlog(''); write(logunit,*) "box: ",box
   call readi(i1)
@@ -820,9 +829,9 @@ case('fillpbc')     ! Llena con n atomos agregados sequencialmente al pbc
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gn,fv,fv2,gs,opt_pbc=.true.)
+    call create_fill(f1,i1,gnew,gn,fv,fv2,opt_pbc=.true.)
   else
-    call create_fill(f1,i1,gn,gout=gs,opt_pbc=.true.)
+    call create_fill(f1,i1,gnew,gn,opt_pbc=.true.)
   endif 
 case('fill')     ! Llena con n atomos separados por un cierto radio
   call wlog(''); write(logunit,*) "box: ",box
@@ -831,12 +840,12 @@ case('fill')     ! Llena con n atomos separados por un cierto radio
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gn,fv,fv2,gs)
+    call create_fill(f1,i1,gnew,gn,fv,fv2)
   else
-    call create_fill(f1,i1,gn,gout=gs)
+    call create_fill(f1,i1,gnew,gn)
   endif
 case('fillh')    ! Llena con hidrogenos los atomos de carbono.
-  call create_fillh(gsel,gn,gs) 
+  call create_fillh(gsel,gn) 
 case('read')
 
   ! Allow to especify the extension?
@@ -848,24 +857,22 @@ case('read')
   ! end select
 
   call reada(w1)
-  i=len_trim(adjustl(w1))
+  i=len(w1)
 
   i1=1
   if (item < nitems) call readi(i1) ! The frame
    
-  call create_file(w1,w1(i-2:i+1),gn,gs,i1)
+  call create_file(w1,w1(i-2:i),gn,i1)
 
 case default  
 call wwan('I do not understand the last command')  
 endselect      
-call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
 
 endsubroutine create_commands
 
 subroutine constrain_commands(w)
-integer                    :: i,j,k
+integer                    :: i
 character(*)               :: w
-character(1)               :: c
 type (atom_dclist),pointer :: la
 logical                    :: lconst=.false.
 real(dp)                   :: aux
@@ -892,66 +899,20 @@ do i = 1,gsel%nat
   la%o%lconst=lconst
 enddo 
 
-! Lo de abajo creo es obsoleto....
-
-return
-
-selectcase(w)
-! case('fix') 
-!   call readl(w2)
-!   selectcase(c) 
-!   case('x')
-!     k=0
-!   case('y')
-!     k=1
-!   case('z')
-!     k=2
-!   endselect 
-!
-!   call gr_fix%add(gsel)
-!   la => gsel%alist%next
-!   do i = 1,gsel%nat
-!     j = la%o%idv
-!     fix(j+k) = .true.
-!     fix_pos(j+k) = la%o%pos(k+1)
-!     la=>la%next
-!   enddo 
-!
-case('join')
-  call readl(w2)
-  selectcase(c) 
-  case('x')
-    k=0
-  case('y')
-    k=1
-  case('z')
-    k=2
-  endselect 
-
-  njoin=0
-  la => gsel%alist%next
-  do i = 1,gsel%nat
-    j = la%o%idv
-    join(j+k) = .true.
-    njoin=njoin+1
-    la=>la%next
-  enddo 
-endselect
-
 endsubroutine constrain_commands
 
 subroutine unselect_commands(g)
-integer                    :: i
-type(group)                :: g
+class(group)               :: g
 type(group)                :: aux
 type (atom_dclist),pointer :: la
+integer                    :: i
 
 call aux%init()
 call select_commands(g,aux)
 
 la => aux%alist%next
 do i = 1,aux%nat
-  call group_atom_del(la%o, g)
+  call  g%detach(la%o)
   la=>la%next
 enddo
 
@@ -960,8 +921,8 @@ call aux%dest()  ! Sin esto, habia un segmentation full
 endsubroutine unselect_commands
    
 subroutine select_commands(gini,gout)
-type(group),intent(inout)          :: gout
-type(group),intent(inout),optional :: gini
+class(group),intent(inout)          :: gout
+class(group),intent(inout),optional :: gini
 integer                            :: i
 
 call readl(w1)
@@ -971,13 +932,13 @@ call readl(w1)
 selectcase(w1)
 case('group')
   call readi(i1)
-  call gout%add(gr(i1))
+  call gout%attach(gr(i1))
   return
 case('creation')
-  call gout%add(gnew)
+  call gout%attach(gnew)
   return
 case('sys')
-  call gout%add(sys)
+  call gout%attach(sys)
   return
 endselect
 
@@ -1115,7 +1076,7 @@ case('atom')
 !       call readi(i3)
 !       gini%nat = gini%nat + i3-i2
 !       do j = i2,i3
-!         call group_atom_add(ss(i1)%a(j),gini)
+!         call gini%attach(ss(i1)%a(j))
 !       enddo 
 case('random')
   call readi(i1)
@@ -1133,7 +1094,7 @@ call readl(w1)
   
 selectcase(w1)
   case('posxyz')
-    write(w1,*) "positions.xyz"
+    w1="positions.xyz"
     if (nitems>item) call reada(w1)
     call write_screenshot(w1,gsel)   
 
@@ -1174,8 +1135,7 @@ case default
 endselect
 endsubroutine checkpoint_commands
 
-subroutine set_commands
-! use gems_forcefield
+subroutine set_commands()
 use gems_elements, only: inq_z
 
 call readl(w1)
@@ -1306,8 +1266,8 @@ endsubroutine set_commands
 subroutine get_commands
 use gems_random
 use gems_variables,only:polvar_hard, polvar_expand
-integer                :: i,j
-character(linewidth)   :: var, vari
+integer                    :: i
+character(:),allocatable   :: var, vari
 
 ! Reding the variable name
 call readl(var) 
@@ -1332,15 +1292,16 @@ if (i2>1) then
   return
 endif
 
-w2=polvar_expand('_ans[1]')
-call polvar_hard(trim(var),trim(w2))
-call wstd(trim(var)//' = '//trim(w2))
+w2=trim(polvar_expand('_ans[1]'))
+
+call polvar_hard(trim(var),w2)
+call wstd(trim(var)//' = '//w2)
 
 endsubroutine get_commands
 
 subroutine mpi_commands
 use gems_random
-use gems_mpi, only: mpi_pc, mpi_tpc, ch_mpi_pc
+use gems_mpi, only: mpi_pc, mpi_tpc
 call readl(w1)
 #ifdef HAVE_MPI
 #else
@@ -1394,7 +1355,7 @@ use gems_tables, only: etable
 use gems_variables,only:polvar_hard
 integer                :: ans
 type(atom_dclist),pointer :: la
-type(etable) :: t
+! type(etable) :: t
 integer             :: i
 
 !if (gsel%nat==int(gsel%mass)) call wwan('Atomo/s sin elemento definidos')
@@ -1491,7 +1452,7 @@ case('norm')
   call readi(i2)
   call readi(i3)
   ! BUG: Por alguna extraña razon no es lo mismo si se intercambia i2 con i1
-  fv=cross_product(vdistance(a(i1)%o,a(i2)%o,ghost),vdistance(a(i3)%o,a(i2)%o,mic))
+  fv=cross_product(vdistance(sys%a(i1)%o,sys%a(i2)%o,mic),vdistance(sys%a(i3)%o,sys%a(i2)%o,mic))
   f1=dot_product(fv,fv)
   fv=fv/sqrt(f1)
   call polvar_hard('_ans[1]',fv(1))
@@ -1501,7 +1462,7 @@ case('norm')
 case('axis') 
   call readi(i1)
   call readi(i2)
-  fv=vdistance(a(i1)%o,a(i2)%o, mic)
+  fv=vdistance(sys%a(i1)%o,sys%a(i2)%o, mic)
   f1=dot_product(fv,fv)
   fv=fv/sqrt(f1)
   call polvar_hard('_ans[1]',fv(1))
@@ -1572,7 +1533,8 @@ case('rang')
   call rang(f1)
   call polvar_hard('_ans[1]',f1)
 case('ranu')
-  call polvar_hard('_ans[1]',ranu())
+  f1=ranu()
+  call polvar_hard('_ans[1]',f1)
 case('max')
   call readf(f1)
   call readf(f2)
@@ -1608,29 +1570,30 @@ case("box")
 !   call t%wprt()
 !
 case default
-  call polvar_hard('_ans[1]',trim(w1))
+  w1=trim(w1)
+  call polvar_hard('_ans[1]',w1)
 endselect 
 
 
 end function print_commands
 
-  subroutine time_commands
-    call readl(w1)
-    selectcase(w1)
-    case('cero')
-      time=0.0_dp
-      ptime=0.0_dp
-      dm_steps=0.0_dp
-      nframe=0.0_dp
-      call wstd('time set to cero')
-    case('step')
-      call readf(dt)
-      dtaux=dt
-    case default  
-      call wwan('I do not understand the last command')  
-    endselect 
-  endsubroutine time_commands
-             
+subroutine time_commands
+call readl(w1)
+selectcase(w1)
+case('cero')
+  time=0.0_dp
+  ptime=0.0_dp
+  dm_steps=0.0_dp
+  nframe=0.0_dp
+  call wstd('time set to cero')
+case('step')
+  call readf(dt)
+  dtaux=dt
+case default  
+  call wwan('I do not understand the last command')  
+endselect 
+endsubroutine time_commands
+           
 subroutine element_commands
 use gems_elements, only: add_z 
 
@@ -1685,6 +1648,7 @@ endselect
 endsubroutine prng_commands
       
 subroutine box_commands
+use gems_neighbor, only: useghost
 integer   :: i,j
 
 call readl(w1)
@@ -1721,9 +1685,8 @@ case('expand')
   w1='(A,'//cdm//'(f10.5))'
   call wstd(); write(logunit,trim(adjustl(w1))) '  box size:', (box(i),i=1,dm)
 case('mic') ! Establezco condiciones periodicas para ese grupo
-  call readb(b1)
-  mic=b1
-  ghost=.not.b1
+  call readb(mic)
+  useghost=.not.mic
 case default  
   call wwan('I do not understand the last command')  
 endselect 
@@ -1813,7 +1776,6 @@ use gems_output
 use gems_hyperdynamics
 use gems_bias, only: write_bias
 use gems_forcefield, only: write_ebend, write_estretch, write_etors
-use gems_tersoff
 use gems_interaction
 use gems_neb
 use gems_graphs
@@ -1922,8 +1884,6 @@ case('at')
     of%enable(2)=.true.
   case ('forcefield' )
     of%enable(3)=.true.
-  case ('tersoff' )
-    of%enable(4)=.true.
   case ('hd' )
     of%enable(5)=.true.
   end select
@@ -1970,7 +1930,7 @@ case('cols')
     end select
    
     select case(w1)
-    case('eparts'   );  call op%init(igr_vop%size,write_eparts)
+    case('eparts'   );  call op%init(ngindex%size,write_eparts)
     !case('dihedrals'); call op%init(,write_dihedrals)
     !case('angulos'  ); call op%init(,write_tsfangs)
     case('time'     ); call op%init(1,write_time)
@@ -2013,7 +1973,7 @@ case('cols')
       call werr('incorrect imput')
     end select
 
-    ! call of%p%add_hardcpy(op)
+    ! call of%p%attach_hardcpy(op)
     ! call op%destroy()
     of%w => outfile_write
 

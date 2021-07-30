@@ -21,8 +21,8 @@ group 1 add
 
 time step 0.001d0  (integration timestep [ps])
 
-interact 1 under tb read ../../parameters/baletto_2003.prm
-interact 1 under bias compress 0.8
+interact 1 tb read ../../parameters/baletto_2003.prm
+interact 1 bias compress 0.8
  
 # outfile :f1 name E.$jobname$.dat
 # outfile :f1 cols time e_reax

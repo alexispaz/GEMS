@@ -40,12 +40,12 @@ set move 0.25 0.25 0.25
 #        0  0.25   0.5  0.75     
 
 # The distance between first neighbors.
-getin d0 {sqrt(0.25)}
+d0:={sqrt(0.25)}
               
 # The primitive cell size
-getin a 1
-getin b 1
-getin c 1
+a:=1
+b:=1
+c:=1
           
 # All the surface are (100). 
                                       

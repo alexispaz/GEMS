@@ -21,7 +21,7 @@ module gems_programs
  use gems_constants
  use gems_inq_properties 
  use gems_set_properties
- use gems_neighbour
+ use gems_neighbor
 
  implicit none
 
@@ -49,10 +49,8 @@ logical                 :: ghosted
 
 ! CHECK: I think this require full ghost updates: motion jumps are arbitrary
 ! Sudden atom movements require fullghost
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
+ghosted=fullghost
+fullghost=.true.
 
 u = find_io(30)
 open(u,action='read',file=fname)
@@ -74,7 +72,7 @@ do ns = 1,steps
   endif
 
   do j = 1, k
-    read(u,*) sym, a(j)%o%pos(1:dm)
+    read(u,*) sym, sys%a(j)%o%pos(1:dm)
   enddo
   call pos_changed()
 
@@ -85,9 +83,7 @@ do ns = 1,steps
 
 enddo
 
-if(ghost) then
-  fullghost=ghosted
-endif
+fullghost=ghosted
 
 close(u)
 

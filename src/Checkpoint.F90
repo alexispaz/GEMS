@@ -19,6 +19,7 @@
 module gems_checkpoint
 use gems_errors
 use gems_program_types
+use gems_neighbor, only: fullghost
 use gems_constants, only: dm, linewidth
 use gems_input_parsing
 use gems_random, only: write_chpseed, read_chpseed
@@ -106,7 +107,7 @@ search_chp=(current==i)
 
 if(search_chp) then
   
-  call werr('Atoms in checkpoint are more or less tan the atoms in the system',na/=nlocal)
+  call werr('Atoms in checkpoint are more or less tan the atoms in the system',na/=sys%nat)
 
   nsteps=nsteps-step
 
@@ -121,13 +122,13 @@ if(search_chp) then
   call read_chppiston(chpunit)
               
   read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
-  do i =1,nlocal
-    read(chpunit) (a(i)%o%pos(j),j=1,dm)
-    read(chpunit) (a(i)%o%vel(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel2(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel3(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel4(j),j=1,dm)
+  do i =1,sys%nat
+    read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
+    read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
+    read(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
+    read(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
+    read(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
+    read(chpunit) (sys%a(i)%o%acel4(j),j=1,dm)
   enddo
 
   chpmode=.false.
@@ -135,14 +136,10 @@ if(search_chp) then
   call posvel_changed()
    
   ! CHECK: I think this require full ghost updates
-  if(ghost) then
-    ghosted=fullghost
-    fullghost=.true.
-  endif
+  ghosted=fullghost
+  fullghost=.true.
   call interact(.false.)
-  if(ghost) then
-    fullghost=ghosted
-  endif
+  fullghost=ghosted
           
 
 endif      
@@ -162,7 +159,7 @@ else
   open(chpunit, file=trim(adjustl(ioprefix))//".chp",form='unformatted')
 endif
 
-write(chpunit) current,step,nsteps,nlocal
+write(chpunit) current,step,nsteps,sys%nat
 
 ! Read the box size
 write(chpunit) tbox(:,:)
@@ -174,13 +171,13 @@ call write_chpseed(chpunit)
 call write_chppiston(chpunit)
 
 write(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
-do i =1,nlocal
-  write(chpunit) (a(i)%o%pos(j),j=1,dm)
-  write(chpunit) (a(i)%o%vel(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel2(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel3(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel4(j),j=1,dm) 
+do i =1,sys%nat
+  write(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
+  write(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
+  write(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
+  write(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
+  write(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
+  write(chpunit) (sys%a(i)%o%acel4(j),j=1,dm) 
 enddo
 close(chpunit)
 
@@ -203,8 +200,8 @@ endif
         
 read(chpunit) i,step,nsteps,na
 
-call werr('Atoms in checkpoint are more than the atoms in the system',na>nlocal)
-call wwan('Atoms in checkpoint are less than the atoms in the system',na<nlocal)
+call werr('Atoms in checkpoint are more than the atoms in the system',na>sys%nat)
+call wwan('Atoms in checkpoint are less than the atoms in the system',na<sys%nat)
 
 ! Read the box size
 read(chpunit) tbox(:,:)
@@ -218,12 +215,12 @@ call read_chppiston(chpunit)
                   
 read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
 do i =1,na
-  read(chpunit) (a(i)%o%pos(j),j=1,dm)
-  read(chpunit) (a(i)%o%vel(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel2(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel3(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel4(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
+  read(chpunit) (sys%a(i)%o%acel4(j),j=1,dm)
 enddo
 close(chpunit)
 
@@ -231,14 +228,10 @@ call posvel_changed()
 
 
 ! CHECK: I think this require full ghost updates
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
+ghosted=fullghost
+fullghost=.true.
 call interact(.false.)
-if(ghost) then
-  fullghost=ghosted
-endif
+fullghost=ghosted
                     
 
 end subroutine read_chp

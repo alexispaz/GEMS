@@ -1,7 +1,6 @@
 # Input file for GeMS
 
-getin pi 3.14159265358979
-getin gr_rad {$pi$/180}
+gr_rad:={$pi$/180}
               
 # Celda unidad
 # http://www.pveducation.org/pvcdrom/materials/CdSe
@@ -21,8 +20,8 @@ getin gr_rad {$pi$/180}
 # 
  
 >< atom    0       0        0
-getin s 1./3. 
-getin t 1./3. 
+s:=1./3. 
+t:=1./3. 
 +< atom  {$t$+$s$*cos(60*$gr_rad$)}  {$s$*sin(60*$gr_rad$)}  {1./2.}
 set element Cd
 
@@ -37,9 +36,9 @@ out posxyz wurzita_cell.xyz
 # Set the number of repetitions of this cells in each direction
 # Esto es mejor que sea impar, para que quede una celda centrada en el centro
 # que despues podemos usar para elegir donde cortar
-getin nx  11
-getin ny  11
-getin nz  11
+nx:= 11
+ny:= 11
+nz:= 11
 
 # Repeat
 > creation
@@ -53,8 +52,8 @@ getin nz  11
 # Xu, Y.-N., & Ching, W. Y. (1993). Electronic, optical, and structural
 # properties of some wurtzite crystals. Physical Review B, 48(7).
 # http://doi.org/10.1103/PhysRevB.48.4335
-getin a 4.2985
-getin c 7.0152
+a:=4.2985
+c:=7.0152
 
 # Expand the system using the lattice parameters
 set expand $a$ $a$ $c$
@@ -71,24 +70,24 @@ out posxyz wurzita_bulk.xyz
 
 # Get a position in the fraction coordinate system of the CdSe cell 1x1x1, for
 # instance, the center:
-getin sc {2./3.}
-getin tc {2./3.}
-getin zc {(1./2.+7./8.)/2.}
+sc:={2./3.}
+tc:={2./3.}
+zc:={(1./2.+7./8.)/2.}
 
 # Selecciono el numero entero de celdas a añadir
-getin snc {int(($nx$-1)/2)}
-getin tnc {int(($ny$-1)/2)}
-getin znc {int(($nz$-1)/2)}
+snc:={int(($nx$-1)/2)}
+tnc:={int(($ny$-1)/2)}
+znc:={int(($nz$-1)/2)}
 
 # Get that position in cartesian coordinates and in the cell that is in the
 # center of the bulk
-getin sc {$a$*($snc$ +$sc$)}
-getin tc {$a$*($tnc$ +$tc$)}
-getin zc {$c$*($znc$ +$zc$)}
+sc:={$a$*($snc$ +$sc$)}
+tc:={$a$*($tnc$ +$tc$)}
+zc:={$c$*($znc$ +$zc$)}
 
 # Convert it to the cartesian coordinates
-getin xc {$tc$+$sc$*cos(60*$gr_rad$)} 
-getin yc {$sc$*sin(60*$gr_rad$)}
+xc:={$tc$+$sc$*cos(60*$gr_rad$)} 
+yc:={$sc$*sin(60*$gr_rad$)}
 
 # >< atom $xc$ $yc$ $zc$
 # set element Xe

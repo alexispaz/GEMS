@@ -31,12 +31,12 @@ program gems
  use gems_errors
  use gems_programs
  use gems_hyperdynamics
- use gems_neighbour, only:polvar_neighbour
+ use gems_neighbor, only:polvar_neighbor
  use gems_fields
  use gems_elements
  use gems_output, only: chpmode
  use gems_mpi, only: mpi_pc
- use gems_variables, only:polvar_hard,polvars, polvar_link, polvar_expand, polvar_save, polvar_hard
+ use gems_variables, only:polvar_hard, polvars, polvar_link, polvar_expand, polvar_save, polvar_hard, polvar_readonly
 
 #ifdef HAVE_MPI
  use gems_mpi, only: gems_mpi_init, mpi_tpc, ch_mpi_pc
@@ -48,8 +48,8 @@ program gems
  implicit none
 
  ! Command line argument
- integer             :: narg,carg,larg !number of arguments, counter and length
- character(len=20)   :: arg            !argument
+ integer                    :: narg,carg,larg !number of arguments, counter and length
+ character(:),allocatable   :: arg            !argument
 
  integer      :: i
 
@@ -71,9 +71,13 @@ program gems
   if(narg>0) then
 
     do carg=1,narg
-      call get_command_argument(carg,arg,larg)
+      call get_command_argument(1,length=larg)
+      allocate(character(larg) :: arg)
+      call get_command_argument (1, value=arg)
 
-      select case(adjustl(arg))
+      arg=adjustl(arg)
+
+      select case(arg)
        case("--help","-h")
          write(*,*) "This is a test"
          exit
@@ -89,8 +93,8 @@ program gems
   endif
     
   ! Ask: Input from standar input or from a .gms file
-  call get_command_argument (1, stdin, stdinlen)
-  if (stdin/='') then
+  if (stdinlen>0) then
+  ! if (stdin/='') then
 
     ! Set ioprefix as the input name
     if(stdin(stdinlen-3:stdinlen)==".gms") then
@@ -141,11 +145,11 @@ program gems
     ! Input from standar input
     
     ! Stndin is standar in
-    write(stdin,'("standar in")')
+    stdin='("standar in")'
     stdinlen=3+4
 
     ! Log will be standar out
-    write(logfile,'("standar out")')
+    logfile='("standar out")'
 
     ! ioprefix will be fixed
     ioprefix='gms'
@@ -206,16 +210,16 @@ program gems
 
 ! INCIALIZACION DE OBJETOS Y VARIABLES
 
-  call atoms%init()
-  call alocal%init()
-  call aghost%init()
-
   ! Init default random seed
   call std_init()
   call init_ran()
 
   ! Init default elements
   call elements_init()
+
+  ! Init default output precision
+  prf='20.7'
+  pri='0'
 
   ! Variable caracter con la dimension de compilacion
   write(cdm,'(i1)') dm
@@ -224,12 +228,13 @@ program gems
   call polvars%init()
 
   ! Variables de modulos
-  call polvar_neighbour()
+  call polvar_neighbor()
 
   ! Guardo algunas variables utiles
 
   ! $jobname$
-  call polvar_hard('jobname',trim(adjustl(ioprefix)))
+  ioprefix=trim(adjustl(ioprefix))
+  call polvar_hard('jobname',ioprefix)
 
   ! $i$
   call polvar_hard('i',0)
@@ -246,7 +251,7 @@ program gems
   call polvar_link('step',dm_steps)
   call polvar_link('dt',dt)
   
-  call polvar_link('pi',pi)
+  call polvar_link('pi',pi);call polvar_readonly('pi');
 
 #ifdef HAVE_MPI
 
@@ -270,22 +275,33 @@ var_save => polvar_save
 var_set => polvar_hard
 var_expand => polvar_expand
 
-!INI. GRUPOS
+! Groups
+! ------
 
-  ! Systema
-  call sys%init('sys ')
-  ! Creacion
-  call gnew%init('gnew')
-  ! Seleccion en Memoria
-  call gsel%init('gsel')
-  do i = 1,mgr
-    call gr(i)%init('grp'//trim(.ich.i))
-  enddo
-  
-  ! Initialize Integration, Interaction and OutputFiles vectors
-  call igr_vop%init()
-  call of_vop%init()
-  call its%init()
+! gindex
+call gindex%init()
+
+! System
+call sys%init()
+   
+! Ghost
+call ghost%init()
+   
+! Creation
+call gnew%init()
+
+! Selection
+call gsel%init()
+
+! CLI memory groups
+do i = 1,mgr
+  call gr(i)%init()
+enddo
+
+! Initialize Integration, Interaction and OutputFiles vectors
+call ngindex%init()
+call of_vop%init()
+call its%init()
 
 ! This is the command interpreter driver. In general execute_command subroutine is
 ! call to parse the command. However, there are a few commands that are directly
@@ -334,7 +350,7 @@ var_expand => polvar_expand
     call wstd(); write(logunit,'("wall time: ",i0," h ",i0," m")') int(time1/3600.0_dp),int(mod(time1,3600.d0)/60.0_dp)
   endif 
  
-!  call wstd(); write(logunit,*) 'with ',rupdate,' neighbour list acualizations'
+!  call wstd(); write(logunit,*) 'with ',rupdate,' neighbor list acualizations'
   call wstd(); write(logunit,'("vecinos actualizados: ",i0," veces")') nupd_vlist
 
   if(b_ckp) call system('rm -rf '//chpfile)

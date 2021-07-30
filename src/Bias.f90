@@ -25,10 +25,9 @@ module gems_bias
 !
 ! Es decir, la fuerza se actualiza al estilo f=f+u(f)
 
-use gems_groups, only: group
-use gems_atoms, only: atom_dclist
+use gems_groups, only: group, atom_dclist
 use gems_constants, only: dp
-use gems_neighbour, only: intergroup, intergroup0_empty
+use gems_neighbor, only: ngroup
 use gems_errors, only:werr
 use gems_input_parsing, only:readf
 
@@ -51,21 +50,21 @@ logical, public   :: biason=.false.
 public :: bias_new, bias_cli, write_bias, compress_below
 
 
-type,extends(intergroup)  :: mccammon
+type,extends(ngroup)  :: mccammon
   real(dp)    :: e,alpha
   contains
   procedure   :: interact => mc_bias
   procedure,nopass :: cli => bias_cli
 end type
  
-type,extends(intergroup)  :: compress_below
+type,extends(ngroup)  :: compress_below
   real(dp)    :: e,alpha
   contains
   procedure   :: interact => lpe_bias
   procedure,nopass :: cli => bias_cli
 end type
  
-type,extends(intergroup)  :: compress
+type,extends(ngroup)  :: compress
   real(dp)    :: alpha
   contains
   procedure   :: interact => lp_bias
@@ -74,87 +73,84 @@ end type
 
 contains
 
-subroutine bias_new(ig,g1,w)
+subroutine bias_new(g,w)
 character(*),intent(in)   :: w
-type(group)               :: g1
-class(intergroup),pointer :: ig
+class(ngroup),pointer  :: g
               
 select case(w)
-case('mcammon')        ; allocate(mccammon::ig)  
-case('compress_below') ; allocate(compress_below::ig) 
-case('compress')       ; allocate(compress::ig) 
+case('mcammon')        ; allocate(mccammon::g)  
+case('compress_below') ; allocate(compress_below::g) 
+case('compress')       ; allocate(compress::g) 
 case default
   call werr('Bias function not found')
 endselect  
- 
-call ig%init(g1=g1)
-ig%lista => intergroup0_empty
+g%lista => null()
      
 end subroutine bias_new
            
-subroutine bias_cli(ig)
+subroutine bias_cli(g)
 use gems_errors, only: werr
 use gems_input_parsing, only: readf
 use gems_constants, only: ev_ui
-class(intergroup),intent(inout) :: ig
+class(ngroup),intent(inout) :: g
 real(dp)                        :: f1,f2
            
 biason=.true.
 
-select type(ig)
+select type(g)
 type is(mccammon)
   call readf(f1,ev_ui)  ! E
   call readf(f2,ev_ui)  ! alpha
-  call mc_set(ig,f1,f2)
+  call mc_set(g,f1,f2)
 type is(compress_below) 
   call readf(f1,ev_ui) ! E
   call readf(f2)       ! alpha
-  call lpe_set(ig,f1,f2)
+  call lpe_set(g,f1,f2)
 type is(compress) 
   call readf(f1)       ! alpha
-  call lp_set(ig,f1)
+  call lp_set(g,f1)
 class default
   call werr('Bias function not found')
 endselect  
 
 end subroutine
 
-subroutine mc_set(ig,f1,f2)
-type(mccammon)       :: ig
+subroutine mc_set(g,f1,f2)
+type(mccammon)       :: g
 real(dp),intent(in)  :: f1,f2
-ig%e=f1
-ig%alpha=f2
+g%e=f1
+g%alpha=f2
 end subroutine
              
-subroutine mc_bias(ig)
+subroutine mc_bias(g)
 ! Convierte la itneraccion no boosteada en boosteada
 ! Debe existir fce como hypervector y necesita hd_fce 
-class(mccammon),intent(inout)  :: ig 
+class(mccammon),intent(inout)  :: g 
 real(dp)                       :: aux
 real(dp)                       :: e, lbias
 type(atom_dclist),pointer      :: la
 integer                        :: i
                
 biased=cepot
-ig%epot=0._dp
+g%epot=0._dp
 
-e=ig%e-cepot
+e=g%e-cepot
  
 if (e>0) then
 
-  lbias=e*e/(ig%alpha+e)
+  lbias=e*e/(g%alpha+e)
 
   !corrijo la fuerza
   aux=lbias/e
   aux=1._dp+aux*aux-2*aux
  
-  ig%epot=lbias
+  g%epot=lbias
   bias=bias+lbias
   
   if(noboost) return
 
-  la => ig%a
-  do i = 1,ig%n(1)
+  la => g%alist
+  do i = 1,g%nat
     la=>la%next
     la%o%force(:)=la%o%force(:)*aux
   enddo
@@ -163,71 +159,71 @@ endif
  
 end subroutine mc_bias
   
-subroutine lpe_set(ig,f1,f2)
-type(compress_below)      :: ig
+subroutine lpe_set(g,f1,f2)
+type(compress_below)      :: g
 real(dp),intent(in)       :: f1,f2
-ig%e=f1
-ig%alpha=f2
+g%e=f1
+g%alpha=f2
 end subroutine
                
-subroutine lpe_bias(ig)
-class(compress_below),intent(inout)  :: ig 
+subroutine lpe_bias(g)
+class(compress_below),intent(inout)  :: g 
 real(dp)                             :: aux
 real(dp)                             :: e, lbias
 type(atom_dclist),pointer            :: la
 integer                              :: i
  
-e=ig%e-cepot
+e=g%e-cepot
 
 biased = cepot
-ig%epot = 0._dp
+g%epot = 0._dp
 
 if (e>0) then
 
-  aux=ig%alpha-1.0_dp
+  aux=g%alpha-1.0_dp
   lbias=-e*aux
  
-  ig%epot=lbias
+  g%epot=lbias
   bias=bias+lbias
  
   if(noboost) return
 
   !corrijo la fuerza
-  la => ig%a
-  do i = 1,ig%n(1)
+  la => g%alist
+  do i = 1,g%nat
     la=>la%next
-    la%o%force(:)=la%o%force(:)*ig%alpha
+    la%o%force(:)=la%o%force(:)*g%alpha
   enddo
 
 endif
  
 end subroutine lpe_bias
    
-subroutine lp_set(ig,f1)
-type(compress)           :: ig
+subroutine lp_set(g,f1)
+type(compress)           :: g
 real(dp),intent(in)      :: f1
-ig%alpha=f1
+g%alpha=f1
 end subroutine
   
-subroutine lp_bias(ig)
-class(compress),intent(inout)  :: ig 
+subroutine lp_bias(g)
+class(compress),intent(inout)  :: g 
 real(dp)                       :: lbias
 type(atom_dclist),pointer      :: la
 integer                        :: i
 
 biased=cepot
-lbias=cepot*(ig%alpha-1._dp)
-ig%epot=0._dp
+lbias=cepot*(g%alpha-1._dp)
+g%epot=0._dp
  
-ig%epot=lbias
+g%epot=lbias
 bias=bias+lbias
        
 if(noboost) return
 
-la => ig%a
-do i = 1,ig%n(1)
+la => g%alist
+do i = 1,g%nat
   la=>la%next                   
-  la%o%force(:)=la%o%force(:)*ig%alpha
+  la%o%force(:)=la%o%force(:)*g%alpha
 enddo
  
 end subroutine lp_bias

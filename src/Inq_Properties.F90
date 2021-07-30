@@ -30,9 +30,9 @@ module gems_inq_properties
 ! pbc : efectuate the pbc
 ! disrad :
 
-use gems_program_types, only: dt,a,natoms,tbox,box,one_box,gsel,nghost,aghost,mic,ghost
-use gems_groups, only: group
-use gems_atoms, only: atom,atom_dclist
+use gems_program_types, only: dt,tbox,box,one_box,gsel,mic,vdistance
+use gems_neighbor, only: ghost
+use gems_groups, only: group,atom,atom_dclist
 use gems_constants,     only: sp,dp,kB_ui,ui_ev,pi,pio2,dm
 use gems_algebra
 use gems_input_parsing
@@ -42,7 +42,7 @@ implicit none
 
 public
 private :: group,atom,atom_dclist,gsel        ! program_types
-private :: dt,a,natoms                 ! program_types
+private :: dt                   ! program_types
 private :: dm,tbox,box,one_box  ! program_types
 private :: dp,kB_ui,pio2,ui_ev,pi  ! constants
 
@@ -81,80 +81,58 @@ end function inq_pure
 !----------------------------------------------------------
 
 function inq_mayordistance(g1,g2) result(res)
-  ! Busca la maxima distancia entre los atomos del grupo g1 y los del grupo g2
-  type(group),intent(in)    :: g1,g2
-  type(atom_dclist),pointer :: la,lb
-  real(dp)                  :: rd,res
-  integer                   :: i,j
+! Busca la maxima distancia entre los atomos del grupo g1 y los del grupo g2
+class(group),intent(in)    :: g1,g2
+type(atom_dclist),pointer :: la,lb
+real(dp)                  :: rd,res
+integer                   :: i,j
 
-  res=1.e-10_dp
+res=1.e-10_dp
 
-  la => g1%alist 
-  do i = 1,g1%nat
-   la=>la%next
+la => g1%alist 
+do i = 1,g1%nat
+ la=>la%next
 
-   lb => g2%alist 
-   do j = 1,g2%nat
-     lb=>la%next
-     
-     rd =  rdistance2( lb%o, la%o )
-     res = max(res,rd)
+ lb => g2%alist 
+ do j = 1,g2%nat
+   lb=>la%next
+   
+   rd =  rdistance2( lb%o, la%o )
+   res = max(res,rd)
 
-   enddo     
-  enddo     
+ enddo     
+enddo     
 
-  res=sqrt(res)
-      
+res=sqrt(res)
+    
 end function inq_mayordistance
 
-  subroutine inq_pos_v(g,v)
-   ! calcula las coordenadas referidas al punto v
-   type(group)               :: g
-   type(atom_dclist),pointer :: la
-   integer                   :: i
-   real(dp)                  :: v(dm)
+subroutine inq_pos_v(g,v)
+! calcula las coordenadas referidas al punto v
+class(group)               :: g
+type(atom_dclist),pointer :: la
+integer                   :: i
+real(dp)                  :: v(dm)
 
-    la => g%alist%next
-    do i = 1,g%nat
-      la%o%pos_v = la%o%pos - v
-      la => la%next
-    enddo
-  end subroutine inq_pos_v
-
-  subroutine inq_vel_v(g,v)
-   ! calcula las coordenadas referidas al punto v
-   type(group)               :: g
-   type(atom_dclist),pointer :: la
-   real(dp)                  :: v(dm)
-   integer                   :: i
-    la => g%alist%next
-    do i = 1,g%nat
-      la%o%vel_v = la%o%vel - v
-      la => la%next
-    enddo
-  end subroutine inq_vel_v
-
-function vdistance(i,j,mic) result(vd)
-!calculates the distance of two atoms with or without minimum image convention
-real(dp),dimension(dm)  :: vd
-type(atom),intent(in)   :: i,j
-logical,intent(in)      :: mic
-logical                 :: pbc(dm)
-integer                 :: l
-  
-! Distancia
-vd=i%pos-j%pos
-
-! Convencion de imagen minima
-if(.not.mic) return
-
-! Mas rapido usar idnint que un if
-pbc=i%pbc.or.j%pbc
-do l = 1,dm
-  if (pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
+la => g%alist%next
+do i = 1,g%nat
+  la%o%pos_v = la%o%pos - v
+  la => la%next
 enddo
+end subroutine inq_pos_v
 
-end function vdistance
+subroutine inq_vel_v(g,v)
+! calcula las coordenadas referidas al punto v
+class(group)               :: g
+type(atom_dclist),pointer :: la
+real(dp)                  :: v(dm)
+integer                   :: i
+la => g%alist%next
+do i = 1,g%nat
+  la%o%vel_v = la%o%vel - v
+  la => la%next
+enddo
+end subroutine inq_vel_v
 
 function vrs(i,j) result(vd)
 !devuelve un versor que va del atomo i al j
@@ -189,8 +167,8 @@ rd=dot_product(vd,vd)
 end function rdistance2
 
 function interatomic(g)
-!calculates the distance of firts neighbourd distance
-type(group)                 :: g
+!calculates the distance of firts neighbord distance
+class(group)                 :: g
 type(atom_dclist), pointer  :: la1,la2
 real(dp)                    :: idist,interatomic,first
 integer                     :: i,j 
@@ -233,8 +211,8 @@ subroutine bond_order_groups(g1,g2,r1,r2)
 ! Compute the bond order number of atoms in "g1" respect to atoms in group
 ! "g2". "r1" and "r2" are the cut radious of the "bond_order" function.
 use gems_algebra, only: bond_order
-type(group),intent(in)       :: g2
-type(group),intent(inout)    :: g1
+class(group),intent(in)       :: g2
+class(group),intent(inout)    :: g1
 real(dp),intent(in)          :: r1,r2
 real(dp)                     :: vd(dm),rd
 type (atom_dclist),pointer   :: la,lb
@@ -294,62 +272,62 @@ end subroutine bond_order_list
 !----------------------------------------------------------
 
 #ifdef DIM3
-  function inq_dihedral(i,j,k,l) result(phi)
-   !Calcula el angulo dihedro entre 4 atomos.
-   real(dp)                :: phi
-   real(dp),dimension(3)   :: vbxc
-   real(dp),dimension(3)   :: da,db,dc
-   real(dp)                :: ab,bc,ac,at,bt,ct,axb,bxc,rnum,den,signo,cosphi
-   type(atom),intent(in)   :: i,j,k,l
-   integer                 :: m
-   logical                 :: pbc(3)
+function inq_dihedral(i,j,k,l) result(phi)
+!Calcula el angulo dihedro entre 4 atomos.
+real(dp)                :: phi
+real(dp),dimension(3)   :: vbxc
+real(dp),dimension(3)   :: da,db,dc
+real(dp)                :: ab,bc,ac,at,bt,ct,axb,bxc,rnum,den,signo,cosphi
+type(atom),intent(in)   :: i,j,k,l
+integer                 :: m
+logical                 :: pbc(3)
 
-    da=vdistance(j,i, mic)
-    db=vdistance(k,j, mic)
-    dc=vdistance(l,k, mic)
-  
-   ! Producto cruz b con c
-    vbxc=cross_product(db,dc)
-    pbc=i%pbc.or.j%pbc
-    do m = 1,3
-      if (pbc(m)) vbxc(m)=vbxc(m)-box(m)*idnint(vbxc(m)*one_box(m))
-    enddo
-   
-   ! Productos escalares cruzados
-    ab=dot_product(da,db)
-    bc=dot_product(db,dc)
-    ac=dot_product(da,dc)
-   
-   ! Modulo cuadrado de cada distancia
-    at=dot_product(da,da)
-    bt=dot_product(db,db)
-    ct=dot_product(dc,dc)
-   
-   ! Productors vectoriales al cuadrado entre distancias
-    axb=at*bt-ab*ab
-    bxc=bt*ct-bc*bc
-   
-   ! 
-    rnum=ab*bc-ac*bt ! El producto cuadrado de los vectoriales?
-    den=axb*bxc      ! El producto cuadrado de los vectoriales
-   
-    !chequeo de que átomos no están en la misma línea
-    if(den>1.d-12)then
-      den=dsqrt(den) ! El producto de los vectoriales
-   
-      !coseno del ángulo
-      cosphi=rnum/den
-      cosphi=dmin1(cosphi,1.0_dp)
-      cosphi=dmax1(cosphi,-1.0_dp)
+da=vdistance(j,i, mic)
+db=vdistance(k,j, mic)
+dc=vdistance(l,k, mic)
 
-      !signo del ángulo
-      signo=dot_product(da,vbxc)
-   
-      !definición del ángulo
-      phi=dsign(dacos(cosphi),signo) 
-    endif
+! Producto cruz b con c
+vbxc=cross_product(db,dc)
+pbc=i%pbc.or.j%pbc
+do m = 1,3
+  if (pbc(m)) vbxc(m)=vbxc(m)-box(m)*idnint(vbxc(m)*one_box(m))
+enddo
 
-  end function inq_dihedral
+! Productos escalares cruzados
+ab=dot_product(da,db)
+bc=dot_product(db,dc)
+ac=dot_product(da,dc)
+
+! Modulo cuadrado de cada distancia
+at=dot_product(da,da)
+bt=dot_product(db,db)
+ct=dot_product(dc,dc)
+
+! Productors vectoriales al cuadrado entre distancias
+axb=at*bt-ab*ab
+bxc=bt*ct-bc*bc
+
+! 
+rnum=ab*bc-ac*bt ! El producto cuadrado de los vectoriales?
+den=axb*bxc      ! El producto cuadrado de los vectoriales
+
+!chequeo de que átomos no están en la misma línea
+if(den>1.d-12)then
+  den=dsqrt(den) ! El producto de los vectoriales
+
+  !coseno del ángulo
+  cosphi=rnum/den
+  cosphi=dmin1(cosphi,1.0_dp)
+  cosphi=dmax1(cosphi,-1.0_dp)
+
+  !signo del ángulo
+  signo=dot_product(da,vbxc)
+
+  !definición del ángulo
+  phi=dsign(dacos(cosphi),signo) 
+endif
+
+end function inq_dihedral
 #endif
 
 !                                                  energies
@@ -374,52 +352,52 @@ g%b_epot=.true.
 
 end subroutine inq_pot_energy
      
-  subroutine inq_abskin_energy(g)
-   type(group)         :: g
-   type(atom_dclist),pointer   :: la
-   integer              :: i
+subroutine inq_abskin_energy(g)
+class(group)         :: g
+type(atom_dclist),pointer   :: la
+integer              :: i
 
-   if(g%b_ekin) return
+if(g%b_ekin) return
 
-   g%ekin = 0.0_dp
-
-
-   ! Prerequisitos
-   la => g%alist
-   do i = 1,g%nat
-     la => la%next
-     g%ekin = g%ekin + dot_product(la%o%vel,la%o%vel)*la%o%mass
-   enddo
-
-   g%ekin = g%ekin*0.5_dp
-
-   g%b_ekin=.true.
-  end subroutine inq_abskin_energy
-      
-  subroutine inq_kin_energy(g)
-   type(group)         :: g
-   type(atom_dclist),pointer   :: la
-   integer              :: i
-
-   if(g%b_ekin) return
-
-   g%ekin = 0.0_dp
+g%ekin = 0.0_dp
 
 
-   ! Prerequisitos
-   call inq_cm_vel(g)
-   call inq_vel_v(g,g%cm_vel)
+! Prerequisitos
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  g%ekin = g%ekin + dot_product(la%o%vel,la%o%vel)*la%o%mass
+enddo
 
-   la => g%alist
-   do i = 1,g%nat
-     la => la%next
-     g%ekin = g%ekin + dot_product(la%o%vel_v,la%o%vel_v)*la%o%mass
-   enddo
+g%ekin = g%ekin*0.5_dp
 
-   g%ekin = g%ekin*0.5_dp
+g%b_ekin=.true.
+end subroutine inq_abskin_energy
+    
+subroutine inq_kin_energy(g)
+class(group)         :: g
+type(atom_dclist),pointer   :: la
+integer              :: i
 
-   g%b_ekin=.true.
-  end subroutine inq_kin_energy
+if(g%b_ekin) return
+
+g%ekin = 0.0_dp
+
+
+! Prerequisitos
+call inq_cm_vel(g)
+call inq_vel_v(g,g%cm_vel)
+
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  g%ekin = g%ekin + dot_product(la%o%vel_v,la%o%vel_v)*la%o%mass
+enddo
+
+g%ekin = g%ekin*0.5_dp
+
+g%b_ekin=.true.
+end subroutine inq_kin_energy
 
 subroutine inq_temperature(g)
 class(group)         :: g
@@ -464,7 +442,6 @@ do m = 1,g%nat
 enddo
 virial(:,:) = g%virial(:,:)
 
-
 ! Avoiding repeted terms in the virial:
 !
 ! https://sourceforge.net/p/lammps/mailman/message/35720312/
@@ -496,27 +473,23 @@ virial(:,:) = g%virial(:,:)
 ! mayor que el local). De esta manera solo la mitad de las interacciones con
 ! los atomos ghost es tenida en cuenta.
 
-if(ghost) then
-
-  la => aghost
-  do m = 1,nghost
-    la=>la%next
-    o => la%o
-    do i = 1,3
-      ! if(o%pos(i)>box(i)) g%virial(i,j) = g%virial(i,j) + box(i)*o%force(j)
-      ! g%virial(i,:) = g%virial(i,:) + box(i)*floor(o%pos(i)*one_box(i))*o%force(:)
-      g%virial(i,:) = g%virial(i,:) + box(i)*o%boxcr(i)*o%force(:)
-    enddo
+la => ghost%alist
+do m = 1,ghost%nat
+  la=>la%next
+  o => la%o
+  do i = 1,3
+    ! if(o%pos(i)>box(i)) g%virial(i,j) = g%virial(i,j) + box(i)*o%force(j)
+    ! g%virial(i,:) = g%virial(i,:) + box(i)*floor(o%pos(i)*one_box(i))*o%force(:)
+    g%virial(i,:) = g%virial(i,:) + box(i)*o%boxcr(i)*o%force(:)
   enddo
+enddo
 
-else
-  call wwan('Calculation of virial with MIC is not fully implemented in all cases.')
-  ! call wwan('Calculation of virial with MIC is not implemented yet. If 
-  !     no periodic atom is included in the virial requested, then
-  !     the calculation is fine and ignore this message. If there is periodic
-  !     atoms but the box is large enough to avoid interaction with the replicas,
-  !     then the virial calculation is also fine and ignore this message')
-endif
+call wwan('Calculation of virial with MIC is not fully implemented in all cases.',mic)
+! call wwan('Calculation of virial with MIC is not implemented yet. If 
+!     no periodic atom is included in the virial requested, then
+!     the calculation is fine and ignore this message. If there is periodic
+!     atoms but the box is large enough to avoid interaction with the replicas,
+!     then the virial calculation is also fine and ignore this message')
 
 ! Note that the virial as defined by Thmopson does not include the volume as
 ! denominator
@@ -577,7 +550,7 @@ end subroutine inq_pressure
 !----------------------------------------------------------
  
 subroutine inq_mass(g)
-type(group)         :: g
+class(group)         :: g
 type(atom_dclist),pointer   :: la
 integer              :: i
 
@@ -702,7 +675,7 @@ end subroutine
 !---------------------------------------------------------- 
   
 subroutine inq_cg(g)
-type(group)         :: g
+class(group)         :: g
 type(atom_dclist),pointer   :: la
 integer              :: i
 
@@ -720,7 +693,7 @@ g%b_cg_pos=.true.
 end subroutine
            
 subroutine inq_refers_cg(g)
-type(group)                 :: g
+class(group)                 :: g
 type(atom_dclist),pointer   :: la
 integer                     :: i
 
@@ -735,7 +708,7 @@ enddo
 end subroutine inq_refers_cg
            
 subroutine inq_boundingbox(g)
-type(group)                 :: g
+class(group)                 :: g
 
 if (g%b_maxpos.and.g%b_minpos) return
 
@@ -784,7 +757,7 @@ end subroutine get_boundingbox
 !-----------------------------------------------------------------
 
 subroutine inq_bondorder(g,r1,r2)
-type(group),intent(in)      :: g
+class(group),intent(in)      :: g
 real(dp)                    :: vd(dm),rd,aux
 real(dp)                    :: r1,r2
 type(atom_dclist),pointer   :: la,lb
@@ -822,359 +795,359 @@ end do
 end subroutine  
 !                                        angular properties
 !----------------------------------------------------------
-  subroutine inq_covariance(g)
-    type(group)                :: g
-    type(atom_dclist),pointer  :: la
-    integer                    :: k,l,i
+subroutine inq_covariance(g)
+class(group)                :: g
+type(atom_dclist),pointer  :: la
+integer                    :: k,l,i
 
-    if(g%b_covar) return
+if(g%b_covar) return
 
-    g%covar = 0.0_dp
-    la => g%alist%next
-    do i = 1,g%nat
-      do l=1,dm
-        do k=1,dm
-          g%covar(l,k) = g%covar(l,k) + la%o%pos(l)*la%o%pos(k)
-        enddo                 
-      enddo
-      la => la%next
-    enddo
-    g%covar = g%covar/g%nat
+g%covar = 0.0_dp
+la => g%alist%next
+do i = 1,g%nat
+  do l=1,dm
+    do k=1,dm
+      g%covar(l,k) = g%covar(l,k) + la%o%pos(l)*la%o%pos(k)
+    enddo                 
+  enddo
+  la => la%next
+enddo
+g%covar = g%covar/g%nat
 
-    g%b_covar = .true.
+g%b_covar = .true.
 
-  end subroutine inq_covariance
+end subroutine inq_covariance
 
 ! CUIDADO QUE PUEDEN TENER BUGS
 
-  subroutine inq_inerciaxy(g)
-    type(group)               :: g
-    type(atom_dclist),pointer :: la
-    integer                   :: k,l,i
-    real(dp)                  :: aux(2)
+subroutine inq_inerciaxy(g)
+class(group)               :: g
+type(atom_dclist),pointer :: la
+integer                   :: k,l,i
+real(dp)                  :: aux(2)
 
-    if(g%b_inercia) return
+if(g%b_inercia) return
 
-    g%inercia = 0.0_dp
-    la => g%alist%next
-    do i = 1,g%nat
-      do l=1,3
-        aux=la%o%pos(1:2)
-        g%inercia(l,l)=g%inercia(l,l) + dot_product(aux,aux)*la%o%mass
-        do k=1,2
-          g%inercia(l,k)=g%inercia(l,k) - la%o%pos(k)*la%o%pos(l)*la%o%mass
-        enddo
-      enddo
-      la => la%next
+g%inercia = 0.0_dp
+la => g%alist%next
+do i = 1,g%nat
+  do l=1,3
+    aux=la%o%pos(1:2)
+    g%inercia(l,l)=g%inercia(l,l) + dot_product(aux,aux)*la%o%mass
+    do k=1,2
+      g%inercia(l,k)=g%inercia(l,k) - la%o%pos(k)*la%o%pos(l)*la%o%mass
     enddo
+  enddo
+  la => la%next
+enddo
 
-    g%b_inercia = .true.
-  end subroutine
+g%b_inercia = .true.
+end subroutine
  
-  subroutine inq_inercia(g)
-    type(group)               :: g
-    type(atom_dclist),pointer :: la
-    integer                   :: k,l,i
+subroutine inq_inercia(g)
+class(group)               :: g
+type(atom_dclist),pointer :: la
+integer                   :: k,l,i
 
-    if(g%b_inercia) return
+if(g%b_inercia) return
 
-    g%inercia = 0.0_dp
-    la => g%alist%next
-    do i = 1,g%nat
-      do l=1,dm
-        g%inercia(l,l)=g%inercia(l,l) + dot_product(la%o%pos,la%o%pos)*la%o%mass
-        do k=1,dm
-          g%inercia(l,k)=g%inercia(l,k) - la%o%pos(k)*la%o%pos(l)*la%o%mass
-        enddo
-      enddo
-      la => la%next
+g%inercia = 0.0_dp
+la => g%alist%next
+do i = 1,g%nat
+  do l=1,dm
+    g%inercia(l,l)=g%inercia(l,l) + dot_product(la%o%pos,la%o%pos)*la%o%mass
+    do k=1,dm
+      g%inercia(l,k)=g%inercia(l,k) - la%o%pos(k)*la%o%pos(l)*la%o%mass
     enddo
+  enddo
+  la => la%next
+enddo
 
-    g%b_inercia = .true.
-  end subroutine
+g%b_inercia = .true.
+end subroutine
 
-  subroutine inq_angular_mom(g)
-    use gems_algebra, only:cross_product
-    type(group)               :: g
-    type(atom_dclist),pointer :: la
-    integer                   :: i
+subroutine inq_angular_mom(g)
+use gems_algebra, only:cross_product
+class(group)               :: g
+type(atom_dclist),pointer :: la
+integer                   :: i
 
-    if(g%b_ang_mom) return
+if(g%b_ang_mom) return
 
-    ! Prerequisitos
-    call group_inq_cmpos(g)
-    call inq_cm_vel(g)
-    call inq_pos_v(g,g%cm_pos)
-    call inq_vel_v(g,g%cm_vel)
+! Prerequisitos
+call group_inq_cmpos(g)
+call inq_cm_vel(g)
+call inq_pos_v(g,g%cm_pos)
+call inq_vel_v(g,g%cm_vel)
 
-    g%ang_mom = 0.0_dp
-    la => g%alist%next
-    do i = 1,g%nat
-      g%ang_mom = g%ang_mom + cross_product(la%o%pos_v,la%o%vel_v)*la%o%mass
-      la => la%next
-    enddo
+g%ang_mom = 0.0_dp
+la => g%alist%next
+do i = 1,g%nat
+  g%ang_mom = g%ang_mom + cross_product(la%o%pos_v,la%o%vel_v)*la%o%mass
+  la => la%next
+enddo
 
-    g%b_ang_mom = .true.
-  end subroutine
+g%b_ang_mom = .true.
+end subroutine
 
-  subroutine inq_angular_vel(g)
-    type(group)               :: g
-    real(sp),dimension(3,3)   :: inercia_aux
-    real(sp),dimension(3,1)   :: ang_vel
+subroutine inq_angular_vel(g)
+class(group)               :: g
+real(sp),dimension(3,3)   :: inercia_aux
+real(sp),dimension(3,1)   :: ang_vel
 
-    if(g%b_ang_mom) return
+if(g%b_ang_mom) return
 
-    ! Prerequisitos
-    call inq_angular_mom(g)
-    call inq_inercia(g)
+! Prerequisitos
+call inq_angular_mom(g)
+call inq_inercia(g)
 
-    g%ang_vel = g%ang_mom
-    inercia_aux=real(g%inercia,sp)
-    ang_vel(:,1)=real(g%ang_vel,sp)
+g%ang_vel = g%ang_mom
+inercia_aux=real(g%inercia,sp)
+ang_vel(:,1)=real(g%ang_vel,sp)
 
-    ! FIXME: Necesito una subrrutina equivalente al NR de Gaussj
-    ! call gaussj(inercia_aux,ang_vel)
-    g%inercia = inercia_aux
-    g%ang_vel = ang_vel(:,1)
-    !g%ang_vel = cramers_3x3(g%inercia,g%ang_mom) ! otra opcion
+! FIXME: Necesito una subrrutina equivalente al NR de Gaussj
+! call gaussj(inercia_aux,ang_vel)
+g%inercia = inercia_aux
+g%ang_vel = ang_vel(:,1)
+!g%ang_vel = cramers_3x3(g%inercia,g%ang_mom) ! otra opcion
 
-    g%b_ang_mom = .true.
-  end subroutine
+g%b_ang_mom = .true.
+end subroutine
 
 ! SEGURO TIENE BUGS
 
-  subroutine inq_angular_energy(g)
-    type(group)               :: g
-    type(atom_dclist),pointer :: la
-    integer                   :: i
-    real(dp)                  :: aux(3)
+subroutine inq_angular_energy(g)
+class(group)               :: g
+type(atom_dclist),pointer :: la
+integer                   :: i
+real(dp)                  :: aux(3)
 
-    if(g%b_evib.and.g%b_erot) return
+if(g%b_evib.and.g%b_erot) return
 
-    ! Prerequisitos
-    call inq_angular_vel(g)
-    call group_inq_cmpos(g)
-    call inq_cm_vel(g)
-    call inq_pos_v(g,g%cm_pos)
-    call inq_vel_v(g,g%cm_vel)
+! Prerequisitos
+call inq_angular_vel(g)
+call group_inq_cmpos(g)
+call inq_cm_vel(g)
+call inq_pos_v(g,g%cm_pos)
+call inq_vel_v(g,g%cm_vel)
 
-    g%erot = 0.0_dp
-    g%evib = 0.0_dp
-    la => g%alist%next
-    do i = 1,g%nat
-      aux = cross_product(g%ang_vel,la%o%pos_v)
-      la%o%vel_rot = aux(1:dm)
-      la%o%vel_vib = la%o%vel_v-la%o%vel_rot
-      la%o%erot_ss = dot_product(la%o%vel_rot,la%o%vel_rot)*la%o%mass
-      la%o%evib_ss = dot_product(la%o%vel_vib,la%o%vel_vib)*la%o%mass
-      g%evib = g%evib + la%o%evib_ss
-      g%erot = g%erot + la%o%erot_ss
-      la => la%next
-    enddo
-    g%evib = g%evib*0.5_dp
-    g%erot = g%erot*0.5_dp
+g%erot = 0.0_dp
+g%evib = 0.0_dp
+la => g%alist%next
+do i = 1,g%nat
+  aux = cross_product(g%ang_vel,la%o%pos_v)
+  la%o%vel_rot = aux(1:dm)
+  la%o%vel_vib = la%o%vel_v-la%o%vel_rot
+  la%o%erot_ss = dot_product(la%o%vel_rot,la%o%vel_rot)*la%o%mass
+  la%o%evib_ss = dot_product(la%o%vel_vib,la%o%vel_vib)*la%o%mass
+  g%evib = g%evib + la%o%evib_ss
+  g%erot = g%erot + la%o%erot_ss
+  la => la%next
+enddo
+g%evib = g%evib*0.5_dp
+g%erot = g%erot*0.5_dp
 
-    g%b_evib = .true.
-    g%b_erot = .true.
-  end subroutine
+g%b_evib = .true.
+g%b_erot = .true.
+end subroutine
 
 !                                                 morfology
 !----------------------------------------------------------
 
-  subroutine inq_principal_geometric_axis(g,trns)
-   !previus calcs needed: g%covar_gc
-   real(sp)                      :: aux(3,3),aux2(3,3)
-   real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   ! integer                       :: nrot
-   type(group)                   :: g
+subroutine inq_principal_geometric_axis(g,trns)
+!previus calcs needed: g%covar_gc
+real(sp)                      :: aux(3,3),aux2(3,3)
+real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
+! integer                       :: nrot
+class(group)                   :: g
 
-   if (g%b_mainaxis) return
+if (g%b_mainaxis) return
 
-   ! Prerequisitos
-   call inq_covariance(g)
-                     
-   aux=real(g%covar,sp)
-   g%mainaxis=0.d0
-   ! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
-   ! call jacobi(aux,g%mainaxis,aux2,nrot)
-   ! call eigsrt(g%mainaxis,aux2)
-   if(present(trns)) trns=transpose(aux2)
-   g%mainaxis = sqrt(g%mainaxis)
+! Prerequisitos
+call inq_covariance(g)
+                  
+aux=real(g%covar,sp)
+g%mainaxis=0.d0
+! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
+! call jacobi(aux,g%mainaxis,aux2,nrot)
+! call eigsrt(g%mainaxis,aux2)
+if(present(trns)) trns=transpose(aux2)
+g%mainaxis = sqrt(g%mainaxis)
 
-   !triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
+!triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
 
-   !    prolat_____
-   !   |          /|o
-   !  b/c       /  |b
-   !   |   sphere  |l
-   !   !    /      |a
-   !   |  /        |t
-   !   [/__ a/b____|
+!    prolat_____
+!   |          /|o
+!  b/c       /  |b
+!   |   sphere  |l
+!   !    /      |a
+!   |  /        |t
+!   [/__ a/b____|
 
-   g%b_mainaxis = .true.
+g%b_mainaxis = .true.
 
-  end subroutine inq_principal_geometric_axis
+end subroutine inq_principal_geometric_axis
 
-  subroutine inq_principal_mass_axis(g,trns)
-   !previus calcs needed: g%covar_gc
-   real(sp)                      :: aux(3,3),aux2(3,3)
-   real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   ! integer                       :: nrot
-   type(group)                   :: g
+subroutine inq_principal_mass_axis(g,trns)
+!previus calcs needed: g%covar_gc
+real(sp)                      :: aux(3,3),aux2(3,3)
+real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
+! integer                       :: nrot
+class(group)                   :: g
 
-   if (g%b_mainaxis) return
+if (g%b_mainaxis) return
 
-   ! Prerequisitos
-   call inq_inercia(g)
-                     
-   aux=real(g%inercia,sp)
-   g%mainaxis=0.d0
-   ! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
-   ! call jacobi(aux,g%mainaxis,aux2,nrot)
-   ! call eigsrt(g%mainaxis,aux2)
-   if(present(trns)) trns=transpose(aux2)
-   g%mainaxis = sqrt(g%mainaxis)
+! Prerequisitos
+call inq_inercia(g)
+                  
+aux=real(g%inercia,sp)
+g%mainaxis=0.d0
+! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
+! call jacobi(aux,g%mainaxis,aux2,nrot)
+! call eigsrt(g%mainaxis,aux2)
+if(present(trns)) trns=transpose(aux2)
+g%mainaxis = sqrt(g%mainaxis)
 
-   !triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
+!triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
 
-   !    prolat_____
-   !   |          /|o
-   !  b/c       /  |b
-   !   |   sphere  |l
-   !   !    /      |a
-   !   |  /        |t
-   !   [/__ a/b____|
+!    prolat_____
+!   |          /|o
+!  b/c       /  |b
+!   |   sphere  |l
+!   !    /      |a
+!   |  /        |t
+!   [/__ a/b____|
 
-   g%b_mainaxis = .true.
+g%b_mainaxis = .true.
 
-  end subroutine inq_principal_mass_axis
+end subroutine inq_principal_mass_axis
  
-  subroutine inq_principal_mass_xyaxis(g,trns)
-   ! use nr,only: jacobi,eigsrt
-   !previus calcs needed: g%covar_gc
-   real(sp)                      :: aux(3,3),aux2(3,3)
-   real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
-   ! integer                       :: nrot
-   type(group)                   :: g
+subroutine inq_principal_mass_xyaxis(g,trns)
+! use nr,only: jacobi,eigsrt
+!previus calcs needed: g%covar_gc
+real(sp)                      :: aux(3,3),aux2(3,3)
+real(dp),optional,intent(out) :: trns(3,3)  ! Matriz de transformacion (use rotate)
+! integer                       :: nrot
+class(group)                   :: g
 
-   if (g%b_mainaxis) return
+if (g%b_mainaxis) return
 
-   ! Prerequisitos
-   call inq_inerciaxy(g)
-                     
-   aux=real(g%inercia,sp)
-   g%mainaxis=0.d0
-   ! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
-   ! call jacobi(aux,g%mainaxis,aux2,nrot)
-   g%mainaxis(3)=-1.0e8_dp
-   ! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
-   ! call eigsrt(g%mainaxis,aux2)
-   if(present(trns)) trns=transpose(aux2)
-   g%mainaxis = sqrt(g%mainaxis)
+! Prerequisitos
+call inq_inerciaxy(g)
+                  
+aux=real(g%inercia,sp)
+g%mainaxis=0.d0
+! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
+! call jacobi(aux,g%mainaxis,aux2,nrot)
+g%mainaxis(3)=-1.0e8_dp
+! FIXME: Necesito una subrrutina equivalente a jacobi y eigsrt del numerical recipes
+! call eigsrt(g%mainaxis,aux2)
+if(present(trns)) trns=transpose(aux2)
+g%mainaxis = sqrt(g%mainaxis)
 
-   !triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
+!triax_param = princ_axis(2)**2/(princ_axis(1)*princ_axis(dm))
 
-   !    prolat_____
-   !   |          /|o
-   !  b/c       /  |b
-   !   |   sphere  |l
-   !   !    /      |a
-   !   |  /        |t
-   !   [/__ a/b____|
+!    prolat_____
+!   |          /|o
+!  b/c       /  |b
+!   |   sphere  |l
+!   !    /      |a
+!   |  /        |t
+!   [/__ a/b____|
 
-   g%b_mainaxis = .true.
+g%b_mainaxis = .true.
 
-  end subroutine inq_principal_mass_xyaxis
+end subroutine inq_principal_mass_xyaxis
 
-  function inq_triaxial_param(g)
-   real(dp)          :: inq_triaxial_param
-   type(group)       :: g
-    
-   call inq_principal_geometric_axis(g)
-                      
+function inq_triaxial_param(g)
+real(dp)          :: inq_triaxial_param
+class(group)       :: g
+ 
+call inq_principal_geometric_axis(g)
+                   
 #ifdef DIM3
-   inq_triaxial_param = g%mainaxis(3)*g%mainaxis(1)/(g%mainaxis(2)*g%mainaxis(2))
+inq_triaxial_param = g%mainaxis(3)*g%mainaxis(1)/(g%mainaxis(2)*g%mainaxis(2))
 #endif
 #ifdef DIM2
-   inq_triaxial_param = g%mainaxis(1)/g%mainaxis(2)
+inq_triaxial_param = g%mainaxis(1)/g%mainaxis(2)
 #endif
 #ifdef DIM1
-   inq_triaxial_param = 1.0_dp
+inq_triaxial_param = 1.0_dp
 #endif
-   inq_triaxial_param = log(inq_triaxial_param)
+inq_triaxial_param = log(inq_triaxial_param)
 
-  end function inq_triaxial_param
+end function inq_triaxial_param
 
-  function inq_disrad(npoints,long,g)
-    integer                      :: i,j,npoints,counts(npoints),dist
-    real(dp)                     :: volfac,dr,dr2,long,long2,rd
-    real(dp),allocatable         :: inq_disrad(:,:)
-    real(dp)                     :: vd(dm)
-    type(group)                  :: g
-    type(atom_dclist),pointer    :: la,lb
-    
-    allocate(inq_disrad(2,npoints))
+function inq_disrad(npoints,long,g)
+integer                      :: i,j,npoints,counts(npoints),dist
+real(dp)                     :: volfac,dr,dr2,long,long2,rd
+real(dp),allocatable         :: inq_disrad(:,:)
+real(dp)                     :: vd(dm)
+class(group)                  :: g
+type(atom_dclist),pointer    :: la,lb
 
-    !para no tener que sacar la raiz en cada iteracion
-    long2=long*long
-    
-    dr = long/npoints
-    dr2 = long2/npoints
-    counts=0
-    
-    !make the histogram
-    la => g%alist%next
-    do i = 1, g%nat - 1
+allocate(inq_disrad(2,npoints))
 
-      lb => la%next
-      do j = i+1, g%nat
-        vd = vdistance(la%o,lb%o, mic)
-        rd = dot_product(vd,vd)
-        if (rd.lt.long2) then
-          dist = int(rd/dr2)+1
-          counts(dist) = counts(dist) + 1
-        endif
-        lb => lb%next
-      enddo
+!para no tener que sacar la raiz en cada iteracion
+long2=long*long
 
-      la => la%next
-    enddo
-    
-    volfac = 4.0_dp*pi/dm
-    
-    !normalize the histogram
-    do i = 1,npoints
-      inq_disrad(1,i) = dr*(i-0.5_dp)
-      inq_disrad(2,i) = counts(i)/(volfac*(i*dr)**dm)
-    enddo
-    
-    inq_disrad(2,:) = inq_disrad(2,:) / maxval(inq_disrad)
-    
-  end function
-        
-  function inq_pdisrad(p,g) result(pdis)
-  use gems_program_types, only: atom_distancetopoint
-    real(dp),intent(in)          :: p(dm)
-    type(group),intent(in)       :: g
-    real(dp)                     :: pdis(g%nat)
-    real(dp)                     :: vd(dm)
-    type(atom_dclist),pointer    :: la
-    integer                      :: i
-    
-    la => g%alist
-    do i = 1, g%nat
-      la => la%next
-      vd = atom_distancetopoint(la%o,p)
-      pdis(i)=sqrt(dot_product(vd,vd))
-    enddo
-    
-  end function inq_pdisrad
+dr = long/npoints
+dr2 = long2/npoints
+counts=0
+
+!make the histogram
+la => g%alist%next
+do i = 1, g%nat - 1
+
+  lb => la%next
+  do j = i+1, g%nat
+    vd = vdistance(la%o,lb%o, mic)
+    rd = dot_product(vd,vd)
+    if (rd.lt.long2) then
+      dist = int(rd/dr2)+1
+      counts(dist) = counts(dist) + 1
+    endif
+    lb => lb%next
+  enddo
+
+  la => la%next
+enddo
+
+volfac = 4.0_dp*pi/dm
+
+!normalize the histogram
+do i = 1,npoints
+  inq_disrad(1,i) = dr*(i-0.5_dp)
+  inq_disrad(2,i) = counts(i)/(volfac*(i*dr)**dm)
+enddo
+
+inq_disrad(2,:) = inq_disrad(2,:) / maxval(inq_disrad)
+
+end function
+      
+function inq_pdisrad(p,g) result(pdis)
+use gems_program_types, only: atom_distancetopoint
+real(dp),intent(in)          :: p(dm)
+class(group),intent(in)       :: g
+real(dp)                     :: pdis(g%nat)
+real(dp)                     :: vd(dm)
+type(atom_dclist),pointer    :: la
+integer                      :: i
+
+la => g%alist
+do i = 1, g%nat
+  la => la%next
+  vd = atom_distancetopoint(la%o,p)
+  pdis(i)=sqrt(dot_product(vd,vd))
+enddo
+
+end function inq_pdisrad
 
 !                                              configuration
 !----------------------------------------------------------
 
 subroutine inq_max_change(g,nsteps,temp)
-type(group)         :: g
+class(group)         :: g
 integer,intent(in)  :: nsteps
 real(dp),intent(in) :: temp
 integer             :: i
@@ -1216,28 +1189,28 @@ end subroutine inq_max_change
 
 
 function inq_far(ctr,g) result(at)
-  ! selecciona el atomo mas cercano al punto
-  type(atom),pointer         :: at
-  type(group),intent(in)     :: g
-  real(dp)                   :: rd,rad,ctr(dm)
-  type (atom_dclist),pointer :: la
-  integer                    :: i
+! selecciona el atomo mas cercano al punto
+type(atom),pointer         :: at
+class(group),intent(in)     :: g
+real(dp)                   :: rd,rad,ctr(dm)
+type (atom_dclist),pointer :: la
+integer                    :: i
 
-  at=>null()
+at=>null()
 
-  call inq_pos_v(g,ctr)
-  
-  rad = 1.0e-8_dp
+call inq_pos_v(g,ctr)
 
-  la => g%alist%next
-  do i = 1,g%nat
-    rd = dot_product(la%o % pos_v,la%o % pos_v)
-    if (rd > rad ) then
-      rad=rd
-      at=>la%o
-    endif
-    la => la%next
-  enddo
+rad = 1.0e-8_dp
+
+la => g%alist%next
+do i = 1,g%nat
+  rd = dot_product(la%o % pos_v,la%o % pos_v)
+  if (rd > rad ) then
+    rad=rd
+    at=>la%o
+  endif
+  la => la%next
+enddo
 
 end function inq_far
                    
@@ -1249,7 +1222,7 @@ end module gems_inq_properties
 !----------------------------------------------------------
 
 !  function volume(g)
-!   type(group)       :: g
+!   class(group)       :: g
 !   type(atom_dclist) :: la
 !   real(dp)               :: volume
 !   logical,allocatable    :: vatom(:,:,:)

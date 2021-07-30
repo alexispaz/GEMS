@@ -49,8 +49,8 @@ group 3 add
 box move (make the total velocity zero)
 
 
-interact :pared 2 under halfsho_plane 1. 3.0 -3
-interact 2 under halfsho_plane 1. $boxz 3
+interact :pared 2 field halfsho_plane 1. 3.0 -3
+interact 2 field halfsho_plane 1. $boxz 3
 
 bloque save 1
   r0 := {3.0+(1.*$time)}

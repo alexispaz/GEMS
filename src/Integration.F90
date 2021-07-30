@@ -19,7 +19,6 @@
 module gems_integration
 use gems_program_types         !, nghost
 use gems_groups
-use gems_atoms
 use gems_inq_properties
 use gems_set_properties
 use gems_constants, only: dp, dd, dm, kB_ui
@@ -43,7 +42,7 @@ type, extends(group) :: integrate
   logical                       :: b_fixt=.false.   ! Fix temperature
 
   contains
-  procedure   :: init_ext => integrate_constructor
+  procedure   :: init_ext => integrate_construct
   procedure   :: dest_ext => integrate_destructor
 
 end type
@@ -99,7 +98,7 @@ contains
 #define _TYPE type(integrate)
 #include "vector_body.inc"
 
-subroutine integrate_constructor(it,g1)
+subroutine integrate_construct(it,g1)
 class(integrate),target  :: it
 type(group),intent(in)   :: g1
 
@@ -111,9 +110,9 @@ call it%p%init()
 call it%i%init()
 
 ! Inicializo el grupo  
-call it%add(g1)
+call it%attach(g1)
 
-end subroutine integrate_constructor
+end subroutine integrate_construct
   
 subroutine integrate_cli(it,w)
 use gems_errors, only: werr, wref
@@ -122,7 +121,7 @@ use gems_constants, only: atm_ui, linewidth
 use gems_bias, only: biason
 class(integrate),target  :: it
 character(*), intent(in) :: w
-character(len=linewidth) :: w1
+character(:),allocatable :: w1
 real(dp)                 :: f1,f2,f3,f4,f5
 integer                  :: i, i1
 logical                  :: b1
@@ -241,22 +240,22 @@ call it%dest()
 end subroutine integrate_destructor
                              
 subroutine integration_stepa
-use gems_neighbour, only: ghost,pbcghost_move
+use gems_neighbor, only: useghost,pbcghost_move
 integer   :: i
 
 do i=1,its%size
-  call its%o(i)%stepa()
+  if(associated(its%o(i)%stepa)) call its%o(i)%stepa()
 enddo
 
 ! Debo computar de nuevo el volumen, por si hay cambios debido a algun/os
 ! piston/es
 call box_setvars()
      
-if(ghost)then
+if(useghost)then
   call pbcghost_move
 else
   ! Needed to avoid atoms outside box when doing neighboor list (on interact)
-  call do_pbc(alocal,nlocal)
+  call do_pbc(sys)
 endif
 
 call posvel_changed()
@@ -264,19 +263,19 @@ call posvel_changed()
 end subroutine
      
 subroutine integration_stepb
-use gems_neighbour, only: ghost,pbcghost_move
+use gems_neighbor, only: useghost,pbcghost_move
 use gems_bias, only: biason, bias
 integer   :: i
             
 do i=1,its%size
-  call its%o(i)%stepb()
+  if(associated(its%o(i)%stepb)) call its%o(i)%stepb()
 enddo
     
-if(ghost)then
+if(useghost)then
   call pbcghost_move()
 else
   ! Needed to avoid atoms outside box 
-  call do_pbc(alocal,nlocal)
+  call do_pbc(sys)
 endif
 
 call posvel_changed()
@@ -302,7 +301,7 @@ end subroutine
  
 subroutine integration_reversea
 use gems_constants, only: same_proc
-use gems_neighbour, only: pbcghost_move
+use gems_neighbor, only: pbcghost_move
 use, intrinsic :: iso_c_binding
 type(integrate),pointer :: it
 integer                 :: i
@@ -315,11 +314,6 @@ do i=1,its%size
 enddo
                
 end subroutine
-
-subroutine itnada(it)
-class(integrate)   :: it 
-end subroutine
-     
 
 !                                                                   Kolb Dünweg
 !------------------------------------------------------------------------------ 
@@ -545,7 +539,8 @@ inv_pmass = it%p%o(5)
 bv        = it%p%o(6)
 facv      = it%p%o(7)
 
-!FIXME: using of first makes this uncompatible with more than 1 integrate object
+!FIXME: using of first makes this incompatible with more than 1 integrate
+!object.. but more than one NPT implies more than one box? Not possible.
 if(first) then
   first=.false.
                                                               
@@ -837,7 +832,7 @@ class(integrate)    :: it
 real(dp),intent(in) :: temp,gama
 real(dp)            :: fac1,fac2
 
-it%stepa => itnada
+it%stepa => null()
 it%stepb => cbrownian
 
 fac1 = dt/gama
@@ -1283,11 +1278,11 @@ call it%p%append(0.5_dp/steps)
 
 ! Allow fluctuations to a certain degree
 if(present(upto)) then
-  it%stepa => itnada
+  it%stepa => null()
   it%stepb => scalvel_after
   call it%p%append(upto)  
 else
-  it%stepa => itnada
+  it%stepa => null()
   it%stepb => scalvel
 endif
                 
@@ -1347,7 +1342,7 @@ real(dp),intent(in) :: temp
 real(dp),intent(in) :: nu
 real(dp)            :: factor
 
-it%stepa => itnada
+it%stepa => null()
 it%stepb => andersen
 
 ! The target temperature

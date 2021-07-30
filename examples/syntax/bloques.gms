@@ -26,9 +26,9 @@ set pbc F F F
 set mass 3.
 group 1 add
       
-interact 1 under lj 1. 0.890898718140339 2
+interact 1 pair lj 1. 0.890898718140339 2
 
-getin tau_ps 0.01018
+tau_ps:=0.01018
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
 > sys

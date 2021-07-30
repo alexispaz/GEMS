@@ -23,11 +23,10 @@ set mass 40.
 
 box move (make the total velocity zero)
 
-interact 2 under lj  0.10364 3.4 200
-interact 3 under lj  0.06218 3.4 200
-interact 2 with 3 lj 0.08291 3.4 200
-
-
+interact 2 pair lj  0.10364 3.4 200
+interact 3 pair lj  0.06218 3.4 200
+interact 2 < 3 pair lj 0.08291 3.4 200
+interact 3 < 2 pair lj 0.08291 3.4 200
 
 time step 0.005   (integration timestep [ps])
                 

@@ -95,7 +95,7 @@ integer,parameter                    :: msave=5
 type(group),pointer            :: gro
 logical                        :: b_fgout
 
-public :: lbfgs,lp,lbfgs_minimizator,fix_lbfgs_minimizator,lbfgs_getenergy
+public :: lbfgs,lp,lbfgs_minimizator,lbfgs_getenergy
 
  contains
 
@@ -109,10 +109,10 @@ function lbfgs_getenergy(g,b_out) result(emin)
   real(dp)                             :: emin
   logical,intent(in)                   :: b_out
   real(dp),parameter                   :: eps=1e-8_dp,xtol=1.e-16_dp
-  real(dp),dimension(dm*g%nat)         :: gr,diag,scache
+  real(dp),dimension(dm*g%nat)         :: gr,scache
   real(dp)                             :: w(dm*g%nat*(2*msave +1)+2*msave),f
   real(dp),dimension(dm*g%nat),target  :: auxp,auxv,auxf,auxa
-  integer                              :: iprint,iflag,icall,m,n
+  integer                              :: iprint,iflag,m,n
   logical,parameter                    :: diagco=.false.
   logical                              :: switched
 
@@ -166,10 +166,10 @@ type(group),target                   :: g
 real(dp),intent(out),optional        :: pmin(dm*g%nat),emin
 integer,parameter                    :: msave=5
 real(dp),parameter                   :: eps=1e-8_dp,xtol=1.e-15_dp
-real(dp),dimension(dm*g%nat)         :: gr,diag,scache
+real(dp),dimension(dm*g%nat)         :: gr,scache
 real(dp)                             :: w(dm*g%nat*(2*msave +1)+2*msave),f
 real(dp),dimension(dm*g%nat),target  :: auxp,auxv,auxf,auxa
-integer                              :: iprint,iflag,icall,m,n
+integer                              :: iprint,iflag,m,n
 logical,parameter                    :: diagco=.false.
 logical,intent(in)                   :: b_out
 logical                              :: switched, ghosted
@@ -179,10 +179,8 @@ gro=>g
 b_fgout=b_out
 
 ! Sudden atom movements require fullghost
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
+ghosted=fullghost
+fullghost=.true.
 
 ! Cambio al modo de almacenamiento vectorial
 call group_switch_vectorial(g,switched)
@@ -215,7 +213,7 @@ call lbfgs(n,m,g%pp,f,gr,iprint,eps,xtol,w,iflag,scache,get_fg)
 if (present(emin)) emin=f*ev_ui
 if (present(pmin)) then
   pmin=g%pp
-  g%pp=auxp
+  g%pp=auxp                                                                                        
   g%pv=auxv
   g%pf=auxf
   g%pa=auxa
@@ -225,32 +223,30 @@ endif
 if(switched) call group_switch_objeto(g)
         
 ! Retomo el modo ghost anterior
-if(ghost) then
-  fullghost=ghosted
-endif
+fullghost=ghosted
 
 end subroutine lbfgs_minimizator
  
-subroutine fix_lbfgs_minimizator(g,b_out,pmin,emin)
+! subroutine fix_lbfgs_minimizator(g,b_out,pmin,emin)
 ! Minimiza la posicion p.
 ! Si no es suministrada minimiza la posicion actual
 !integer,parameter       :: msave=7
 !real(dp),parameter      :: eps=1d-6,xtol=1.0d-16
-type(group),target                   :: g
-real(dp),intent(out),optional        :: pmin(dm*g%nat),emin
-integer,parameter                    :: msave=5
-real(dp),parameter                   :: eps=1e-8_dp,xtol=1.e-16_dp
-real(dp),dimension(dm*g%nat)         :: gr,diag,scache
-real(dp)                             :: w(dm*g%nat*(2*msave +1)+2*msave),f
-real(dp),dimension(dm*g%nat),target  :: fixpos
-real(dp),dimension(dm*g%nat),target  :: auxp,auxv,auxf,auxa
-logical,dimension(dm*g%nat),target   :: fixes
-integer                              :: iprint,iflag,icall,m,n
-logical,parameter                    :: diagco=.false.
-logical,intent(in)                   :: b_out
-type (atom_dclist),pointer           :: la
-integer                              :: i,j
-logical                              :: switched
+! type(group),target                   :: g
+! real(dp),intent(out),optional        :: pmin(dm*g%nat),emin
+! integer,parameter                    :: msave=5
+! real(dp),parameter                   :: eps=1e-8_dp,xtol=1.e-16_dp
+! real(dp),dimension(dm*g%nat)         :: gr,diag,scache
+! real(dp)                             :: w(dm*g%nat*(2*msave +1)+2*msave),f
+! real(dp),dimension(dm*g%nat),target  :: fixpos
+! real(dp),dimension(dm*g%nat),target  :: auxp,auxv,auxf,auxa
+! logical,dimension(dm*g%nat),target   :: fixes
+! integer                              :: iprint,iflag,icall,m,n
+! logical,parameter                    :: diagco=.false.
+! logical,intent(in)                   :: b_out
+! type (atom_dclist),pointer           :: la
+! integer                              :: i,j
+! logical                              :: switched
 
 ! ! Needed by get_fg
 ! gro=>g
@@ -344,7 +340,7 @@ logical                              :: switched
 ! ! Retomo el modo de almacenamiento anterior
 ! if(switched) call group_switch_objeto(g)
 !
-end subroutine fix_lbfgs_minimizator
+! end subroutine fix_lbfgs_minimizator
     
 subroutine lbfgs(n,m,x,f,g,iprint,eps,xtol,w,iflag,scache,get_fg,get_diag)
  
@@ -647,7 +643,6 @@ subroutine lb1(iprint,iter,nfun,gnorm,n,m,x,f,g,stp,finish)
 integer,intent(in)  :: n,m,iter,nfun,iprint
 real(dp),intent(in) :: x(n),g(n),f,gnorm,stp
 logical,intent(in)  :: finish
-integer             :: i
 
 if(iprint<0) return 
 
@@ -680,7 +675,7 @@ end  subroutine
     !jack dongarra, linpack, 3/11/78.
     integer,intent(in)  :: n
     real(dp)            :: dx(:),dy(:),da
-    integer             :: i,ix,iy,m,mp1
+    integer             :: i,m,mp1
 
     if(n<=0)return
     if (da == 0.0d0) return
@@ -768,7 +763,7 @@ real(dp),intent(in)   :: s(n), & ! The search direction
 
 save
 
-integer            :: infoc,j
+integer            :: infoc
 logical            :: brackt,stage1
 real(dp)           :: dg,dgm,dginit,dgtest,dgx,dgxm,dgy,dgym, &
                       finit,ftest1,fm,fx,fxm,fy,fym,stx,sty,  &

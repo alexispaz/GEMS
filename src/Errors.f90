@@ -18,7 +18,6 @@
  
 module gems_errors
 use gems_constants,     only: dp,dm,linewidth, time1
-use gems_strings,       only: upcase
 use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
 implicit none
 
@@ -37,6 +36,11 @@ character(linewidth)     :: msn=''
 ! timer variables
 real(dp)       :: vclock,sclock
 integer,public :: sclock_rate, sclock_max,sclock_t1,sclock_t2
+
+! TODO Error handling. Build buffer using a linked list of characters like a FIFO pile. In
+! this way, errors or messages that a subroutine attempt to write might be
+! handle from outside this subrroutine, choosing to print it or drop it,
+  ! depending if an error or warning has been found.
 
 contains
 

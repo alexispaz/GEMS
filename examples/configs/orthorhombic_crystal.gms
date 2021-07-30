@@ -21,14 +21,14 @@
 # Optional: modify the lattice parameters. Included primitive cell have defined
 # the variables a, b and c as the primitive cell size. Intended for crystals
 # that have complex lattice points (e.g. molecules, nanoparticles, etc.).
-# getin a 3
-# getin b 3
-# getin c 3
+# a:=3
+# b:=3
+# c:=3
 
 # Replicate the primitive cell
-getin nx 3
-getin ny 2
-getin nz 3
+nx:=3
+ny:=2
+nz:=3
 +< reply $a$ 0   0   $nx$
 +< reply 0  $b$  0   $ny$
 +< reply 0   0  $c$  $nz$

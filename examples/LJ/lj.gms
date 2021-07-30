@@ -40,7 +40,7 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 1 under lj 1. 0.890898718140339 2
+interact 1 pair lj 1. 0.890898718140339 2
 
 # About time unit
 #   1eV=9648.61 uma*A**2/ps**2
@@ -48,7 +48,7 @@ interact 1 under lj 1. 0.890898718140339 2
 #   1ps**2=  9648.61 m0*r0**2/E0
 #   1ps=sqrt(9648.61) tau 
 #   1ps=98.22 tau
-getin tau_ps 0.01018
+tau_ps:=0.01018
        
 time step {0.002*$tau_ps$}   (integration timestep [ps])
                 

@@ -17,7 +17,7 @@
 
 module gems_interaction
 use gems_output
-use gems_neighbour
+use gems_neighbor
 
 implicit none
 
@@ -29,173 +29,114 @@ real(dp), public               :: tepot
 
 contains
 
-subroutine interact_new(ig)
+subroutine interact_new(g)
 use gems_constants,     only: linewidth
 use gems_input_parsing, only: reada, readi
 use gems_bias,          only: bias_new
-use gems_fields,        only: fields_new
+use gems_fields,        only: field_new
 use gems_pairs,         only: pair_new
-use gems_tb,            only: smatb_new
+use gems_tb,            only: smatb
 use gems_graphs,        only: graph_new
-use gems_tersoff,       only: tsf_new
-class(intergroup),pointer  :: ig
-type(group)                :: g1,g2
-logical                    :: under, feels
-integer                    :: i,i1,i2
-character(len=linewidth)   :: w1
+class(ngroup),pointer     :: g,gg
+type(group)               :: g1,g2
+integer                   :: i1,i2
+character(:),allocatable  :: w1,w2,w3
+
    
-! Read group for g1
-call readi(i1)
-call g1%init()
-call g2%init()
+! Read the first group
+call readi(i1) ! A
+i2=i1          ! B=A by default
 
-! Read under/with/feels/set switch  
+! Read interaction and second group if given
 call reada(w1)
-under=.false.
-feels=.false. 
-selectcase(w1)
-case('@','under')
-  under=.true.
-  call g1%add(gr(i1))
-case('<>','with')
-  call readi(i2)
-  if (i2==i1) then
-    under=.true.
-    call g1%add(gr(i1))
-  else
-    call g1%add(gr(i1))
-    call g2%add(gr(i2))
-  endif
-case('<-','feels')
-  feels = .true.
-  call readi(i2)
-  call g1%add(gr(i1))
-  call g2%add(gr(i2))
-case('->')
-  feels = .true.
-  call readi(i2)
-  call g1%add(gr(i2))
-  call g2%add(gr(i1)) 
-case default
-  call werr('Bad keyword. Use `<>`, `->`, `<-` or `@`')
-end select
+if (w1=='<') then
+  call readi(i2) ! B
+  call reada(w1)
+endif
 
-call werr('No se agrego ningun atomo',g1%nat==0)
-
-call readl(w1)
+call reada(w2)
 selectcase(w1)
 case('bias')
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  call reada(w1)
-  call bias_new(ig,g1,w1)
-! case('ff')
-!
-!   call reada(w1)
-!   call read_psf(w1)
-!   call reada(w1)
-!   call read_prm(w1)
-
-case('wca', 'sm1','sho','shocm','shofix','slj','lj','cuw','rwca','plj') 
-  if(under) then 
-    call pair_new(ig,g1,w1)
-  else
-    call pair_new(ig,g1,w1,g2)
-  endif 
-case('halfsho_plane','sho2d','oscar2d','leiva1d','pozoa1d','voter2d','sho_plane','sho_line','lucas1d') 
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  call fields_new(ig,g1,w1)
+  call bias_new(g,w2)
+case('field') 
+  call field_new(g,w2)
 case('graph') 
-  call werr("Only self interaction, use `under` keyword.",.not.under) 
-  call reada(w1)
-  call graph_new(ig,g1,w1)
+  call graph_new(g,w2) 
+case('pair') 
+  call pair_new(g,w2)
 case('tb')
-  if(under) then 
-    call smatb_new(ig,g1)
-  else
-    call smatb_new(ig,g1,g2)
-  endif
-case('tersoff')
-  call werr("Only self interaction, use `under` keyword.",.not.under)
-  call tsf_new(ig,g1)
+  allocate(smatb::g) 
+  call reread(0)
 case default
-  call werr('I do not understand the last command')
+  call werr('Interaction not found')
 endselect    
-
-call g1%dest()
-call g2%dest()
  
-! Further setups  
-if(feels) then
-  igr_vop%o(igr_vop%size)%o%half=.false.
-  igr_vop%o(igr_vop%size)%o%newton=.false.
-endif
-        
+call g%init()
+call g%attach(gr(i1))
+call g%attach(gr(i2))
+call g%ref%attach(gr(i1))
+call g%b%attach(gr(i2))
+
 end subroutine interact_new
 
 subroutine interact(b_out,pot,dontclean)
 ! calcula la fuerza y energia potencial de los atomos del systema
 use gems_tb
 use gems_forcefield
-use gems_output, only: ptime,pnframe
 use gems_cvs, only: cvs, ncvs
 use gems_bias, only: bias, cepot
 
 logical,optional,intent(in)    :: dontclean
 logical,intent(in)             :: b_out
 real(dp),optional,intent(out)  :: pot
-integer                        :: i,j
+integer                        :: i
 real(dp)                       :: aux
 type(boundgr_l),pointer        :: ln
-type (atom_dclist), pointer    :: la
-class(intergroup), pointer     :: ig
+class(ngroup), pointer         :: g
 class(atom),pointer            :: ap
+type(atom_dclist),pointer :: la
   
- ! hard constrain
- !do i = 1,natoms
- !  if (.not.a(i)%o%bconst) cycle
- !  rd=dot(a(i)%o%pos-a(i)%o%pconst,a(i)%o%vconst)
- !  if(rd<1.d-12) cycle
- !  if (a(i)%o%lconst) then
- !    a(i)%o%pos=a(i)%o%pconst+rd
- !  else
- !    a(i)%o%pos=a(i)%o%pos-rd
- !  endif 
- !enddo 
-if(nomoreigs) then
-  call test_update()
-else
-  ! First time here.
-  ! No more new interaction groups are allowed
-  nomoreigs=.true.
-  ! Runing set up of ghost and interacting groups
-  if(ghost) call pbcghost
-
-  call update()
-endif
-    
-        
+! hard constrain
+!do i = 1,natoms
+!  if (.not.a(i)%o%bconst) cycle
+!  rd=dot(a(i)%o%pos-a(i)%o%pconst,a(i)%o%vconst)
+!  if(rd<1.d-12) cycle
+!  if (a(i)%o%lconst) then
+!    a(i)%o%pos=a(i)%o%pconst+rd
+!  else
+!    a(i)%o%pos=a(i)%o%pos-rd
+!  endif 
+!enddo 
+call test_update()
+   
 bias = 0._dp
 tepot = 0._dp
 cepot = 0._dp
 if(.not.present(dontclean)) then
   virial(:,:) = 0._dp
-  do i = 1,natoms
-    ap=>a(i)%o
+  do i = 1,sys%nat
+    ap=>sys%a(i)%o
     ap%force = 0._dp
     ap%epot = 0._dp
   enddo
+  la => ghost%alist
+  do i = 1,ghost%nat
+    la=>la%next
+    la%o%force = 0._dp
+    la%o%epot = 0._dp
+  enddo 
   tepot=0._dp
 endif
 
-do i = 1, igr_vop%size
-  ig => igr_vop%o(i)%o
+do i = 1, ngindex%size
+  g => ngindex%o(i)%o
 
   ! Check to skip
-  if (ig%disable) cycle
+  if (g%disable) cycle
 
-  call ig%interact()
+  call g%interact()
 
-  tepot=tepot+ig%epot
+  tepot=tepot+g%epot
   cepot=tepot
 enddo 
 
@@ -213,8 +154,8 @@ if (b_out) call write_out(2,dm_steps)
 if(present(pot)) pot=tepot
 
 ! Soft constrain
-do i = 1,natoms
-  ap=>a(i)%o
+do i = 1,sys%nat
+  ap=>sys%a(i)%o
   if (.not.ap%bconst) cycle
   if (ap%lconst) then
     aux=dot(ap%force,ap%vconst)
@@ -244,10 +185,10 @@ subroutine write_eparts(op)
 class(outpropa)                :: op
 integer                        :: i
 
-call werr('Error. Use epart after interaction delcarations',size(op%f)/=igr_vop%size)
+call werr('Error. Use epart after interaction delcarations',size(op%f)/=ngindex%size)
 
-do i=1,igr_vop%size
-  op%f(i) = op%f(i) + igr_vop%o(i)%o%epot*ui_ev
+do i=1,ngindex%size
+  op%f(i) = op%f(i) + ngindex%o(i)%o%epot*ui_ev
 enddo  
    
 end subroutine
@@ -257,7 +198,7 @@ use gems_variables, only: polvar, polvar_find
 use gems_errors, only: werr
 character(*),intent(in)    :: var
 type(polvar),pointer       :: pv
-class(intergroup),pointer  :: g
+class(ngroup),pointer  :: g
 
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
@@ -270,7 +211,7 @@ call werr('Variable not linked',pv%hard)
  
 ! Print
 select type(v=>pv%val)
-class is (intergroup)
+class is (ngroup)
   g=>v
 class default
   call werr('I dont know how to return that')

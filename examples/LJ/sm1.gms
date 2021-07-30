@@ -38,7 +38,7 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 1 under sm1 1. 2. 0.01
+interact 1 pair sm1 1. 2. 0.01
 
 time step 0.001
                 

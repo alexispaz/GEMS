@@ -36,7 +36,7 @@ out posxyz asd.xyz
 
 box move (make the total velocity zero)
 
-interact :gr 1 @ graph subgraphs 3.
+interact :gr 1 graph subgraphs 3.
 
 outfile :f1 name Graph.$jobname$.dat
 outfile :f1 graph 1

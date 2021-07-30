@@ -18,14 +18,13 @@
 
 module gems_metadynamics
 use gems_constants,          only: dp,pi,ev_ui,dm,kB_ui
-use gems_atoms,       only: atom,atom_dclist
-use gems_groups,      only: group
+use gems_groups,      only: group,atom,atom_dclist
 use gems_strings, only: operator(.ich.)
 use gems_integration,     only: integration_stepa, integration_stepb, its, integrate
 use gems_interaction,     only: interact
 use gems_output
 use gems_errors
-use gems_neighbour, only: intergroup
+use gems_neighbor, only: ngroup
 use gems_checkpoint
 
 
@@ -68,13 +67,13 @@ contains
 
 
 subroutine metadynamics(steps,b_out,b_wtmd_2D,b_DMCV,b_dCM_RgTotal,b_dCM_RgAu,b_dCM,b_pos1d,b_x,b_xy)
-use gems_neighbour, only:nupd_vlist 
+use gems_neighbor, only:nupd_vlist 
 use gems_input_parsing, only:execute_block,load_blk, bloques
 ! use gems_errors, only: timer_start, timer_dump
 
 ! esta subrutina funciona con subsystemas
 integer,intent(in)    :: steps
-integer               :: ns,i
+integer               :: ns
 logical,intent(in)    :: b_out,b_wtmd_2D,b_DMCV,b_dCM_RgTotal,b_dCM_RgAu,b_dCM,b_pos1d,b_x,b_xy
  
 ! Timing
@@ -113,12 +112,12 @@ do ns = 1,steps
 
  ! Checkpoint
   if (b_ckp) then
-    if (mod(dm_steps,real(chpeach))==0._dp)  call write_chp(ns,steps)
+    if (mod(dm_steps,real(chpeach,dp))==0._dp)  call write_chp(ns,steps)
   endif
    
   ! Command interpreter
   if (b_load) then
-    if (mod(dm_steps,real(load_each))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
+    if (mod(dm_steps,real(load_each,dp))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
 
     ! Lisent to term signal
     if (term_signal) then
@@ -206,7 +205,6 @@ subroutine posicion1d(n,nstep)
 type (atom_dclist),pointer   :: la
 integer                      :: i
 integer                      :: binCV1_1,binCV1_2,n,nstep
-real(dp)                     :: biasf
 real(dp)                     :: ffcte
 
 pos_x=0
@@ -370,7 +368,7 @@ temp_md=g%fixt
 !dCM-RgCore
 subroutine wtmetad_2D(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
 !
 !Calculo mis variables colectivas en el paso n de la simulacion  
@@ -436,7 +434,7 @@ call pared_burb(n)
 !dCM-RgShell
  subroutine wtdcmrgau(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
 !
 !Calculo mis variables colectivas en el paso n de la simulacion  
@@ -504,7 +502,7 @@ call pared_burb(n)
 !dCM-RgTotal
 subroutine dCM_RgTotal(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,CV1_ff(3),CV2_ff(3)
 !Calculo mis variables colectivas en el paso n de la simulacion  
   call Collective_Variable
@@ -667,10 +665,9 @@ end subroutine wall1D_set
 !dCM
 subroutine wtmetad(n,nstep)
   type (atom_dclist),pointer   :: la
-  integer                      :: i
-  integer binCV1_1,binCV1_2,n,nstep
-  real(dp) biasf
-  real(dp) ff(3),ffcte,fact
+  integer          :: i
+  integer          :: binCV1_1,binCV1_2,n,nstep
+  real(dp)         :: ff(3),ffcte
   
   call Collective_Variable
 ! Apertura  de archivos y poner a 0 las variables del potencial
@@ -794,7 +791,7 @@ end subroutine DM_CV
 
  function gauss_2D_Force_CV2 (x_CV1,x_CV2,CVs1,CVs2,wWT) result(resultado)
   implicit none
-  real(dp) CVs1,CVs2,x_CV1,x_CV2,wWT,sigCVs1,sigCVs2
+  real(dp) CVs1,CVs2,x_CV1,x_CV2,wWT
   real(dp) a_CV1s,b_CV2s
   real(dp) resultado
   a_CV1s = ((x_CV1-CVs1)*(x_CV1-CVs1))/ real ((2.0_dp*sigCV1*sigCV1),dp)
@@ -1079,7 +1076,7 @@ end subroutine Collective_Variable
    real(dp)                     :: CV1,CV2,bias_ant,wWT,potential_point
    real(dp)                     :: force_point_cv1,force_point_cv2
    real(dp)                     :: x_ini,x_fin,y_ini,y_fin,bincte_CV1,bincte_CV2 
-    type (atom_dclist),pointer   :: la
+
    bias_ant = interpolacion_bilineal(CV1,CV2,binCV1_1,binCV1_2,binCV2_1,binCV2_2,&
        B_WTMD_2D(binCV1_1,binCV2_1),B_WTMD_2D(binCV1_2,binCV2_1),&
        B_WTMD_2D(binCV1_1,binCV2_2),B_WTMD_2D(binCV1_2,binCV2_2))
@@ -1139,8 +1136,8 @@ end subroutine Collective_Variable
  subroutine ini_2D(n)
    use gems_input_parsing, only: ioprefix
    use gems_constants, only:find_io
-   integer         :: n,k,j,i,ierr,bincv1_1,bincv1_2,bincv2_1,bincv2_2
-   real(dp)        :: c_1,c_2,ww,w_old,t,s_1,s_2,fac 
+   integer         :: n,j,i!,ierr,bincv1_1,bincv1_2,bincv2_1,bincv2_2
+   ! real(dp)        :: c_1,c_2,ww,w_old,t,s_1,s_2,fac 
    
    unidad=find_io(10)
    open(unidad,FILE= 'Par_E_libre.'//trim(ioprefix)//'.dat')
@@ -1195,8 +1192,8 @@ end subroutine Collective_Variable
       end subroutine ini_2D
 
       subroutine ini_1D()
-       integer         :: n,k,j,i,ierr,bincv1_1,bincv1_2
-       real(dp)        :: c_1,ww,w_old,t,s_1
+        integer         :: i!,ierr,bincv1_1,bincv1_2
+       ! real(dp)        :: c_1,ww,w_old,t,s_1
 !       open(UNIT=235,FILE= 'Gauss.dat')
 !       write(235,*) '#! FIELDS time dCM Rg sigma_dCM  sigma_Rg height biasf'
 !       write(235,*) '#! SET multivariate false' 
@@ -1250,7 +1247,7 @@ end subroutine
 
 subroutine write_E_1D(of)
   class(outfile)     :: of
-  integer            :: i,j
+  integer            :: i
   real(dp)           :: fact 
 
   fact=(-(temp_md+dT_WT)/(dT_WT))*0.01
@@ -1268,8 +1265,7 @@ subroutine wtx(n,nstep)
   type (atom_dclist),pointer   :: la
   integer                      :: i
   integer binCV1_1,binCV1_2,n,nstep
-  real(dp) biasf
-  real(dp) ff(3),ffcte,fact
+  real(dp)  :: ffcte
   call Collective_Variable
 ! Apertura  de archivos y poner a 0 las variables del potencial
   
@@ -1310,8 +1306,8 @@ subroutine wtx(n,nstep)
 
 subroutine wtxy_2D(n,nstep)
   type (atom_dclist),pointer   :: la
-  integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
-  real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
+  integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+  real(dp)                    :: CV1_ffcte,CV2_ffcte
 
 !Calculo mis variables colectivas en el paso n de la simulacion  
   call Collective_Variable

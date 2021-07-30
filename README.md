@@ -46,12 +46,18 @@ then you only need to configure and make (i.e. `./configure; make`).
 GEMS uses the following `git subtrees`: 
 
 - Fortran Preprocesor Templates for Dynamic Data Structures (FPT-DDS) 
-  prefix: lib/fpt
   url: (https://github.com/alexispaz/FortranTemplates)
 
 - Fortran 90 function parser v1.1
-  prefix: lib/fparser
   url: (https://github.com/alexispaz/fparser)
+
+The subtrees were created by:
+
+	git remote add fpt git@github.com:alexispaz/FortranTemplates.git
+    git subtree add --prefix lib/fpt fpt master --squash
+
+	git remote add fparser git@github.com:alexispaz/fparser.git
+    git subtree add --prefix lib/fparser fparser master --squash
 
 After clone GEMS, to keep the remote relation with the sub projects you can
 run:

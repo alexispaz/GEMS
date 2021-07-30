@@ -26,7 +26,7 @@ use gems_output
 use gems_errors
 use gems_programs
 use gems_checkpoint
-use gems_neighbour
+use gems_neighbor
 use gems_bias, only: compress_below
 
 implicit none
@@ -83,9 +83,9 @@ end function
 
 ! subroutine hyperdinamics_cli()
 ! use gems_bias, only: compress_below
-! use gems_neighbour, only: intergroup_dl
+! use gems_neighbor, only: ngroup_dl
 ! use gems_interaction, only: polvar_interact(w1)
-! class(intergroup), pointer      :: ig
+! class(ngroup), pointer      :: ig
 ! class(compress_below), pointer  :: p
 !
 ! selectcase(w1)
@@ -113,7 +113,7 @@ use gems_fields
 use gems_input_parsing
 use gems_tb
 use gems_bias, only: compress_below
-use gems_interaction, only: polvar_interact, intergroup
+use gems_interaction, only: polvar_interact, ngroup
 logical,intent(in)        :: b_out
 integer,intent(in)        :: nsteps,msteps,lsteps ! numero de bloques, pasos por bloque, equilibracion
 real(dp),intent(in)       :: hd_f,eprime,aprime,z,t
@@ -121,7 +121,7 @@ integer                   :: i,n
 integer,save              :: uhd=0,udm=0
 real(dp)                  :: bprom,vbprom,prob,dumy,zfact,a,e!,dvbmin,aux
 logical                   :: acelerar=.false.!,dummy
-class(intergroup),pointer :: ig
+class(ngroup),pointer :: ig
 
 
 call dvp%init()
@@ -198,7 +198,7 @@ do i=1,nsteps
   prob=float(bsteps)/float(nbsteps+bsteps)  ! fraccion de pasos con bias
 
   ! Escribo el output
-  write(udm,fmt='(i0,9(x,e25.12))') i,dm_steps,time,f,vprom*ui_ev,sigma*ui_ev
+  write(udm,fmt='(i0,9(1x,e25.12))') i,dm_steps,time,f,vprom*ui_ev,sigma*ui_ev
 
   ! Lisent to term signal
   if (term_signal) exit
@@ -218,7 +218,7 @@ do i=1,nsteps
     !  endif
     !endif
 
-    write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+    write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
 
     if(over_highc) then ! Demasiado bias apago la HD
       acelerar=.false.
@@ -251,10 +251,10 @@ do i=1,nsteps
       write(udm,*)
 
       ! Hago la HD de inicializacion
-      write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
             vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
       call hyperd_init(lsteps,.false.)
-      write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
             vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
 
       over_lowc=.false.
@@ -289,9 +289,7 @@ use gems_programs, only: dinamic
 ! potencial con bias
 integer                       :: steps
 logical,intent(in)            :: b_out
-integer                       :: ns
 real(dp)                      :: auxtime
-logical                       :: b_bias
 
 auxtime = time
 maxbias=0._dp
@@ -307,15 +305,14 @@ end subroutine
 subroutine hyperd_eprom(steps,b_out)
 ! Realiza steps pasos de DM o HD acumulando la energia media y demas variables
 ! estadisticas
-use gems_bias, only: noboost, biased
+use gems_bias, only: biased
 use gems_integration, only: integration_reversea
 use gems_input_parsing, only: load_blk, execute_block, bloques
 use gems_ddda
 integer,intent(in)  :: steps
 logical,intent(in)  :: b_out
 integer             :: ns!,ct
-logical             :: b_bias
-real(dp)            :: bias, aux
+real(dp)            :: aux
 
 call interact(.true.) 
 
@@ -371,12 +368,12 @@ do ns = 1,steps
 
   ! Checkpoint
   if (b_ckp) then
-    if (mod(dm_steps,real(chpeach))==0._dp)  call write_chp(ns,steps)
+    if (mod(dm_steps,real(chpeach,dp))==0._dp)  call write_chp(ns,steps)
   endif
        
   ! Command interpreter
   if (b_load) then
-    if (mod(dm_steps,real(load_each))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
+    if (mod(dm_steps,real(load_each,dp))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
 
     ! Lisent to term signals
     if (term_signal) exit
@@ -509,7 +506,6 @@ real(dp),target             :: pmin(ghd%nat*dm)
 !real(dp),target             :: fce(ghd%nat*dm),pos(ghd%nat*dm)
 !real(dp)                    :: vmin
 real(dp),intent(out)        :: media
-logical                     :: b_bias
 
 hyperd_dinamic_safe=.true.
 
@@ -564,70 +560,70 @@ desviacion=sqrt(suma2/n-media*media)
 
 end function hyperd_dinamic_safe
  
-function hyperd_eprom_safe(m,n,media,desviacion,b_out) result(flag)
-! Determina la energía potencial promedio del termino a boostear y la
-! desviacion estandar. Utiliza el grupo de ermak. 
-! m Numero de pasos para determinar una medida de energía potencial 
-! n Numero de medidas para determinar la media
-use gems_programs
-use gems_bias, only: noboost, biased
-real(dp),intent(out)        :: media,desviacion
-integer                     :: i,j
-integer                     :: flag
-real(dp),target             :: pmin(ghd%nat*dm)
-integer,intent(in)          :: m,n
-real(dp)                    :: medida,suma,suma2
-logical,intent(in)    :: b_out
-
-suma=0
-suma2=0
-flag=1
-
-! No quiero boostear las fuerzas aca
-noboost=.true.  
-
-! Guardo el minimo en pmin
-call lbfgs_minimizator(ghd,.false.,pmin)
-call interact(.false.)
-  
-do j = 1,n
-
-  medida=0._dp
-  do i = 1,m
-    dm_steps=dm_steps+1._dp
-    
-    !Acumulo para promedio y desviacion
-    medida=medida+biased
-
-    !Dinamica Step
-    call integration_stepa
-    call interact(.false.)
-    call integration_stepb
-
-    !Avance del tiempo
-    time = time + dt
-
-    ! Escribo aca para que coincida interacción y configuracion
-    if (b_out) call write_out(1,dm_steps)
-  enddo
-
-  ! Salgo porque no estoy en una basija
-  call lbfgs_minimizator(ghd,.false.,pmin)
-  if (diff_vect(ghd%pp,pmin,desp)) return
-
-  medida=medida/m
-  suma=suma+medida
-  suma2=suma2+medida*medida
-enddo
-
-media=suma/n
-desviacion=sqrt(suma2/n-media*media)
- 
-! Sin errores
-flag=0
-
-end function
-
+! function hyperd_eprom_safe(m,n,media,desviacion,b_out) result(flag)
+! ! Determina la energía potencial promedio del termino a boostear y la
+! ! desviacion estandar. Utiliza el grupo de ermak. 
+! ! m Numero de pasos para determinar una medida de energía potencial 
+! ! n Numero de medidas para determinar la media
+! use gems_programs
+! use gems_bias, only: noboost, biased
+! real(dp),intent(out)        :: media,desviacion
+! integer                     :: i,j
+! integer                     :: flag
+! real(dp),target             :: pmin(ghd%nat*dm)
+! integer,intent(in)          :: m,n
+! real(dp)                    :: medida,suma,suma2
+! logical,intent(in)    :: b_out
+!
+! suma=0
+! suma2=0
+! flag=1
+!
+! ! No quiero boostear las fuerzas aca
+! noboost=.true.  
+!
+! ! Guardo el minimo en pmin
+! call lbfgs_minimizator(ghd,.false.,pmin)
+! call interact(.false.)
+!   
+! do j = 1,n
+!
+!   medida=0._dp
+!   do i = 1,m
+!     dm_steps=dm_steps+1._dp
+!     
+!     !Acumulo para promedio y desviacion
+!     medida=medida+biased
+!
+!     !Dinamica Step
+!     call integration_stepa
+!     call interact(.false.)
+!     call integration_stepb
+!
+!     !Avance del tiempo
+!     time = time + dt
+!
+!     ! Escribo aca para que coincida interacción y configuracion
+!     if (b_out) call write_out(1,dm_steps)
+!   enddo
+!
+!   ! Salgo porque no estoy en una basija
+!   call lbfgs_minimizator(ghd,.false.,pmin)
+!   if (diff_vect(ghd%pp,pmin,desp)) return
+!
+!   medida=medida/m
+!   suma=suma+medida
+!   suma2=suma2+medida*medida
+! enddo
+!
+! media=suma/n
+! desviacion=sqrt(suma2/n-media*media)
+!  
+! ! Sin errores
+! flag=0
+!
+! end function
+!
 ! SALIDA
 
 subroutine write_fpp(of)
@@ -639,7 +635,7 @@ use gems_output
 class(outfile)                  :: of
 integer                         :: j,n,m
 class(statistic_dclist),pointer :: ls
-real(dp)                       :: var,err,errerr,med,plato!,bigerr
+real(dp)                       :: err,errerr,med,plato!,bigerr
 
 
 !call dvp%var(n,var)
@@ -671,7 +667,7 @@ do j =1,dvp%size-2
   errerr=err/(sqrt(2._dp*(ls%o%nsamples-1)))
 
   !write(of%un,fmt='(i0,x,2(e25.12,2x),i0)')  dm_steps+j*(n/(dvp%size-2)),sqrt(var)*ui_ev+med*ui_ev,sqrt(err)*ui_ev,ls%o%nsamples
-  write(of%un,fmt='(i10,x,3(e25.12,2x))')  ls%o%nsamples,err,errerr,plato*ui_ev
+  write(of%un,fmt='(i10,1x,3(e25.12,2x))')  ls%o%nsamples,err,errerr,plato*ui_ev
 enddo
 
 !ATENCION: esto se lee asi
