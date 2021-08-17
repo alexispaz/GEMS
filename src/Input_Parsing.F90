@@ -15,6 +15,8 @@
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
 !
+! ---
+! 
 ! This file incorporates work derived from the following codes:
 !
 ! Fortran input module <http://www-stone.ch.cam.ac.uk/programs.html>

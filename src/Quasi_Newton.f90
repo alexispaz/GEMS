@@ -15,6 +15,8 @@
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
 !
+! ---
+! 
 ! This file incorporates work derived from the following codes:
 !
 ! L-BFGS code <http://users.iems.northwestern.edu/~nocedal/lbfgs.html>

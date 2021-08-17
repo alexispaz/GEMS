@@ -78,7 +78,7 @@ type,extends(igroup),public :: cv
 
   contains
 
-  procedure :: grow => cv_grow
+  procedure :: attach_atom => cv_attach
   ! Constructor
   ! procedure :: init => cv_init
 
@@ -123,12 +123,21 @@ contains
 ! #define _CLASS type(cv)
 ! #include "vector_body.inc"
   
-subroutine cv_grow(g)
-class(cv)         :: g
-integer           :: n, m
+subroutine cv_attach(g,a)
+class(cv)            :: g
+class(atom),target   :: a
+integer              :: n, m
 
-call g%igroup%grow()
+! Save current atom number
+m=g%nat
 
+! Attempt to attach
+call g%igroup%attach(a)
+
+! Return if atom was already in the group
+if(m==g%nat) return
+                         
+! Reallocate if needed
 if(allocated(g%j)) then
   if(g%nat<size(g%j,2)) return
   deallocate(g%j)
@@ -142,7 +151,7 @@ allocate(g%t(m))
 allocate(g%tf(m))
 allocate(g%z(m)) 
 
-end subroutine cv_grow
+end subroutine cv_attach
             
 !   
 ! subroutine cv_setg(c,ind,g)

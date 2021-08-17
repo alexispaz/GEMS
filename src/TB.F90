@@ -96,7 +96,7 @@ type,public,extends(ngroup) :: smatb
 
   contains
 
-  procedure :: grow => smatb_grow
+  procedure :: attach_atom => smatb_attach
 
   procedure :: interact => smatb_interact
   procedure,nopass :: cli => smatb_cli
@@ -106,28 +106,19 @@ end type
 contains
 
 subroutine smatb_attach(g,a)
-class(smatb),target         :: g
-class(atom),target          :: a
-integer                     :: n
-
-call g%igroup%attach(a)
-if(g%nat<size(g%band)) return
-
-deallocate(g%band)
-deallocate(g%eband)
-n=g%nat+g%pad
-allocate(g%band(n))
-allocate(g%eband(n))
-   
-end subroutine
- 
-subroutine smatb_grow(g)
-use gems_groups, only: group, atom_dclist
 class(smatb)               :: g
-type(atom_dclist), pointer :: la
-integer                    :: n,k,i
-      
-call g%grow_abstract()
+class(atom),target         :: a
+type(atom_dclist),pointer  :: la
+integer                    :: i,n,m,k  
+
+! Save current atom number
+m=g%nat
+ 
+! Attempt to attach
+call g%ngroup_attach(a)
+
+! Return if atom was already in the group
+if(m==g%nat) return
  
 ! Search new internal atom types
 la=>g%alist
@@ -178,6 +169,7 @@ if(.not.allocated(g%prm)) then
   allocate(g%r3(n,n))
 endif
                         
+! Reallocate if needed
 if(allocated(g%band)) then
   n=size(g%band)
   if(g%nat<n) return
@@ -188,7 +180,7 @@ endif
 n=g%nat+g%pad
 allocate(g%band(n))
 allocate(g%eband(n))
-   
+ 
 end subroutine
  
 subroutine smatb_set(g,i,j,a,eps,p,q,r0,rci,rce)

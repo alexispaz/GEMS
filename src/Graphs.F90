@@ -15,6 +15,8 @@
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
 !
+! ---
+! 
 ! This file incorporates work derived from the following code:
 !
 ! GRAFPACK <https://people.sc.fsu.edu/~jburkardt/f_src/grafpack/grafpack.html>

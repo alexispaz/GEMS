@@ -317,8 +317,6 @@ type, extends(group), public :: igroup
   procedure :: init => igroup_construct
   procedure :: dest => igroup_destroy
 
-  procedure :: grow => igroup_grow
-
   procedure :: detach_atom => igroup_atom_detach
   procedure :: attach_atom => igroup_attach_atom
                                  
@@ -799,42 +797,33 @@ end subroutine igroup_destroy
 ! Include atoms
 ! -------------
 
-subroutine igroup_grow(g)
-! Increase size of group array
-class(igroup)              :: g
-type(atom_ap),allocatable  :: t_a(:)
-integer                    :: n  
-
-if(allocated(g%a)) then
-  n=size(g%a)
-  if(g%nat<n) return
-endif
-
-allocate(t_a(g%nat+g%pad))
-t_a(1:n) = g%a(1:n)
-call move_alloc(to=g%a,from=t_a)
-       
-end subroutine igroup_grow
-  
 subroutine igroup_attach_atom(g,a)
 class(igroup)        :: g
 class(atom),target   :: a
-integer              :: i,n  
+type(atom_ap),allocatable  :: t_a(:)
+integer                    :: n,m  
 
 ! Save current atom number
-n=g%nat
+m=g%nat
 
-! Attach
+! Attempt to attach
 call g%group%attach(a)
-call g%grow()
 
-! Index new atom
-n=g%nat-n
-if(n==1) then
-  g%a(g%nat)%o=>a
-  i=a%index(g%id)
-  a%id(i)=g%nat
+! Return if atom was already in the group
+if(m==g%nat) return
+
+! Reallocate if needed
+n=size(g%a)
+if(n<g%nat) then
+  allocate(t_a(g%nat+g%pad))
+  t_a(1:n) = g%a(1:n)
+  call move_alloc(to=g%a,from=t_a)
 endif
+              
+! Index new atom
+g%a(g%nat)%o=>a
+n=a%index(g%id)
+a%id(n)=g%nat
 
 end subroutine igroup_attach_atom
            
