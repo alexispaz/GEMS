@@ -125,7 +125,6 @@ type, public :: atom
   ! See del_atom in Group module.
   procedure :: addgr => atom_addgr
   procedure :: delgr => atom_delgr
-  procedure :: index => atom_index
   procedure :: gid => atom_id
   procedure :: try_dest => atom_destroy_attempt
 
@@ -359,6 +358,8 @@ use gems_errors
 class(atom),intent(inout)    :: a
 
 ! crear un atomo
+allocate(a%gr(10))
+allocate(a%id(10))
 allocate(a%pos(dm))
 allocate(a%vel(dm))
 allocate(a%force(dm))
@@ -385,7 +386,7 @@ do i=1,a%ngr
   j=a%gr(i)
   call gindex%o(j)%o%detach(a)
 enddo
-if (allocated(a%gr)) deallocate(a%gr,a%id)
+deallocate(a%gr,a%id)
 
 end subroutine atom_destroy
  
@@ -444,13 +445,11 @@ integer             :: n
 
 n=a%ngr
 
-if(allocated(a%gr)) then
-  if(n<size(a%gr)) then
-    a%ngr=n+1 
-    a%gr(n+1)=uid
-    a%id(n+1)=0
-    return
-  endif
+if(n<size(a%gr)) then
+  a%ngr=n+1 
+  a%gr(n+1)=uid
+  a%id(n+1)=0
+  return
 endif
 
 allocate(t_id(n+5))
@@ -484,23 +483,6 @@ a%ngr=a%ngr-j
  
 end subroutine atom_delgr
 
-function atom_index(a,uid) result(id)
-! Return 0 if atom do not belong to the group (given by uid)
-!        i if atom belongs and group is registred in the ith element
-class(atom)         :: a
-integer,intent(in)  :: uid
-integer             :: i,id
-
-id=0 
-do i=1,a%ngr
-  if (a%gr(i)==uid) then
-    id=i
-    return
-  endif
-enddo
- 
-end function atom_index
-               
 function atom_id(a,uid) result(id)
 ! Return -1 if atom do not belong to this group (given by uid)
 !        0  if atom do not have an id for this group
@@ -509,13 +491,9 @@ class(atom)         :: a
 integer,intent(in)  :: uid
 integer             :: i,id
 
-id=0 
-do i=1,a%ngr
-  if (a%gr(i)==uid) then
-    id=a%id(i)
-    return
-  endif
-enddo
+id=-1
+i=findloc(a%gr(:a%ngr),uid,1)
+if(i/=0) id=a%id(i)
  
 end function atom_id
                
@@ -603,7 +581,7 @@ class(group)          :: g
 class(atom),target    :: a
 
 ! Check if this atom is already in group g
-if(a%index(g%id)>0) return
+if(findloc(a%gr(:a%ngr),g%id,1)>0) return
 
 ! Add atom to group `alist`
 call g%alist%add_before()
@@ -822,7 +800,7 @@ endif
               
 ! Index new atom
 g%a(g%nat)%o=>a
-n=a%index(g%id)
+n=findloc(a%gr(:a%ngr),g%id,1)
 a%id(n)=g%nat
 
 end subroutine igroup_attach_atom
@@ -838,7 +816,7 @@ class(atom),pointer        :: aj
 integer                    :: i,j,n
  
 ! Search index of `a`
-i=a%index(g%id)
+i=findloc(a%gr(:a%ngr),g%id,1)
 if(i==0) return  
 n=a%id(i)
 
