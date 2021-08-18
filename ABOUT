@@ -26,7 +26,7 @@ Files: src/Input_Parsing.F90
 Copyright: 2020, S. Alexis Paz <alexis.paz@gmail.com>
            2005, Anthony J. Stone (http://www-stone.ch.cam.ac.uk/programs.html)
            2016, IanH (https://stackoverflow.com/users/1234550/ianh)
-License: GPL-3+
+License: GPL-3+, CC-BY-SA-3.0
             
 Files: *.m4
 Copyright: 2008, Steven G. Johnson <stevenj@alum.mit.edu>
@@ -107,3 +107,13 @@ License: BSD-3-clause
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
+License: CC-BY-SA-4.0
+ This work is licensed under the Creative Commons Attribution-ShareAlike 4.0
+ International License. To view a copy of this license visit
+ http://creativecommons.org/licenses/by-sa/4.0/ .
+   
+License: CC-BY-SA-3.0
+ This work is licensed under the Creative Commons Attribution-ShareAlike 3.0
+ Unported License. To view a copy of this license visit
+ https://creativecommons.org/licenses/by-sa/3.0/ .
+ 
