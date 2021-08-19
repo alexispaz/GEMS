@@ -30,7 +30,7 @@ module gems_neighbor
 ! consider that only the atom properties of the first group may change and
 ! not the atoms of the neighbor group.
 
-use gems_program_types, only: boxed, box, vdistance, sys, box_old, mic, ghost
+use gems_program_types, only: boxed, box, vdistance, sys, box_old, mic
 use gems_groups
 use gems_constants,     only: dp,cdm,dm,ui_ev
 use gems_errors
@@ -39,7 +39,10 @@ use gems_errors
 implicit none
 
 public :: polvar_neighbor, polvar_ngroup
-
+ 
+! Groups for selection
+type(group),target,public    :: ghost
+ 
 ! From 1 to 13 are the upper cells. From 14 to 26 the lower. 0 is the center
 integer,parameter :: map(3,0:26) = &
          reshape( [ 0, 0, 0,  &
@@ -51,6 +54,19 @@ integer,parameter :: map(3,0:26) = &
                     1,-1, 1,  -1, 0,-1,  -1,-1,-1,   0,-1,-1,&
                     1,-1,-1,   0, 0,-1],[3,27])
 
+integer,parameter,dimension(26,3) :: n1cells = transpose(reshape( &
+                   [ 1, 0, 0, -1, 0, 0,  0, 1, 0,&
+                     1, 1, 0, -1, 1, 0,  0,-1, 0,&
+                     1,-1, 0, -1,-1, 0,  0, 0, 1,&
+                     1, 0, 1, -1, 0, 1,  0, 1, 1,&
+                     1, 1, 1, -1, 1, 1,  0,-1, 1,&
+                     1,-1, 1, -1,-1, 1,  0, 0,-1,&
+                     1, 0,-1, -1, 0,-1,  0, 1,-1,&
+                     1, 1,-1, -1, 1,-1,  0,-1,-1,&
+                     1,-1,-1, -1,-1,-1 ],[3,26]))
+
+! integer,public,dimension(26,3) :: n1test = 0.5_dp*(sign(n1cells(:,:))+1)-abs(n1cells(:,:))
+ 
 ! Group split in cells
 type, extends(igroup), public :: cgroup
 
@@ -580,10 +596,9 @@ subroutine ngroup_verlet_atom(g,i)
 ! Search neighbors for atom i.
 class(ngroup),intent(inout)  :: g
 type(atom),pointer           :: ai,aj
-integer                      :: i,ii,j,m
+integer                      :: i,j,m
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
-type(atom_dclist),pointer    :: la
 
 g%nn(i)=0
 ai => g%a(i)%o
@@ -619,7 +634,7 @@ subroutine ngroup_cells(g)
 ! Build neighbors verlet list over linked cells.
 class(ngroup),intent(inout)  :: g
 type(atom), pointer          :: ai, aj
-integer                      :: i,ii,j,ic,k
+integer                      :: i,ii,j,k
 integer                      :: nabor
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
@@ -699,12 +714,11 @@ subroutine ngroup_cells_atom(g,i)
 ! Search neighbors for atom i. Asume b is already sorted in cells.
 class(ngroup),intent(inout)  :: g
 type(atom), pointer          :: ai, aj
-integer                      :: i,ii,j,ic,k
+integer                      :: i,j,k
 integer                      :: nabor
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
 integer                      :: rc(dm),nc(dm)
-type(atom_dclist),pointer    :: la
 
 ! Set ceros
 g%nn(:)=0
@@ -1032,7 +1046,7 @@ subroutine pbcghost()
 ! other words,if there is a chance that local configurations used in two
 ! consecutive calls to pbcghost are uncorrelated, it is safer to use
 ! pbcfullghost.
-use gems_program_types, only: box, n1cells, sys, one_box
+use gems_program_types, only: box, sys, one_box
 use gems_groups, only: atom_dclist
 real(dp)                   :: rcut,r(dm),rold(dm)
 type(atom), pointer        :: o,o2
@@ -1129,7 +1143,7 @@ end subroutine
 
 subroutine pbcghost_move()
 ! Move ghost atoms to reflect the motion of their local images
-use gems_program_types, only: box, sys
+use gems_program_types, only: box
 use gems_groups, only: atom_dclist
 type(atom_dclist), pointer :: la
 type(atom), pointer        :: o
@@ -1191,7 +1205,7 @@ subroutine pbcfullghost()
 ! atoms moves "slowly" between different calls. In other words, if there is a
 ! chance that local configurations used in two consecutive calls to pbcghost are
 ! uncorrelated, it is safer to use pbcfullghost.
-use gems_program_types, only: box, n1cells, do_pbc
+use gems_program_types, only: box, do_pbc
 use gems_groups, only: atom_dclist
 real(dp)            :: rcut,r(dm)
 type(atom),pointer  :: o

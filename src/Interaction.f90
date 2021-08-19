@@ -29,7 +29,7 @@ real(dp), public               :: tepot
 
 contains
 
-subroutine interact_new(g)
+subroutine interact_new(g,w1)
 use gems_constants,     only: linewidth
 use gems_input_parsing, only: reada, readi
 use gems_bias,          only: bias_new
@@ -37,23 +37,10 @@ use gems_fields,        only: field_new
 use gems_pairs,         only: pair_new
 use gems_tb,            only: smatb
 use gems_graphs,        only: graph_new
-class(ngroup),pointer     :: g,gg
-type(group)               :: g1,g2
-integer                   :: i1,i2
-character(:),allocatable  :: w1,w2,w3
-
+class(ngroup),pointer  :: g
+character(*)           :: w1
+character(:),allocatable   :: w2
    
-! Read the first group
-call readi(i1) ! A
-i2=i1          ! B=A by default
-
-! Read interaction and second group if given
-call reada(w1)
-if (w1=='<') then
-  call readi(i2) ! B
-  call reada(w1)
-endif
-
 call reada(w2)
 selectcase(w1)
 case('bias')
@@ -70,12 +57,6 @@ case('tb')
 case default
   call werr('Interaction not found')
 endselect    
- 
-call g%init()
-call g%attach(gr(i1))
-call g%attach(gr(i2))
-call g%ref%attach(gr(i1))
-call g%b%attach(gr(i2))
 
 end subroutine interact_new
 

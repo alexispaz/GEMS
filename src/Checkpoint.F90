@@ -121,7 +121,7 @@ if(search_chp) then
   ! Read piston information if is needed
   call read_chppiston(chpunit)
               
-  read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
+  read(chpunit) time,dm_steps,frame
   do i =1,sys%nat
     read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
     read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
@@ -170,7 +170,7 @@ call write_chpseed(chpunit)
 ! Read piston information if is needed
 call write_chppiston(chpunit)
 
-write(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
+write(chpunit) time,dm_steps,frame
 do i =1,sys%nat
   write(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
   write(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
@@ -213,7 +213,7 @@ call read_chpseed(chpunit)
 ! Read piston information if is needed
 call read_chppiston(chpunit)
                   
-read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
+read(chpunit) time,dm_steps,frame
 do i =1,na
   read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
   read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)

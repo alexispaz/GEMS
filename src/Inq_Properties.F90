@@ -30,7 +30,7 @@ module gems_inq_properties
 ! pbc : efectuate the pbc
 ! disrad :
 
-use gems_program_types, only: dt,tbox,box,one_box,gsel,mic,vdistance
+use gems_program_types, only: dt,tbox,box,one_box,mic,vdistance
 use gems_neighbor, only: ghost
 use gems_groups, only: group,atom,atom_dclist
 use gems_constants,     only: sp,dp,kB_ui,ui_ev,pi,pio2,dm
@@ -41,7 +41,7 @@ use gems_tables
 implicit none
 
 public
-private :: group,atom,atom_dclist,gsel        ! program_types
+private :: group,atom,atom_dclist        ! program_types
 private :: dt                   ! program_types
 private :: dm,tbox,box,one_box  ! program_types
 private :: dp,kB_ui,pio2,ui_ev,pi  ! constants
@@ -648,18 +648,8 @@ if(g%b_cm_vel) return
 
 ! Prerequisitos
 call inq_mass(g)
-if(g%nat==1) then
-  la => g%alist%next
-  g%cm_vel(1:dm)=la%o%vel(1:dm)
-  return
-endif
 
 g%cm_vel(1:dm) = 0.0_dp
-
-! Para evitar referencias sin sentio. ES LO MISMO PARA CANONICO QUE PARA
-! MICROCANONICO EL CALCULO DE LA TEMPERATURA; SE REFIERE AL CM????
-if(gsel%nat==1) return 
-
 la => g%alist
 do i = 1,g%nat
   la => la%next

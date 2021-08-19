@@ -46,6 +46,9 @@ use gems_random
 use gems_algebra
 use gems_variables, only:polvar_expand
 
+! FIXME:
+use gems_metadynamics, only:  gmeta
+
 implicit none
 
 integer                   :: ip(2)
@@ -60,6 +63,17 @@ real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,
 
 ! character(:)              :: help_file='DOCDIR/help.md'
 
+! Selection of atoms in creation
+type(group),target    :: gnew    
+type(group),target    :: gsel    ! current selection
+      
+! Groups stored in memory with `group 1 add`.
+! TODO, use labels
+integer,parameter,public     :: mgr=9
+type(group),target,public    :: gr(mgr)
+ 
+! TODO: Metadynamics module should handle this internally
+public  :: gmeta
 
 contains
 
@@ -356,6 +370,8 @@ case('setwtmd1d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
 
 case('setpos1d')
@@ -372,6 +388,8 @@ case('setpos1d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
+  ! FIXME:
+  call gmeta%attach(gsel)
   call posicion1d_set(f1,f2,f3,f4,i5,i3)
 
  case('setwall1d')
@@ -379,6 +397,8 @@ case('setpos1d')
   call readf(f6)   ! potencial final
   call readi(i4)   ! potencial bines
   call readf(f9)   ! radio de la burbuja
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wall1D_set(f5,f6,i4,f9)
 
 case('wtdcm')
@@ -386,6 +406,10 @@ case('wtdcm')
   i2=1
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
+  
+  ! FIXME:
+  call gmeta%attach(gsel)
+
   !well-tempered Metadynamics 1D en dCM
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.true.,.false.,.false.,.false.)
 
@@ -396,6 +420,8 @@ case('wtx')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics en x
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.true.,.false.)
 
 case('wtpos1d')
@@ -404,6 +430,8 @@ case('wtpos1d')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 1D en dCM
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.true.,.false.,.false.)
 
 case('setwtmd2d')
@@ -423,6 +451,8 @@ case('setwtmd2d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wtmd2D_set(f1,f2,f3,f4,f5,i6,f15,i8,i3)
 
 case('setwall2d')
@@ -433,16 +463,22 @@ case('setwall2d')
   call readf(f11)  ! potencial final rg
   call readi(i5)   ! potencial bines rg
   call readf(f14)  ! radio de la burbuja
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wall2D_set(f6,f7,i4,f10,f11,i5,f14)
 
 
 case('setwallauxcore')
   call readf(f6)   ! potencial inicial dcm
   call readf(f7)   ! potencial final dcm
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wallauxCore_set(f6,f7)
 case('setwallauxshell')
   call readf(f6)   ! potencial inicial dcm
   call readf(f7)   ! potencial final dcm
+  ! FIXME:
+  call gmeta%attach(gsel)
   call wallauxShell_set(f6,f7)
 
 case('wtdcmrgco')
@@ -452,6 +488,8 @@ case('wtdcmrgco')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 case('wtxy')
@@ -461,6 +499,8 @@ case('wtxy')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.false.,.true.)
 !!!!!
 
@@ -471,6 +511,8 @@ case('wtdcmrgau')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.true.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -482,6 +524,8 @@ case('wtdcmrgtotal')
   if(chpmode)stop
   
   !well-tempered Metadynamics 2D en dCm y Rg total
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.true.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -498,6 +542,8 @@ case('dmcv')
   !Pasar los parametros al modudo Metadynamics
   call DM_CV_set(i5,f6,i6)
   !Umbrella sampling
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.true.,.false.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -527,6 +573,8 @@ case('partemp')
     call readf(f6)   ! burbuja
     call readi(i6)   ! cantidad de particulas en el core
     !Pasar los parametros al modudo Metadynamics
+  ! FIXME:
+  call gmeta%attach(gsel)
     call DM_CV_set(i5,f6,i6)
    !PTWTMD
    case('wtdcm')
@@ -544,11 +592,15 @@ case('partemp')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif
+  ! FIXME:
+  call gmeta%attach(gsel)
     call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
     case default
     call werr('I do not understand the last command')  
   endselect
   
+  ! FIXME:
+  call gmeta%attach(gsel)
   call parallel_tempering(i1,i2,i3,.true.,.true.,w1) 
 #else
   call werr('Compile GEMS with MPI (./configure --with-mpi)')
@@ -590,15 +642,32 @@ endif
 ! If label is not found create new one
 if (.not.associated(ig)) then
 
-  ! Create new interaction
-  call interact_new(ig)
+  ! Read the first group
+  call readi(i1) ! A
+  i2=i1          ! B=A by default
 
+  ! Read interaction and second group if given
+  call reada(w1)
+  if (w1=='<') then
+    call readi(i2) ! B
+    call reada(w1)
+  endif
+             
+  ! Create interaction
+  call interact_new(ig,w1)
+  call ig%init()
+
+  ! Add groups
+  call ig%attach(gr(i1))
+  call ig%attach(gr(i2))
+  call ig%ref%attach(gr(i1))
+  call ig%b%attach(gr(i2))
+ 
   ! Create new label
   call polvar_link(label,ig)
   call wstd('The interaction label is '//label)
 
 endif
-
 
 ! Run CLI
 call ig%cli(ig)
@@ -1582,13 +1651,10 @@ call readl(w1)
 selectcase(w1)
 case('cero')
   time=0.0_dp
-  ptime=0.0_dp
   dm_steps=0.0_dp
-  nframe=0.0_dp
   call wstd('time set to cero')
 case('step')
   call readf(dt)
-  dtaux=dt
 case default  
   call wwan('I do not understand the last command')  
 endselect 

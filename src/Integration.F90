@@ -249,7 +249,7 @@ enddo
 
 ! Debo computar de nuevo el volumen, por si hay cambios debido a algun/os
 ! piston/es
-call box_setvars()
+if(boxed) call box_setvars()
      
 if(useghost)then
   call pbcghost_move

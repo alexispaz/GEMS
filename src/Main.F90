@@ -292,6 +292,9 @@ call gnew%init()
 
 ! Selection
 call gsel%init()
+  
+! FIXME:
+call gmeta%init()
 
 ! CLI memory groups
 do i = 1,mgr

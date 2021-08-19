@@ -609,8 +609,6 @@ integer      :: i
 type(outfile),pointer     :: of
 
 frame=frame+1
-pnframe=frame
-ptime=time*time_out
 
 ! Mecanismo de checkpoint. No escribo hasta que no se haya leido.
 if(chpmode) return
@@ -909,7 +907,7 @@ real(dp)                    :: f(3)
 f(:)=0._dp 
  
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
@@ -933,7 +931,7 @@ f(:)=0._dp
 g(:)=0._dp
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
@@ -954,7 +952,7 @@ real(dp)                    :: rd
 integer                     :: i,j
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -984,7 +982,7 @@ real(dp)                    :: f(3)
 f(:)=0._dp 
  
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -1007,7 +1005,7 @@ real(dp)                    :: f(3)
 f(:)=0._dp 
  
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -1046,7 +1044,7 @@ real(dp)                    :: f(3)
 f(:)=0._dp 
  
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -1109,7 +1107,7 @@ f(:)=0._dp
 call inq_angular_energy(of%g) 
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -1134,7 +1132,7 @@ f(:)=0._dp
 call inq_angular_energy(of%g) 
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat

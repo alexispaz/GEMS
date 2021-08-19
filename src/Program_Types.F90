@@ -21,7 +21,6 @@ use gems_groups
 use gems_constants,only:sp,dp,dm,find_io
 use gems_elements,only:elements,ncsym,element,inq_z
 
-
 implicit none
 save
 private
@@ -33,35 +32,13 @@ logical,public :: term_signal=.false., cycle_signal=.false.
 
 
 ! Program variables
-real(dp),target,public    :: dm_steps=0._dp
-real(dp),public    :: nframe=0._dp   ! real para que se banque numeros grandes
-real(dp),public    :: ptime,pnframe
-
-! Diferencial de posicion que es considerado cero (usado para minimizar y otras cosas)
-real(dp),public,parameter :: dpos=0.2 
-
-! Tiempo simulado
-real(dp),public,target    :: time=0.0_dp
-
-logical,public            :: binout=.true.
+real(dp),target,public   :: dm_steps=0._dp
+real(dp),public,target   :: time=0.0_dp
 
 integer,public            :: frame=0 ! Cuando escribe: el frame actual del outunit
 integer,public            :: nstep=100 ! number of integration step
-real(dp),public           :: dtaux=0.002 ! integration step
 
 real(dp),target,public    :: dt=0.002
-
-integer,parameter,public,dimension(26,3) :: n1cells = transpose(reshape( &
-                   [ 1, 0, 0, -1, 0, 0,  0, 1, 0,&
-                     1, 1, 0, -1, 1, 0,  0,-1, 0,&
-                     1,-1, 0, -1,-1, 0,  0, 0, 1,&
-                     1, 0, 1, -1, 0, 1,  0, 1, 1,&
-                     1, 1, 1, -1, 1, 1,  0,-1, 1,&
-                     1,-1, 1, -1,-1, 1,  0, 0,-1,&
-                     1, 0,-1, -1, 0,-1,  0, 1,-1,&
-                     1, 1,-1, -1, 1,-1,  0,-1,-1,&
-                     1,-1,-1, -1,-1,-1 ],[3,26]))
-! integer,public,dimension(26,3) :: n1test = 0.5_dp*(sign(n1cells(:,:))+1)-abs(n1cells(:,:))
 
 public :: box_setvars,box_expand,boxed
 real(dp),public,dimension(dm,dm) :: tbox   =0.0_dp
@@ -74,13 +51,7 @@ real(dp),public                  :: box_vol=1.0e18_dp
 logical                          :: boxed=.false.
 
 real(dp),public             :: virial(dm,dm)=0._dp
-logical,public              :: b_gvirial=.false., b_avirial=.false.
-real(dp),public,allocatable :: atomvirial(:,:)
-public                      :: dovirial
-
-integer,public,parameter   :: nb_max=150 ! Vecinos maximos
-integer,public             :: ncell
-
+logical,public              :: b_gvirial=.false.
 
 ! Objects
 ! =======
@@ -92,44 +63,16 @@ integer,public             :: ncell
 logical,public                      :: mic=.true.
 
 public :: atom_distancetopoint
-public :: atom_dclist_destroyall
 public :: atom_distancetoaxis
 public :: vdistance
 public :: do_pbc, set_pbc
 
-
-logical,public,target,allocatable      :: fix(:),join(:)
-integer,public                         :: njoin=0
-
 ! Groups
 ! ------
-
-! System/Local atoms, index to allow reference by `tag`.
 type(igroup),target,public  :: sys
-     
-! Groups stored in memory via CLI with `group 1 add`.
-! TODO, use labels
-integer,parameter,public     :: mgr=9
-type(group),target,public    :: gr(mgr) ! Selecciones
-
-! Groups for selection
-type(group),target,public    :: gsel    ! current selection
-type(group),target,public    :: gnew    ! selection of atoms in creation
-type(group),target,public    :: ghost
-     
+    
 contains
-
-! subroutine new_atom(o)
-! type(atom),pointer          :: o
-!
-! allocate(o)
-! call o%init()  
-! call sys%attach(o)
-! o%id=sys%nat
-!
-! end subroutine new_atom
-  
-                       
+                      
 ! Box
 ! ===
            
@@ -224,47 +167,7 @@ do l = 1,dm
 enddo
 
 end function vdistance
-                        
-! Atoms
-! =====
-         
-subroutine dovirial(vi,virial_tmp)
-use gems_constants, only:kcm_ui
-real(dp),intent(in) :: virial_tmp(3,3)
-integer,intent(in)  :: vi(:)
-real(dp)            :: aux(6), frac, vtmp
-integer             :: i, j
-integer             :: n
-
-if(.not.b_gvirial) return
-
-n=size(vi)
-
-aux(1) = virial_tmp(1,1)
-aux(2) = virial_tmp(2,2)
-aux(3) = virial_tmp(3,3)
-aux(4) = virial_tmp(1,2)
-aux(5) = virial_tmp(1,3)
-aux(6) = virial_tmp(2,3)
-virial(:,:)=virial(:,:)-virial_tmp(:,:)*kcm_ui
-
-  ! FIXME: Creo que debería hacer esto
-  ! virial(2,1)=virial(1,2)
-  ! virial(3,1)=virial(1,3)
-  ! virial(3,2)=virial(2,3)
-
-if (.not.b_avirial) return
-
-frac = 1._dp/n
-do j = 1,6
-  vtmp = aux(j)*frac
-  do i=1,n
-    atomvirial(j,vi(i)) = atomvirial(j,vi(i)) + vtmp
-  end do
-end do
-
-end subroutine dovirial
-
+           
 ! Distancias
 ! ----------
 
@@ -294,25 +197,6 @@ real(dp),intent(in)    :: r(dm),p(dm)
  vd=aux-(dot_product(aux,r))*r
 
 end function atom_distancetoaxis
-
-! dclist
-! ------
- 
-subroutine atom_dclist_destroyall(node)
-! This subrroutine can be replaced by the instrinisc _DestroyAll when final
-! procedures be implmented.
-type(atom_dclist),target    :: node
-type(atom_dclist),pointer   :: aux
-
-do while(.not.associated(node%next,target=node))
-  aux => node%next
-  call aux%o%dest()
-  call aux%deattach()
-  deallocate(aux)
-enddo
-
-end subroutine atom_dclist_destroyall
- 
 
 end module gems_program_types
  

@@ -17,7 +17,7 @@
 
 
 module gems_set_properties
- use gems_program_types, only: dt,gsel,sys
+ use gems_program_types, only: dt,sys
  use gems_groups, only: group,gindex,atom,atom_dclist
  use gems_constants,only:dp,pi,dm,find_io
  use gems_algebra
@@ -26,9 +26,9 @@ module gems_set_properties
   implicit none
 
   public
-  private :: group,atom,atom_dclist,gsel,sys   ! program_types
-  private :: dt,dm                             ! program_types
-  private :: dp,pi                             ! constants
+  private :: group,atom,atom_dclist,sys   ! program_types
+  private :: dt,dm                        ! program_types
+  private :: dp,pi                        ! constants
 
   save
 

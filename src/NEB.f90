@@ -96,7 +96,7 @@ ks(nimg) = 0.0_dp
 ks(:) = k*ev_ui  
 mass = 1.0_dp             !Masa 
 one_mass = 1.0_dp/mass
-call change_atom_mas(mass)
+call change_atom_mas(g,mass)
 
 !Otras
 vneb = 0.0_dp
@@ -214,19 +214,19 @@ deallocate(ks)        !Constante del resorte 'ev/A**2'
 
 end subroutine neb 
   
-  subroutine change_atom_mas(m)
-    type(atom_dclist),pointer :: la
-    integer                   :: i
-    real(dp)                  :: m
+subroutine change_atom_mas(g,m)
+type(atom_dclist),pointer :: la
+type(group),intent(inout) :: g
+integer                   :: i
+real(dp)                  :: m
 
-    la => gsel%alist%next
-    do i = 1,gsel%nat
-      !señalo al hypervector desde cada atomo
-      la%o%one_mass = 1.0_dp/m
-      la => la%next
-    enddo
- 
-  end subroutine change_atom_mas
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  la%o%one_mass = 1.0_dp/m
+enddo
+
+end subroutine change_atom_mas
 
   subroutine nebfce
     ! Estos vectores son solo sobre el numero de atomos moviles

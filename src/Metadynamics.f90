@@ -63,6 +63,10 @@ public         :: metadynamics
 public         :: wtmd2D_set,dm_cv_set,wall2D_set,wallauxCore_set,wallauxShell_set
 public         :: wtmetad_set,wall1D_set, bias_point_1D,Collective_Variable     
 public         :: write_cvs,write_E_1D,dCM,posicion1d_set,wtxy_2D
+ 
+! FIXME:
+type(group),target,public   :: gmeta
+ 
 contains
 
 
@@ -180,7 +184,7 @@ end subroutine posicion1d_set
    type (atom_dclist),pointer   :: la
    integer                      :: i
    ff1d = -kBuCM*(pos_x-pared)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + ff1d
@@ -194,7 +198,7 @@ end subroutine posicion1d_set
    integer                      :: i
    ff1d = -kBuCM*(pos_x-pared)
 
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + ff1d
@@ -210,7 +214,7 @@ real(dp)                     :: ffcte
 pos_x=0
 
 ! Apertura  de archivos y poner a 0 las variables del potencial
-la => gsel%alist
+la => gmeta%alist
 do i = 1,cant_parta
   la => la%next
   pos_x=la%o%pos(1) 
@@ -228,7 +232,7 @@ if(pos_x >= potiniCV1 .AND. pos_x <= potfinCV1) then
   ffcte= sline_interpotation(pos_x,interpolation_x(binCV1_1),for_int_y(binCV1_1),&
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
   !calculo de la fuerza del bias en la cordenada colectiva dCM
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + real (ffcte,dp)
@@ -292,7 +296,7 @@ temp_md=g%fixt
   
   biasf= real (((temp_md+dT_WT)/(dT_WT)),dp)
   parA= 1.0_dp/real (cant_parta,dp)
-  parB= 1.0_dp/real ((gsel%nat-cant_parta),dp)
+  parB= 1.0_dp/real ((gmeta%nat-cant_parta),dp)
   wWTini  = wWTini * real(kjau_pro,dp)
   tol_Bias = tol_Bias * real(kjau_pro,dp)  
   tauWT_pasos= int(tauWT/dt)
@@ -401,13 +405,13 @@ subroutine wtmetad_2D(n,nstep)
   CV2_ff = CV2_ffcte /real ((cant_parta*Rg),dp)
 
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcmA))   
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
   enddo
@@ -466,15 +470,15 @@ call pared_burb(n)
  
           
   CV1_ff= (CV1_ffcte*(rcmA-rcmB))/ real (dCM,dp)
-  CV2_ff = CV2_ffcte /real (((gsel%nat-cant_parta)*RgAu),dp)
+  CV2_ff = CV2_ffcte /real (((gmeta%nat-cant_parta)*RgAu),dp)
 
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcmB))   
@@ -531,15 +535,15 @@ subroutine dCM_RgTotal(n,nstep)
   CV2_ffcte = interpolacion_bilineal(dCM,Rgtotal,binCV1_1,binCV1_2,binCV2_1,binCV2_2,&
       F_WTMD_2D_CV2(binCV1_1,binCV2_1),F_WTMD_2D_CV2 (binCV1_2,binCV2_1),&
       F_WTMD_2D_CV2 (binCV1_1,binCV2_2),F_WTMD_2D_CV2 (binCV1_2,binCV2_2))
-  CV2_ff = CV2_ffcte /real ((gsel%nat*Rgtotal),dp)
+  CV2_ff = CV2_ffcte /real ((gmeta%nat*Rgtotal),dp)
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcm))   
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcm))   
@@ -620,7 +624,7 @@ temp_md=g%fixt
   call wlog ('WTMD1D'); write(logunit,*) 'printCV->',printD,'temp->',temp_md,'N_partcore->',cant_parta
 
   parA= 1.0_dp/real (cant_parta,dp)
-  parB= 1.0_dp/real ((gsel%nat-cant_parta),dp)
+  parB= 1.0_dp/real ((gmeta%nat-cant_parta),dp)
                                           
   wWTini  = wWTini * real(kjau_pro,dp)
   tauWT_pasos= int(tauWT/dt)
@@ -687,12 +691,12 @@ subroutine wtmetad(n,nstep)
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
   ff= (ffcte*(rcmA-rcmB))/real (dCM,dp)
 !calculo de la fuerza del bias en la cordenada colectiva dCM
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + real (ff*parA,dp)
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - real (ff*parB,dp)
   enddo
@@ -878,7 +882,7 @@ subroutine Collective_Variable()
   sumaRgtotal=0.0_dp   
 
  !   Calculo la posicion del CM  de cada especie
- la => gsel%alist
+ la => gmeta%alist
   do i=1, cant_parta
    la => la%next
    rcmA = rcmA + (la%o%pos*la%o%mass)
@@ -886,7 +890,7 @@ subroutine Collective_Variable()
    if(i/=1) cycle
    mas1= la%o%mass
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    rcmB = rcmB + (la%o%pos*la%o%mass)
    rcm = rcm + (la%o%pos*la%o%mass)
@@ -894,23 +898,23 @@ subroutine Collective_Variable()
    mas2= la%o%mass
   enddo
   rcmA = rcmA/ real ((cant_parta*mas1),dp)
-  rcmB = rcmB/ real (((gsel%nat-cant_parta)*mas2),dp)
-  rcm = rcm/ real (((gsel%nat-cant_parta)*mas2)+(cant_parta*mas1),dp)
+  rcmB = rcmB/ real (((gmeta%nat-cant_parta)*mas2),dp)
+  rcm = rcm/ real (((gmeta%nat-cant_parta)*mas2)+(cant_parta*mas1),dp)
   
-  la => gsel%alist
+  la => gmeta%alist
   do i=1, cant_parta
    la => la%next
    sumaRg= sumaRg + (dot_product(la%o%pos-rcmA, la%o%pos-rcmA))
    sumaRgtotal= sumaRgtotal + (dot_product(la%o%pos-rcm, la%o%pos-rcm))
   enddo
-  do i=cant_parta + 1, gsel%nat 
+  do i=cant_parta + 1, gmeta%nat 
    la => la%next
    sumaRgAu= sumaRgAu + (dot_product(la%o%pos-rcmB, la%o%pos-rcmB))
    sumaRgtotal= sumaRgtotal + (dot_product(la%o%pos-rcm, la%o%pos-rcm))
   enddo
 
-  Rgtotal=sqrt(sumaRgtotal / real (gsel%nat,dp))
-  RgAu=sqrt(sumaRgAu / real (gsel%nat - cant_parta,dp))
+  Rgtotal=sqrt(sumaRgtotal / real (gmeta%nat,dp))
+  RgAu=sqrt(sumaRgAu / real (gmeta%nat - cant_parta,dp))
   Rg=sqrt(sumaRg / real (cant_parta,dp))
   dCM=sqrt(((rcmB(1)-(rcmA(1)))*(rcmB(1)-rcmA(1)))+((rcmB(2)-rcmA(2))*(rcmB(2)-rcmA(2)))+((rcmB(3)-rcmA(3))*(rcmB(3)-rcmA(3))))
 
@@ -934,12 +938,12 @@ end subroutine Collective_Variable
    type (atom_dclist),pointer   :: la
    integer                      :: i
    ffCM = -kBuCM*(dCM-pared)*((rcmA-rcmB)/dCM)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force = la%o%force + (ffCM*parA)
    enddo
-   do i=cant_parta+1, gsel%nat
+   do i=cant_parta+1, gmeta%nat
     la => la%next
     la%o%force = la%o%force - (ffCM*parB)
    enddo
@@ -952,12 +956,12 @@ end subroutine Collective_Variable
    integer                      :: i
    ffCM = -kBuCM*(dCM-pared)*((rcmA-rcmB)/dCM)
 
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force = la%o%force + (ffCM*parA)
    enddo
-   do i=cant_parta+1, gsel%nat
+   do i=cant_parta+1, gmeta%nat
     la => la%next
     la%o%force = la%o%force - (ffCM*parB)
    enddo
@@ -969,7 +973,7 @@ end subroutine Collective_Variable
   integer                      :: i
   type (atom_dclist),pointer   :: la
    ffRgT = (-kBuRg*(Rg-pared))/real ((Rg*cant_parta),dp)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmA))   
@@ -981,9 +985,9 @@ end subroutine Collective_Variable
   real(dp)                     :: ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gsel%nat-cant_parta)),dp)
-   la => gsel%alist
-   do i = cant_parta+1,gsel%nat
+   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gmeta%nat-cant_parta)),dp)
+   la => gmeta%alist
+   do i = cant_parta+1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmB))   
    enddo
@@ -995,7 +999,7 @@ end subroutine Collective_Variable
   integer                      :: i
   type (atom_dclist),pointer   :: la
    ffRgT = (-kBuRg*(Rg-pared))/real ((Rg*cant_parta),dp)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmA))   
@@ -1007,9 +1011,9 @@ end subroutine Collective_Variable
   real(dp)                     ::ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gsel%nat-cant_parta)),dp)
-   la => gsel%alist
-   do i = cant_parta+1,gsel%nat
+   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gmeta%nat-cant_parta)),dp)
+   la => gmeta%alist
+   do i = cant_parta+1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmB))   
    enddo  
@@ -1020,13 +1024,13 @@ end subroutine Collective_Variable
   real(dp)                     :: ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gsel%nat),dp)
-   la => gsel%alist
+   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gmeta%nat),dp)
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo
-   do i = cant_parta +1,gsel%nat
+   do i = cant_parta +1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
@@ -1037,13 +1041,13 @@ end subroutine Collective_Variable
   real(dp)                     ::ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gsel%nat),dp)
-   la => gsel%alist
+   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gmeta%nat),dp)
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
-   do i = cant_parta +1,gsel%nat
+   do i = cant_parta +1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
@@ -1054,9 +1058,9 @@ end subroutine Collective_Variable
   integer                      :: i,n
   real(dp)                     :: dist_part2,dist_part,ffburb
   type (atom_dclist),pointer   :: la
-  la => gsel%alist
+  la => gmeta%alist
 
-  do i = 1,gsel%nat
+  do i = 1,gmeta%nat
    la => la%next
    dist_part2 = dot_product(la%o%pos,la%o%pos)
    if (dist_part2 < (rburb*rburb)) cycle
@@ -1282,7 +1286,7 @@ subroutine wtx(n,nstep)
     ffcte= sline_interpotation(rcmA(1),interpolation_x(binCV1_1),for_int_y(binCV1_1),&
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
 !calculo de la fuerza del bias en la cordenada colectiva dCM
-    la => gsel%alist
+    la => gmeta%alist
     do i = 1,cant_parta
       la => la%next
       la%o%force(1) = la%o%force(1) + real (ffcte*parA,dp)
@@ -1329,7 +1333,7 @@ subroutine wtxy_2D(n,nstep)
         F_WTMD_2D_CV2(binCV1_1,binCV2_1),F_WTMD_2D_CV2 (binCV1_2,binCV2_1),&
         F_WTMD_2D_CV2 (binCV1_1,binCV2_2),F_WTMD_2D_CV2 (binCV1_2,binCV2_2))
    
-      la => gsel%alist
+      la => gmeta%alist
       do i = 1,cant_parta
         la => la%next
         la%o%force(1) = la%o%force(1) + real (CV1_ffcte*parA,dp)
