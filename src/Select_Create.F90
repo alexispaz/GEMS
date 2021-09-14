@@ -796,7 +796,7 @@ integer                    :: i,id
 la => gini%alist
 do i = 1,gini%nat
   la => la%next
-  if(id==la%o%gid(sys%id)) then
+  if(id==la%o%gid(sys)) then
     call gout%attach(la%o)
     return
   endif    

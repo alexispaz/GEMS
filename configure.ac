@@ -7,7 +7,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR(src/)
 
 # AM_INIT_AUTOMAKE([-Wall -Werror foreign])
-AM_INIT_AUTOMAKE([subdir-objects])
+AM_INIT_AUTOMAKE([subdir-objects foreign])
 
 # Avoid make to rebuild configure
 AM_MAINTAINER_MODE

@@ -651,6 +651,10 @@ if (.not.associated(ig)) then
   if (w1=='<') then
     call readi(i2) ! B
     call reada(w1)
+    selectcase(w1)
+    case('bias','field','graph','reax')
+      call werr("Only one group expected for this interaction type.",i1/=i2)
+    end select 
   endif
              
   ! Create interaction
@@ -659,9 +663,9 @@ if (.not.associated(ig)) then
 
   ! Add groups
   call ig%attach(gr(i1))
-  call ig%attach(gr(i2))
   call ig%ref%attach(gr(i1))
   call ig%b%attach(gr(i2))
+  if(i2/=i1) call ig%attach(gr(i2))
  
   ! Create new label
   call polvar_link(label,ig)
@@ -1862,6 +1866,7 @@ if(w1(1:1)==':') then
 else 
   of=>null()
   call reread(0)
+  w1=':of9999999' ! Allocate for write
   write(w1,'(a,i0)') ':of',of_vop%size+1
   label=trim(w1)
 endif

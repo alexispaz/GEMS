@@ -106,20 +106,20 @@ end type
 contains
 
 subroutine smatb_attach(g,a)
-class(smatb)               :: g
+class(smatb),target        :: g
 class(atom),target         :: a
 type(atom_dclist),pointer  :: la
-integer                    :: i,n,m,k  
+integer                    :: i,n,k  
 
 ! Save current atom number
-m=g%nat
+n=g%nat
  
 ! Attempt to attach
-call g%ngroup_attach(a)
+call g%ngroup_attach_atom(a)
 
 ! Return if atom was already in the group
-if(m==g%nat) return
- 
+if(n==g%nat) return
+                                  
 ! Search new internal atom types
 la=>g%alist
 do i = 1,g%nat
@@ -386,7 +386,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
   z1 = g%z(o1%z)
  
   ! sobre los vecinos
@@ -439,8 +439,8 @@ do l=1,g%b%nat
   o2=>o1%ghost
   if(.not.associated(o2)) cycle
 
-  i = o1%gid(g%id)
-  j = o2%gid(g%id)
+  i = o1%gid(g)
+  j = o2%gid(g)
   g%band(i) = g%band(j)
 
 enddo
@@ -472,7 +472,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
   z1 = g%z(o1%z)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
@@ -533,7 +533,7 @@ do ii = 1,g%ref%nat
 
 
     if (associated(o2%ghost)) then
-      if (o2%gid(g%id)>o1%gid(g%id)) then
+      if (o2%gid(g)>o1%gid(g)) then
 
         o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)
         o2%epot = o2%epot + repul*lev_ui

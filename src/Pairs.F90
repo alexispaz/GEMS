@@ -18,10 +18,9 @@
  
 module gems_pairs
 use gems_program_types
-use gems_algebra 
-use gems_constants,     only: dp,ev_ui,ui_ev,dm
-use gems_inq_properties
-use gems_neighbor
+use gems_groups
+use gems_constants, only: dp,ev_ui,ui_ev,dm
+use gems_neighbor, only: ngroup
 
 implicit none
 
@@ -96,6 +95,7 @@ contains
 
 
 subroutine pair_new(g,w)
+use gems_errors, only: werr
 character(*),intent(in)  :: w
 class(ngroup),pointer    :: g
 
@@ -116,6 +116,7 @@ endselect
 end subroutine pair_new
 
 subroutine pair_cli(g)
+use gems_errors, only: werr
 use gems_input_parsing
 class(ngroup),intent(inout) :: g
 integer                         :: i1
@@ -196,7 +197,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
 
@@ -225,7 +226,7 @@ do ii = 1,g%ref%nat
     o1%force(1:dm) = o1%force(1:dm) - factor2(1:dm) 
 
     if (associated(o2%ghost)) then
-      if (o2%gid(g%id)>o1%gid(g%id)) then
+      if (o2%gid(g)>o1%gid(g)) then
 
         o2%epot = o2%epot + p*0.5_dp
         g%epot = g%epot + p*0.5_dp
@@ -272,7 +273,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
 
@@ -307,7 +308,7 @@ do ii = 1,g%ref%nat
     endif
        
     if (associated(o2%ghost)) then
-      if (o2%gid(g%id)>o1%gid(g%id)) then
+      if (o2%gid(g)>o1%gid(g)) then
         ! Una sola vez por par para que se pueda calcular el virial
 
         o2%epot = o2%epot + p*0.5_dp
@@ -374,7 +375,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
 
@@ -418,7 +419,7 @@ do ii = 1,g%ref%nat
     endif
     
     if (associated(o2%ghost)) then
-      if (o2%ghost%gid(g%id)>o1%gid(g%id)) then
+      if (o2%ghost%gid(g)>o1%gid(g)) then
         ! Una sola vez por par para que se pueda calcular el virial
 
         ! print *, i,j,l
@@ -472,7 +473,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
 
@@ -508,7 +509,7 @@ do ii = 1,g%ref%nat
     endif
     
     if (associated(o2%ghost)) then
-      if (o2%gid(g%id)>o1%gid(g%id)) then
+      if (o2%gid(g)>o1%gid(g)) then
 
         ! Una sola vez por par para que se pueda calcular el virial
 
@@ -562,7 +563,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   ! Sobre los vecinos
   do l = 1, g%nn(i) 
@@ -632,7 +633,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   oi => la%o
-  i = oi%gid(g%id)
+  i = oi%gid(g)
 
   ! Compute the normalization factor
   norm=0._dp
@@ -739,7 +740,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
     j  = g%list(i,l)
@@ -779,6 +780,7 @@ call g%setrc(100._dp)
 end subroutine        
  
 subroutine shocm_interact(g)
+use gems_inq_properties, only:atom_dclist_inq_cmpos
 class(shocm),intent(inout) :: g
 real(dp)                   :: vd(dm),dr,paux,faux,m,m2
 type(atom_dclist),pointer  :: la,alist
@@ -848,10 +850,9 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g%id)
+  i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
-
     j  = g%list(i,l)
     o2 => g%a(j)%o
 
@@ -886,7 +887,7 @@ do ii = 1,g%ref%nat
     endif
           
     if (associated(o2%ghost)) then
-      if (o2%gid(g%id)>o1%gid(g%id)) then
+      if (o2%gid(g)>o1%gid(g)) then
 
         o2%epot = o2%epot + p*0.5_dp
         g%epot = g%epot + p*0.5_dp

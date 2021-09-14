@@ -515,7 +515,7 @@ allocate(lmask(g%ngraphs))
 lmask(:)=.false.
 do i = 1,g%nat
   at=>g%a(i)%o
-  if(any(at%gr(:)==gini%id)) lmask(g%label(i))=.true.
+  if(at%gri(gini)/=-1) lmask(g%label(i))=.true.
 enddo
  
 ! Search the igaph again and peek atoms by its labels.

@@ -124,19 +124,19 @@ contains
 ! #include "vector_body.inc"
   
 subroutine cv_attach(g,a)
-class(cv)            :: g
+class(cv),target     :: g
 class(atom),target   :: a
 integer              :: n, m
 
 ! Save current atom number
-m=g%nat
+n=g%nat
 
 ! Attempt to attach
-call g%igroup%attach(a)
+call g%igroup_attach_atom(a)
 
 ! Return if atom was already in the group
-if(m==g%nat) return
-                         
+if(n==g%nat) return
+                                 
 ! Reallocate if needed
 if(allocated(g%j)) then
   if(g%nat<size(g%j,2)) return

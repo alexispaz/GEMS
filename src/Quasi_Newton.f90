@@ -16,14 +16,14 @@
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
 !
 ! ---
-! 
+!
 ! This file incorporates work derived from the following codes:
 !
 ! L-BFGS code <http://users.iems.northwestern.edu/~nocedal/lbfgs.html>
-! by Jorge Nocedal, covered by the following copyright and permission notice:  
+! by Jorge Nocedal, covered by the following copyright and permission notice:
 !
 ! Copyright (c)  Jorge Nocedal
-! 
+!
 !	 L-BFGS is a limited-memory quasi-Newton code for unconstrained optimization. The code has been developed at the Optimization
 !	 Center, a joint venture of Argonne National Laboratory and Northwestern University.
 !  .
@@ -31,7 +31,7 @@
 !  .
 !	 Condition for Use: This software is freely available for educational or commercial purposes. We expect that all publications
 !	 describing work using this software quote at least one of the references given below. This software is released under the BSD
-!	 License. 
+!	 License.
 !  .
 !	 Authors
 !	 Jorge Nocedal
@@ -41,11 +41,11 @@
 !	 - D.C. Liu and J. Nocedal. On the Limited Memory Method for Large Scale Optimization (1989), Mathematical Programming B, 45, 3, pp. 503-528.
 !
 ! Modification of sdrive.f <https://sourceforge.net/p/maxima/code/ci/master/tree/share/lbfgs/sdrive.f>
-! by Robert Dodier, covered by the following copyright and permission notice:  
+! by Robert Dodier, covered by the following copyright and permission notice:
 !
 ! Copyright (c) 2006  Robert Dodier
-! 
-!  Modification of sdrive.f as retrieved 1997/03/29 from 
+!
+!  Modification of sdrive.f as retrieved 1997/03/29 from
 !  ftp://ftp.netlib.org/opt/lbfgs_um.shar
 !  .
 !  This version copyright 2006 by Robert Dodier and released
@@ -61,17 +61,17 @@ use gems_output
 use gems_errors
 
 save
-private 
-   
+private
+
 !The only variables that are machine-dependent are XTOL, STPMIN and STPMAX.
 
-!real(dp),parameter :: ftol= 1.0d-4 ! used in decrece wolf condition 
+!real(dp),parameter :: ftol= 1.0d-4 ! used in decrece wolf condition
 
 !STPMIN and STPMAX are non-negative which specify lower and uper bounds for the
 !step in the line search.  Their default values are 1.e-20 and 1.e+20,
 !respectively. These values need not be modified unless the exponents are too
 !large for the machine being used, or unless the problem is extremely badly
-!scaled (in which case the exponents should be increased).  
+!scaled (in which case the exponents should be increased).
 real(dp) :: stpmin =1.e-20_dp, stpmax =1.e20_dp
 
 !LP is used as the unit number for the printing of error messages. This
@@ -83,7 +83,7 @@ integer  :: lp=6
 !iteration (which is sometimes the case when solving very large problems) it
 !may be advantageous to set GTOL to a small value. A typical small value is
 !0.1.  Restriction: GTOL should be greater than 1.D-04.
-real(dp) :: gtol= 9.0d-01 
+real(dp) :: gtol= 9.0d-01
 !real(dp) :: gtol= 1.e-3_dp
 
 
@@ -130,7 +130,7 @@ function lbfgs_getenergy(g,b_out) result(emin)
   auxv=g%pv
   auxf=g%pf
   auxa=g%pa
-  
+
   ! Set the output unit and print mode
   if (b_out) then
     lp = logunit
@@ -153,12 +153,12 @@ function lbfgs_getenergy(g,b_out) result(emin)
   g%pv=auxv
   g%pf=auxf
   g%pa=auxa
-  
+
   ! Retomo el modo de almacenamiento anterior
   if(switched) call group_switch_objeto(g)
 
 end function lbfgs_getenergy
- 
+
 subroutine lbfgs_minimizator(g,b_out,pmin,emin)
 ! Minimiza la posicion p.
 ! Si no es suministrada minimiza la posicion actual
@@ -215,7 +215,7 @@ call lbfgs(n,m,g%pp,f,gr,iprint,eps,xtol,w,iflag,scache,get_fg)
 if (present(emin)) emin=f*ev_ui
 if (present(pmin)) then
   pmin=g%pp
-  g%pp=auxp                                                                                        
+  g%pp=auxp
   g%pv=auxv
   g%pf=auxf
   g%pa=auxa
@@ -223,12 +223,12 @@ endif
 
 ! Retomo el modo de almacenamiento anterior
 if(switched) call group_switch_objeto(g)
-        
+
 ! Retomo el modo ghost anterior
 fullghost=ghosted
 
 end subroutine lbfgs_minimizator
- 
+
 ! subroutine fix_lbfgs_minimizator(g,b_out,pmin,emin)
 ! Minimiza la posicion p.
 ! Si no es suministrada minimiza la posicion actual
@@ -278,12 +278,12 @@ end subroutine lbfgs_minimizator
 ! fixpos=g%pp
 !
 ! ! Genero vector del tamaño del grupo con fijacion
-! la => g%alist%next  
+! la => g%alist%next
 ! do i = 1,g%nat
 !   j=la%o%idv
-!   fixes((i-1)*dm+1:i*dm) = fix(j:j+dm) 
+!   fixes((i-1)*dm+1:i*dm) = fix(j:j+dm)
 !   la => la%next
-! enddo 
+! enddo
 !
 ! if (b_out) then
 !   iprint=1
@@ -328,7 +328,7 @@ end subroutine lbfgs_minimizator
 !     write(logunit,'(a,i4,a)') 'Terminated after ',icall-1,' evaluations.'
 !   endif
 ! endif
-!    
+!
 ! ! Establezco la salida
 ! if (present(emin)) emin=f
 ! if (present(pmin)) then
@@ -343,11 +343,11 @@ end subroutine lbfgs_minimizator
 ! if(switched) call group_switch_objeto(g)
 !
 ! end subroutine fix_lbfgs_minimizator
-    
+
 subroutine lbfgs(n,m,x,f,g,iprint,eps,xtol,w,iflag,scache,get_fg,get_diag)
- 
+
 ! Limited memory BFGS method for large scale optimization by Jorge Nocedal (July
-! 1990). 
+! 1990).
 
 ! Alexis Paz (October 2018) have replaced the callback system of the original
 ! routine to clarify the execution flow of the code. Now, the code expect the
@@ -355,7 +355,7 @@ subroutine lbfgs(n,m,x,f,g,iprint,eps,xtol,w,iflag,scache,get_fg,get_diag)
 ! method. The user must specify this routines with the specific interfaces
 ! declared (any required variables must be supplied globally). This system
 ! allows to remove a lot of goto in the code and introduce do loops for the
-! iterations. 
+! iterations.
 !
 ! Here the original routine header by Jorge Nocedal:
 
@@ -380,14 +380,14 @@ subroutine lbfgs(n,m,x,f,g,iprint,eps,xtol,w,iflag,scache,get_fg,get_diag)
 ! and Thuente.
 
 integer,intent(in)     :: n,&  ! Number of variables
-                          m    ! Number of corrections in the BFGS update. 
+                          m    ! Number of corrections in the BFGS update.
                                ! 3<=M<=7 is recommended; large values result in excessive computing time.
-real(dp),intent(inout) :: x(n) ! In: initial estimate of the solution. Out: best point found (usually a solution).               
+real(dp),intent(inout) :: x(n) ! In: initial estimate of the solution. Out: best point found (usually a solution).
 
 real(dp)   :: w(n*(2*m+1)+2*m) ! Work array
 integer, parameter  :: itermax=1000 ! We allow itermax LBFGS iterations
 real(dp)   :: xtol             ! Tolerance for the relative width of the interval of uncertainty
-real(dp)   :: eps              ! Solution accuracy. Subroutine terminates when |G|<eps*max(1,|X|) 
+real(dp)   :: eps              ! Solution accuracy. Subroutine terminates when |G|<eps*max(1,|X|)
 real(dp)   :: f                ! Function F at X
 real(dp)   :: g(n)             ! Gradient G at X
 real(dp)   :: scache(n)
@@ -412,26 +412,26 @@ integer             :: iter,nfun,point,ispt,iypt,maxfev,info, &
                        bound,npt,cp,i,nfev,inmc,iycn,iscn
 
 logical             :: finish
-  
+
 ! Interface for the subroutine to compute f and g
 interface
   subroutine get_fg(f,g)
   import dp
   real(dp),intent(out)   :: g(:),f
-  end subroutine       
+  end subroutine
 end interface
-   
+
 ! Interface for the subroutine to compute the diagonal Hk0 matrix
 interface
   subroutine get_diag_interface(diag)
   import dp
   real(dp),intent(out)   :: diag(:)
-  end subroutine 
+  end subroutine
 end interface
 procedure(get_diag_interface), optional :: get_diag
 
 save
- 
+
 ! Set diagco if get_diag is supply
 if(present(get_diag)) diagco=.true.
 
@@ -445,12 +445,7 @@ if(n<=0.or.m<=0) then
 endif
 
 ! Restrict gtol above 1e-4
-if(gtol<=1.e-4_dp) then
-  if(lp>0) then
-    call wwan('Since gtol<=1e-4 it will be reset to 0.9.')
-  endif
-  gtol=9.d-01
-endif
+call werr('gtol should be grater than 1e-4',gtol<=1.e-4_dp)
 
 ! Check for diag as input
 if(diagco) then
@@ -473,7 +468,7 @@ point= 0
 finish= .false.
 ispt= n+2*m
 iypt= ispt+n*m
-              
+
 ! Parameters for line search routine
 ftol=1.e-4_dp
 maxfev= 100
@@ -544,7 +539,7 @@ do iter=1,itermax
   do i= 1,bound
       cp=cp-1
       if (cp== -1)cp=m-1
-      ! Dot product between the search step and the gradient 
+      ! Dot product between the search step and the gradient
       sq= dot_product(w(ispt+cp*n+1:ispt+cp*n+n),w(1:n))
       inmc=n+m+cp+1
       iycn=iypt+cp*n
@@ -557,8 +552,8 @@ do iter=1,itermax
   enddo
 
   do i=1,bound
-     ! Dot product between the gradient difference and the gradient 
-     yr= dot_product(w(iypt+cp*n+1:iypt+cp*n+n),w(1:n)) 
+     ! Dot product between the gradient difference and the gradient
+     yr= dot_product(w(iypt+cp*n+1:iypt+cp*n+n),w(1:n))
      beta= w(n+cp+1)*yr
      inmc=n+m+cp+1
      beta= w(inmc)-beta
@@ -584,11 +579,18 @@ do iter=1,itermax
 
   ! End with error
   if (info /= 1) then
-    iflag=-1
     if(lp>0) then
-      call wwan(); write(lp,'(a,i2,a)') 'iflag= -1. line search failed: info= ',info,'see doc of routine mcsrch +++'
-      call wwan('possible causes: function or gradient are incorrect or incorrect tolerances')
+      call wwan('mcsrch: line search failed:')
+      select case(info)
+      case(0); call wwan('Improper input.')
+      case(2); call wwan('xtol fulfilled.')
+      case(3); call wwan('fcn==maxfev.')
+      case(4); call wwan('step is at the lower bound stpmin.')
+      case(5); call wwan('step is at the upper bound stpmax.')
+      case(6); call wwan('Rounding errors prevent further progress. Tolerances may be too small.')
+      end select
     endif
+    iflag=-1
     return
   endif
 
@@ -599,7 +601,7 @@ do iter=1,itermax
   do i=1,n
     w(ispt+npt+i)= stp*w(ispt+npt+i)
     w(iypt+npt+i)= g(i)-w(i)
-  enddo 
+  enddo
   point=point+1
   if (point==m) point=0
 
@@ -612,7 +614,7 @@ do iter=1,itermax
   call lb1(iprint,iter,nfun,gnorm,n,m,x,f,g,stp,finish)
 
   !We've completed a line search. Cache the current solution vector.
-  !      
+  !
   !At the end of searching, the solution cache is different from
   !the current solution if the search is terminated in the
   !middle of a line search. That is the case if, for example,
@@ -635,7 +637,7 @@ enddo
 if(lp>0) then
   call wwan('Limit of iteration evaluation reached. Try increasing itermax.');
 endif
-                   
+
 
 end subroutine
 
@@ -646,7 +648,7 @@ integer,intent(in)  :: n,m,iter,nfun,iprint
 real(dp),intent(in) :: x(n),g(n),f,gnorm,stp
 logical,intent(in)  :: finish
 
-if(iprint<0) return 
+if(iprint<0) return
 
 if (iter==0)then
   call wlog('LBFGS'); write(logunit,'(3x,a,5x,a,20x,a,19x,a)') 'I  NFN','FUNC','GNORM','STEPLENGTH'
@@ -720,7 +722,7 @@ subroutine mcsrch(n,x,f,g,s,stp,ftol,xtol,maxfev,info,nfev,wa)
 !decrease condition
 !
 !      f(x+stp*s) <= f(x) + ftol*stp*(gradf(x)'s),
-!  
+!
 !and the curvature condition
 !
 !      abs(gradf(x+stp*s)'s)) <= gtol*abs(gradf(x)'s).
@@ -730,20 +732,20 @@ subroutine mcsrch(n,x,f,g,s,stp,ftol,xtol,maxfev,info,nfev,wa)
 !found which satisfies both conditions, then the algorithm usually stops when
 !rounding errors prevent further progress. In this case stp only satisfies the
 !sufficient decrease condition.
-          
+
 ! Global variables expected:
 ! - gtol: the sufficient directional derivative condition.
-! - stpmin and stpmax: lower and upper bounds for the step. 
+! - stpmin and stpmax: lower and upper bounds for the step.
 
 !ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JUNE 1983
 !JORGE J. MORE', DAVID J. THUENTE
- 
+
 integer,intent(in)    :: n,      & ! Number of variables
                          maxfev    ! Max number of calls to fcn allowed by the end of an iteration.
 
-integer,intent(out)   :: nfev  , & ! The number of calls to fcn.   
+integer,intent(out)   :: nfev  , & ! The number of calls to fcn.
                          info  ! Information on the termination reason. The labels are:
-                               ! 0: Improper input 
+                               ! 0: Improper input
                                ! 1: gtol and ftol are fulfilled
                                ! 2: xtol fulfilled
                                ! 3: fcn==maxfev
@@ -782,7 +784,7 @@ if (n <= 0 .or. stp <= 0.0_dp .or. ftol < 0.0_dp .or. &
 !Compute the initial gradient in the search direction.
 dginit=dot_product(g,s)
 
-!Check that s(:) is a descent direction.                                   
+!Check that s(:) is a descent direction.
 if (dginit>=0._dp) then
    call wstd(); write(lp,fmt='(/"  the search direction is not a descent direction")')
    return
@@ -1102,10 +1104,10 @@ if (brackt .and. bound) then
 end if
 
 end  subroutine
- 
+
 
 subroutine get_fg(f,g)
-! Compute gradient and write output  
+! Compute gradient and write output
 real(dp),intent(out)   :: g(:),f
 integer,save           :: icall=0
 icall=icall+1
@@ -1114,8 +1116,8 @@ call interact(.false.,f)
 f = f*ui_ev
 g(:) = -gro%pf(:)*ui_ev
 if (b_fgout) call write_out(1,icall)
-end subroutine 
+end subroutine
 
-                  
+
 
 end module gems_quasi_newton

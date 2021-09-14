@@ -143,50 +143,52 @@ debug:
 all: gems	       
 
 # Propios
-Main.o:  Neighbor.o
-Constants.o:     
-Strings.o:       Constants.o
-Errors.o:        Constants.o Strings.o
-Variables.o:	 Errors.o Program_Types.o Constants.o Strings.o
-Algebra.o:	 Constants.o $(random_obj)
-Elements.o:      Strings.o Constants.o Errors.o
-Input_Parsing.o: Elements.o Algebra.o Constants.o
-Groups.o: Constants.o 
-Program_Types.o: Elements.o Constants.o Errors.o Input_Parsing.o Groups.o
+Main.o: 
+Constants.o: 
+Strings.o:  Constants.o
+Algebra.o:  Constants.o $(random_obj)
+Errors.o:   Constants.o Strings.o
+Elements.o: Constants.o Strings.o Errors.o
 
-ForceField.o:    Algebra.o Output.o Program_Types.o Constants.o Input_Parsing.o    
-DDDA.o:                 Program_Types.o	 Errors.o
-Tables.o:		Program_Types.o  Input_Parsing.o DDDA.o
-Inq_Properties.o:   Neighbor.o Algebra.o    Constants.o     Strings.o Constants.o    Input_Parsing.o    Program_Types.o  Tables.o
-Set_Properties.o:       Inq_Properties.o Algebra.o   Constants.o     Strings.o Constants.o    Program_Types.o
-Select_Create.o:        Set_Properties.o    Inq_Properties.o    Program_Types.o  
-Quasi_Newton.o:         Set_Properties.o    Inq_Properties.o    Algebra.o     Program_Types.o  Output.o 
+Groups.o:        Constants.o Elements.o
+Input_Parsing.o: Constants.o Elements.o Algebra.o 
+Program_Types.o: Constants.o Groups.o Errors.o Elements.o Input_Parsing.o 
+Variables.o:     Constants.o Strings.o Errors.o Program_Types.o 
+Neighbor.o:      Constants.o Algebra.o Program_Types.o Variables.o
 
-Bias.o:		Neighbor.o Program_Types.o 
-Pairs.o:	Neighbor.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-TB.o:		Neighbor.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
+DDDA.o:   Errors.o   Program_Types.o 
+Tables.o: Input_Parsing.o   Program_Types.o DDDA.o
 
-Bond_Boost.o:   Neighbor.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-BO.o:		Neighbor.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-Fields.o:   Output.o Neighbor.o Constants.o Algebra.o    Program_Types.o
-Integration.o:	 Variables.o Bias.o Algebra.o     Neighbor.o Set_Properties.o    Inq_Properties.o     Constants.o   Program_Types.o
-Neighbor.o:   Variables.o   Algebra.o     Set_Properties.o   Program_Types.o Constants.o
-Graphs.o: Constants.o Groups.o Neighbor.o 
-Interaction.o: Neighbor.o TB.o Constants.o   Program_Types.o Output.o Neighbor.o CVS.o ForceField.o Bias.o Pairs.o  Graphs.o
-Output.o:   Variables.o            DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
-NEB.o:         		Interaction.o Integration.o  Set_Properties.o     Inq_Properties.o     Program_Types.o   Constants.o Errors.o Output.o Algebra.o  
+Inq_Properties.o: Constants.o Strings.o Algebra.o    Input_Parsing.o Program_Types.o Neighbor.o    Tables.o
+Set_Properties.o: Constants.o Strings.o Algebra.o    Program_Types.o    Inq_Properties.o  
+CVS.o: 		  Constants.o Errors.o Algebra.o     Program_Types.o    Inq_Properties.o  
+Select_Create.o:  Program_Types.o    Inq_Properties.o Set_Properties.o 
 
-Checkpoint.o:    Input_Parsing.o Program_Types.o  Integration.o Interaction.o Output.o
+Output.o: Constants.o Errors.o   Input_Parsing.o Program_Types.o Variables.o    DDDA.o   Inq_Properties.o Set_Properties.o     
 
+Bias.o:       Program_Types.o Neighbor.o 
+Pairs.o:      Algebra.o    Program_Types.o Neighbor.o Inq_Properties.o Set_Properties.o
+Fields.o:     Constants.o Algebra.o   Program_Types.o Neighbor.o   Output.o 
+TB.o:         Algebra.o Program_Types.o Neighbor.o Inq_Properties.o Set_Properties.o
+Graphs.o:     Constants.o Groups.o    Neighbor.o 
+ForceField.o: Constants.o Algebra.o   Input_Parsing.o Program_Types.o    Output.o
+BO.o:         Algebra.o    Program_Types.o Neighbor.o    Inq_Properties.o Set_Properties.o
 
-MPI.o: 		 Constants.o Strings.o
+Bond_Boost.o:   Algebra.o   Program_Types.o   Neighbor.o   Inq_Properties.o Set_Properties.o
+Quasi_Newton.o: Algebra.o   Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o 
+
+Integration.o: Constants.o Algebra.o    Program_Types.o  Variables.o Neighbor.o   Inq_Properties.o Set_Properties.o   Bias.o 
+Interaction.o: Constants.o    Program_Types.o Neighbor.o    CVS.o   Output.o   TB.o ForceField.o Bias.o Pairs.o  Graphs.o
+Checkpoint.o:  Input_Parsing.o    Program_Types.o   Output.o   Integration.o Interaction.o
+
+NEB.o:         Constants.o Algebra.o Errors.o    Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o  Interaction.o Integration.o    
+
+MPI.o:        Constants.o Strings.o
 CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbor.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o
 Hyperdinamics.o: Bias.o Integration.o  Quasi_Newton.o  Programs.o  Set_Properties.o     Inq_Properties.o     Program_Types.o	  
 Metadynamics.o:  Interaction.o Integration.o  Programs.o   Inq_Properties.o     Program_Types.o	  
 Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbor.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o 
         
-CVS.o: Algebra.o  Inq_Properties.o  Program_Types.o Constants.o  Errors.o
-
 if COMPILER_IS_IFORT
   
 # fast is the equivalent of -ipo, -O3, -no-prec-div, -static, and -xHost
