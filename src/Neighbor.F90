@@ -138,7 +138,9 @@ type, abstract, extends(igroup), public :: ngroup
   ! forces on selected interactions
   logical :: disable=.false.
 
-  ! Always trying to use linked cell over verlet list
+  ! Automatic switch between search algorithm
+  logical :: autoswitch=.true.
+
   procedure(ngroup_cells),pointer :: lista=>ngroup_cells
   procedure(ngroup_cells_atom),pointer :: lista_atom=>ngroup_cells_atom
 
@@ -531,6 +533,11 @@ class(ngroup) :: g
 ! Check if neighbor list is needed
 if(.not.associated(g%lista)) return
 
+! Update cells
+call g%b%update()
+
+if(.not.g%autoswitch) return
+
 if(g%b%cells) then
   g%lista => ngroup_cells
   g%lista_atom => ngroup_cells_atom
@@ -651,7 +658,87 @@ enddo
 g%nn(i)=m
 
 end subroutine ngroup_verlet_atom
+ 
+subroutine ngroup_verlet_half(g)
+! Build neighbors verlet list.
+class(ngroup),intent(inout)  :: g
+type(atom),pointer           :: ai,aj
+integer                      :: i,ii,j,m
+real(dp)                     :: rd,vd(dm)
+real(dp)                     :: rcut
+type(atom_dclist),pointer    :: la
 
+call werr('Half verlet with different sets of atoms?',g%nat/=g%nat)
+call werr('Half verlet with different sets of atoms?',g%b%nat/=g%nat)
+
+! Set ceros (TODO: I think this is not needed)
+g%nn(:)=0
+
+! Cut radious
+rcut=(g%rcut+nb_dcut)
+rcut=rcut*rcut
+
+do i = 1,g%nat-1
+  ai => g%a(i)%o
+
+  ! Reset number of neighbors
+  m=0
+
+  do j = i+1, g%nat
+    aj => g%a(j)%o
+
+    vd = vdistance(ai,aj,mic)
+    rd = dot_product(vd,vd)
+
+    if (rd>rcut) cycle
+
+    ! Add j as neighbor of i.
+    m=m+1
+    g%list(i,m)=aj%gid(g)
+
+  enddo
+  g%nn(i)=m
+
+enddo
+
+end subroutine ngroup_verlet_half
+
+subroutine ngroup_verlet_atom_half(g,i)
+! Search neighbors for atom i.
+class(ngroup),intent(inout)  :: g
+type(atom),pointer           :: ai,aj
+integer                      :: i,ii,j,m
+real(dp)                     :: rd,vd(dm)
+real(dp)                     :: rcut
+type(atom_dclist),pointer    :: la
+
+g%nn(i)=0
+ai => g%a(i)%o
+
+! Cut radious
+rcut=(g%rcut+nb_dcut)
+rcut=rcut*rcut
+
+! Reset number of neighbors
+m=0
+
+do j = i+1, g%nat
+  aj=>g%a(j)%o
+
+  vd = vdistance(ai,aj,mic)
+  rd = dot_product(vd,vd)
+
+  if (rd>rcut) cycle
+
+  ! Add j as neighbor of i.
+  m=m+1
+  g%list(i,m)=aj%gid(g)
+
+enddo
+g%nn(i)=m
+
+end subroutine ngroup_verlet_atom_half
+ 
 subroutine ngroup_cells(g)
 ! Build neighbors verlet list over linked cells.
 class(ngroup),intent(inout)  :: g
@@ -813,7 +900,6 @@ do i = 1, ngindex%size
   ! Check to skip
   if (g%disable) cycle
 
-  call g%b%update()
   call ngroup_setlista(g)
 
   if(associated(g%lista)) call g%lista()
