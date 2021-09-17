@@ -199,7 +199,7 @@ program gems
 #ifdef HAVE_MPI
   call wlog(''); write(logunit,'(a,i0,a,i0)') "MPI: Im thread ", mpi_pc, " of ", mpi_tpc
 #else  
-  call wlog(''); write(logunit,'(a,i0,a,i0)') "MPI: Not compiled for MPI"
+  call wlog(''); write(logunit,'(a)') "MPI: Not compiled for MPI"
 #endif
 
   !$OMP PARALLEL

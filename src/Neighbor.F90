@@ -18,8 +18,6 @@
 
 module gems_neighbor
 
-#define SMALL 0.0001
-
 ! This module compute the neighbor list of a group of atoms. It also sort the
 ! atoms into cells to improve the search efficiency. A second group of atoms
 ! is used to perform the neighbor search. This group of neighbor is
@@ -38,7 +36,7 @@ use gems_errors
 
 implicit none
 
-public :: polvar_neighbor, polvar_ngroup
+public :: polvar_neighbor, polvar_ngroup, ngroup_verlet_half
  
 ! Groups for selection
 type(group),target,public    :: ghost
@@ -668,7 +666,6 @@ real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
 type(atom_dclist),pointer    :: la
 
-call werr('Half verlet with different sets of atoms?',g%nat/=g%nat)
 call werr('Half verlet with different sets of atoms?',g%b%nat/=g%nat)
 
 ! Set ceros (TODO: I think this is not needed)
@@ -1324,7 +1321,7 @@ rcut=maxrcut+nb_dcut
 
 ! Destroy all ghost atoms
 ! FIXME: avoid this deallocate.
-call ghost%try_destroy_all()
+call ghost%destroy_all()
 
 ! Make local atoms pbc
 call do_pbc(sys)
@@ -1352,34 +1349,6 @@ enddo
 ! !$OMP END PARALLEL DO
 
 end subroutine
-
-function idoit(i,j,itag,jtag,vd)
-! Use precomputed midpoint criterion to decide if interaction is owned.
-logical                :: idoit
-integer,intent(in)     :: i, j, itag, jtag
-real(dp),intent(in)    :: vd(3)
-
-idoit = .false.
-
-if (i>sys%nat) return
-
-if (j<sys%nat) then
-  idoit = .true.
-else if (itag < jtag) then
-  idoit = .true.
-else if (itag == jtag) then
-  if (vd(3) > SMALL) then
-    idoit = .true.
-  else if (abs(vd(3)) < SMALL) then
-    if (vd(2) > SMALL) then
-      idoit = .true.
-    else if (abs(vd(2)) < SMALL .and. vd(1) > SMALL) then
-      idoit = .true.
-    endif
-  endif
-endif
-
-end function idoit
 
 ! Variables and Labels
 
