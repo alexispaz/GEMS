@@ -14,7 +14,16 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
+! 
+! References
+!
+! Paz & Leiva (2015). Time Recovery for a Complex Process Using Accelerated
+! Dynamics. JCTC 11 1725. http://doi.org/10.1021/ct5009729
+!
+! Reigada et. al. (1999). One-dimensional arrays of oscillators: Energy
+! localization in thermal equilibrium. JCP 111(4) 1373.
+! http://doi.org/10.1063/1.479396  
+ 
 module gems_hyperdynamics
 use gems_program_types
 use gems_constants
@@ -119,7 +128,7 @@ integer,intent(in)        :: nsteps,msteps,lsteps ! numero de bloques, pasos por
 real(dp),intent(in)       :: hd_f,eprime,aprime,z,t
 integer                   :: i,n
 integer,save              :: uhd=0,udm=0
-real(dp)                  :: bprom,vbprom,prob,dumy,zfact,a,e!,dvbmin,aux
+real(dp)                  :: bprom,vbprom,prob,dumy,zfact!,dvbmin,aux
 logical                   :: acelerar=.false.!,dummy
 class(ngroup),pointer :: ig
 
@@ -150,15 +159,15 @@ end select
 igb%alpha=boostfactor2(eprime,aprime)
 igb%e=1._dp-igb%alpha+igb%alpha*cdf_snorm(eprime)
 
-call wlog('HYD'); write(logunit,*) 'El boost factor será:', a
-call wlog('HYD'); write(logunit,*) 'y la integral w será:', e
+call wlog('HYD'); write(logunit,*) 'El boost factor será:', igb%alpha
+call wlog('HYD'); write(logunit,*) 'y la integral w será:', igb%e
 call flush(logunit)
 
-zfact=inv_cdf_snorm(e)-inv_cdf_snorm(eprime*z)
+zfact=inv_cdf_snorm(igb%e)-inv_cdf_snorm(eprime*z)
 
 ! Pongo parametros para que el bias sea cero
-a = 1._dp
-e = -1e16
+igb%alpha = 1._dp
+igb%e = -1e16
 bias_highc = 1._dp
 
 
@@ -169,10 +178,8 @@ if(uhd==0) then
   open(udm,file=trim(ioprefix)//'.dm')
 endif
 
-
-
 do i=1,nsteps
-
+                  
   ! Corro dinamica o hyperdinamica
   call hyperd_eprom(msteps,b_out)
 
@@ -218,7 +225,9 @@ do i=1,nsteps
     !  endif
     !endif
 
-    write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+    write(uhd,fmt='(i0,9(1x,e25.12))') &
+      i,dm_steps,igb%e*ui_ev,igb%alpha,prob,vbprom*ui_ev, &
+      bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
 
     if(over_highc) then ! Demasiado bias apago la HD
       acelerar=.false.
@@ -244,18 +253,18 @@ do i=1,nsteps
       igb%alpha=1._dp-aprime/(beta*sigma) 
 
       !bias_highc = (inv_cdf_snorm(hd_phi)*sigma+(hd_e-vprom))*(1._dp-hd_a)/hd_a
-      bias_highc = (1._dp-a)*sigma*zfact
+      bias_highc = (1._dp-igb%alpha)*sigma*zfact
       !bias_highc = 1e10
 
       ! Put a blank line to plot with discontinuities
       write(udm,*)
 
       ! Hago la HD de inicializacion
-      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
-            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,igb%e*ui_ev,igb%alpha,prob,&
+            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
       call hyperd_init(lsteps,.false.)
-      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
-            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,igb%e*ui_ev,igb%alpha,prob,&
+            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
 
       over_lowc=.false.
       over_highc=.false.
@@ -268,7 +277,7 @@ do i=1,nsteps
     endif
 
   endif 
-
+            
   call dvp%empty()
   call dbp%empty()
   call dvbp%empty()
@@ -281,6 +290,10 @@ enddo
 ! biased = 0._dp
 ! bfact = 1._dp 
 
+call dvp%dest()
+call dbp%dest()
+call dvbp%dest()
+          
 end subroutine hybrid_ea
 
 subroutine hyperd_init(steps,b_out)
@@ -713,18 +726,4 @@ ctime=0
 end subroutine write_ctime
   
 end module gems_hyperdynamics
-
-
-! References
-!
-! (Paz2015) Paz, S. A., & Leiva, E. P. M. (2015). Time Recovery for a Complex Process Using
-!   Accelerated Dynamics. J. Chem. Theory Comput., 11, 1725–1734.
-!   http://doi.org/10.1021/ct5009729
-!
-! (Reigada1999) Reigada, R., Romero, A. H., Sarmiento, A., & Lindenberg, K. (1999).
-!   One-dimensional arrays of oscillators: Energy localization in thermal
-!   equilibrium. The Journal of Chemical Physics, 111(4), 1373–1384.
-!   http://doi.org/10.1063/1.479396  
-!  
-
 

@@ -14,58 +14,30 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
-module gems_DDDA
- 
-! Dynamic Distributable Decorrelation Algorithm (DDDA). 
-! Algorithm Ref: Journal of Computaciontal Chemistry Kent et, al, Vol. 28 No. 14.
-
-! Este algoritmo calcula on the fly el error en la media de un dato estadistico.
-! Requiere O(N+mlog_2(N)) operaciones para calcular la varianza m veces durante
-! una simulacion de N paso
-! Si se programa parallelo requiere O(log_2N) de datos a comunicar y el bond
-! procedure.
-
-! A medida que el dato es generado durante el calculo, es sumado a un objeto
-! de la clase decorrleation. Hay que tener en cuenta que el dato se pierde, en
-! el sentido de que no se puede retirar despues (no se puede hacer un buffer
-! que vaya avanzando)
-
-! Calculos en paralelo:
-! Si la idea es que funcione de manera serial, solo
-! un objeto decorrelation basta. Si uno quiere que funcione de manera paralelo,
-! cada procesador, que genera sus datos, debe tener su propio objeto de
-! decorrelacion y luego se los suma a travez del proceso decorrelation_addition
-! para obtener la desviacion estandar de propiedad calculada en paralelo.
-
-! La implementacion que desarrolle , esta basada en el pseudocodigo de
-! ese paper. Con algunas modificaciones:
-
-! - En el pseudocodigo hay un error. Un if confuso que no se sab deonde
-! termina (o si, pero no deberia temrinar ahi. El if Nsamples>=2 Ŝize termina
-! con el tercer append , antes del add. 
-
-! - El waiting_sample y waiting_sample_exist no los hago propiedad de la clase
-! Decorrelacion, sino de la Statistic. Esto es para no tener que manejar tantas
-! listas dinamicas, sino una sola.
-!
 ! 
-!                                                               Alexis Paz
-
-! Como para probar lo escribi en fortran 2003 con el dummy class
+! References
+!
+! Kent et. al. (2007). Efficient algorithm for “on-the-fly” error analysis of
+! local or distributed serially correlated data. JCC 28 2309.
+! https://doi.org/10.1002/jcc.20746
+! 
+! Flyvbjerg and Petersen (1989). Error estimates on averages of correlated
+! data. JCP 91 461. https://doi.org/10.1063/1.457480 
+!
+! Paz & Leiva (2015). Time Recovery for a Complex Process Using Accelerated
+! Dynamics. JCTC 11 1725. http://doi.org/10.1021/ct5009729
+! 
+module gems_DDDA
 use gems_errors
 use gems_constants,only: sqrt2,dp,idp
-!integer,parameter             :: dp=kind(0.0d0)
-!integer,parameter             :: logunit=6
-
 
 implicit none
-
 private 
+
 public   :: decorrelation
 public   :: statistic_dclist
 
-type        :: statistic
+type :: statistic
   integer   :: nsamples = 0
   real(dp)  :: suma=0.0_dp, sumsq=0.0_dp
   real(dp)  :: var=0.0_dp,errvar=0.0_dp
@@ -94,9 +66,9 @@ type :: decorrelation
   logical                         :: fixsize_exists=.false.
   type(statistic_dclist),pointer  :: blocks=>null()
   contains
-  procedure :: destroy => decorrelation_destroy
-  procedure :: empty => decorrelation_empty
+  procedure :: dest => decorrelation_destroy
   procedure :: init => decorrelation_init
+  procedure :: empty => decorrelation_empty
   procedure :: add => decorrelation_adddata
   procedure :: fix => decorrelation_setfixsize
   procedure :: var => decorrelation_variance
@@ -109,7 +81,6 @@ end type decorrelation
 
 
 contains
-
 
 #define _NODE statistic_dclist
 #define _CLASS type(statistic)
@@ -136,7 +107,6 @@ sb%sumsq = sb%sumsq + sample*sample
 end subroutine statistic_adddata
 
 subroutine statistic_empty ( sb )
-! Esta es una lista doble circular
 class(statistic)       :: sb
 
 sb%nsamples = 0
@@ -158,35 +128,15 @@ c%sumsq = a%sumsq + b%sumsq
 end function
  
 function statistic_var(sb) result(var)
+! Compute the variance from `sb`
 class(statistic)               :: sb
-integer                        :: nsamples_1
 real(dp)                       :: var,media
 
 media=sb%suma/sb%nsamples
-nsamples_1=(sb%nsamples-1)
-
 var=sb%sumsq/sb%nsamples-media*media
- 
-! Hasta aca la varianza. La desviacion estandar (sd) de la propiedad (media)
-! sera sqrt(var) El error estandar (SE) de la propiedad es sd sobre raiz del numero
-! de muestras (n) por el factor de confianza (supongamos 1.92 para el 95% de
-! confianza)
-! SE=sd/sqrt(n)=sqrt(var/n)
-!  Upper 95% Limit = \av{x} + (SE*1.96)
-!  Lower 95% Limit = \av{x} - (SE*1.96) 
-             
-!  Flyvbjerg, H., & Petersen, H. G. (1989). Error estimates on
-!  averages of correlated data. The Journal of Chemical Physics,
-!  91(1), 461. doi:10.1063/1.457480
-
-! SE tambien tiene su propio error estandar. La  desviacion estandar de SE 
-! es la misma SE por raiz de (dos divido n-1).
-! SESE=SE*dsqrt(2.0_dp/nsamples-1)
 
 end function
          
-
-
 subroutine decorrelation_init ( d )
 class(decorrelation)    :: d
 if(associated(d%blocks)) return
@@ -210,7 +160,6 @@ d%blocks => null()
  
 end subroutine decorrelation_destroy 
 
-
 subroutine decorrelation_empty ( d )
 class(decorrelation)    :: d
 
@@ -221,6 +170,8 @@ d%fixsize_exists=.false.
 
 ! Borro la lista
 call d%blocks%destroy_all()
+call d%blocks%init()
+allocate(d%blocks%o)
 
 end subroutine decorrelation_empty
 
@@ -307,14 +258,14 @@ enddo
 end subroutine decorrelation_adddata
  
 subroutine decorrelation_variance(d,n,err)
-!  Flyvbjerg, H., & Petersen, H. G. (1989). Error estimates on
-!  averages of correlated data. The Journal of Chemical Physics,
-!  91(1), 461. doi:10.1063/1.457480
-
-! Cuando uno hace un grafico de Flyvbjerg-Petersen, del estimador de la
-! desviacion estandar con su error en funcion del log_2(tamaño de bloque)
-! encuentra esto:
-
+! Use the method propused in (@Paz2015) to compute the length of the plato in
+! a Flyvbjerg-Petersen plot (@Flyvbjerg1989) and return the associated
+! variance.
+!
+! Starting from the larger block (right most point in the plot) it counts the
+! number of points that gives a non-void intersection of its error bars. For
+! instance, in the below plot it returns 9.
+!
 ! 0.0013 ++----------------------------------------------------------------+
 !        |                                                    ***          |
 ! 0.0012 ++                                               ***  *      ***  |
@@ -337,15 +288,6 @@ subroutine decorrelation_variance(d,n,err)
 ! 0.0002*A*------+--------+-------+-------+-------+--------+-------+-------+
 !        0       2        4       6       8       10       12      14      16
 
-! La idea de esta funcion es un criterio para definir on the fly el plato del
-! grafico. Primero parto del bloque mas grande y con mayor error y voy
-! intersectando el intervalo de error hacia los bloques mas pequeños. Cuando
-! la interseccion es vacia, devuelvo el numero de tamaños de bloque que se
-! intersectaron. 
-! Ademas la subrrutina devuelve la varianza obtenida con este metodo.
-! No se si existe otro metodo mejor, con algun fiteo, pero algo es algo.
-
-! Imprime la penultima. La ultima da Nan al dividir por N-1.
 class(decorrelation),intent(in) :: d
 real(dp),intent(out)            :: err
 integer,intent(out)             :: n
@@ -688,7 +630,6 @@ endsubroutine dddawarning
 !end function
 !
 
-!subroutine decorrelation_write(d, iotype, v_list, iostat, iomsg )
 subroutine decorrelation_write(d, un)
 use gems_constants, only: ui_ev
 ! Realiza el grafico de Flyvbjerg and Petersen: desviacion estandar en funcion
@@ -696,10 +637,6 @@ use gems_constants, only: ui_ev
 ! de bloque consigue perder la correlacion
 class(decorrelation),intent(in)      :: d
 integer,               intent(in)    :: un
-!character(len=*),      intent(in)    :: iotype
-!integer, dimension(:), intent(in)    :: v_list
-!integer,               intent(out)   :: iostat
-!character(len=*),      intent(inout) :: iomsg
 integer                        :: j,n
 class(statistic_dclist),pointer :: ls
 real(dp)                       :: var,err

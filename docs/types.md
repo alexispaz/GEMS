@@ -1,11 +1,13 @@
 # Atoms and groups
 
-There are two important classes in GEMS: the **atom** and the **group**.
+There are two important classes in GEMS
 
-- An **atom** is an atom. It has some basic components used by a large number
+atom
+: An **atom** is an atom. It has some basic components used by a large number
 of algorithms, like the position, mass, chemical specie or velocity.
 
-- A **group** is a group of **atoms**. In general, any algorithm is applied to
+group
+: A **group** is a group of **atoms**. In general, any algorithm is applied to
 a certain group. The definition of a group allows to mix different algorithms.
 
 Beyond the basic components of an **atom**, different algorithms may require

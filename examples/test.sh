@@ -421,7 +421,14 @@ if prompt hyperdynamics; then
     | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
            {a+=($1-$8)^2;a+=($5-$12)^2;b+=$1}
            END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
-
+             
+  echo "... hybrid HDDM "
+  time exe lpe.gms
+  paste ref/Energy.lpe.dat Energy.lpe.dat \
+    | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+           {a+=($1-$7)^2;a+=($5-$11)^2;b+=$1}
+           END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
+           
   cd ..
 fi
                  
