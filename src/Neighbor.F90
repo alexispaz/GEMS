@@ -340,7 +340,7 @@ if(g%cells) then
   if(any(box(:)-g%ncells(:)*rcut<=rcut)) then
        
     ! Check if the cell size do not drop below cut radious
-    if(any(g%cell(:)>rcut)) then
+    if(any(box(:)/g%ncells(:)>rcut)) then
                 
       ! Update cell size (needed for NPT)
       g%cell(:)=box(:)/g%ncells(:)
@@ -399,18 +399,14 @@ subroutine cgroup_sort(g)
 ! variables extrañas son seteadas en la subrutina maps.
 class(cgroup),intent(inout)  :: g
 integer                      :: i,aux1(dm)
-real(dp)                     :: one_cell(3)
 type(atom),pointer           :: a
 
 g%head(:,:,:) = 0
 
-! Inverse of cell size
-one_cell(:)=1._dp/g%cell(:)
-
 ! Atoms of list a
 ! !$OMP  PARALLEL DO DEFAULT(NONE) &
 ! !$OMP& PRIVATE(i,a,aux1) &
-! !$OMP& SHARED(g,one_cell)
+! !$OMP& SHARED(g)
 do i = 1,g%nat
   a => g%a(i)%o
 
@@ -421,7 +417,7 @@ do i = 1,g%nat
   ! endwhere
 
   ! Get cell index
-  aux1(:)=int(a%pos(:)*one_cell(:))+1
+  aux1(:)=int(a%pos(:)/g%cell(:))+1
   ! j = 1 + dot_product(aux1,cellaux)
 
   ! Build cell list

@@ -195,7 +195,26 @@ if prompt SMA-TB; then
 
   cd ..
 fi
+   
+if prompt optimize; then
+  cd optimize
+  rm -f Energy.lbfgs.dat 
+  time exe lbfgs.gms
+  paste ref/Energy.lbfgs.dat Energy.lbfgs.dat \
+    | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+           {a+=($1-$4)^2;b+=$1}
+           END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
+ 
+  rm -f Energy.minvol.dat 
+  time exe minvol.gms
+  paste ref/Energy.minvol.dat Energy.minvol.dat \
+    | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+           {a+=($1-$5)^2;b+=$1}
+           END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
 
+  cd ..
+fi         
+ 
 if prompt RepExchange; then
 
   if [[ $mpiexe == no ]]; then

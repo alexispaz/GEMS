@@ -14,7 +14,15 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
+! 
+!	References
+!
+! Grønbech-Jensen & Farago (2014). Constant pressure and temperature
+! discrete-time Langevin molecular dynamics. JCP 141(19) 194108.
+! DOI:10.1063/1.4901303
+!
+! Kolb, A., & Dünweg, B. (1999). Optimized constant pressure stochastic
+! dynamics. JCP 111(10) 4453. DOI:10.1063/1.479208  
  
 module gems_integration
 use gems_program_types         !, nghost
@@ -315,11 +323,9 @@ enddo
                
 end subroutine
 
-!                                                                   Kolb Dünweg
-!------------------------------------------------------------------------------ 
-! Kolb, A., & Dünweg, B. (1999). Optimized constant pressure stochastic
-! dynamics. Journal of Chemical Physics, 111(10), 4453–4459.
-! http://doi.org/10.1063/1.479208 
+! Kolb Dünweg (@Kolb1999)
+!------------------------ 
+
 subroutine set_lkd(it,temp,press,pgama0,pgamav,pmass)
 use gems_constants, only:kB_ui
 class(integrate)        :: it 
@@ -472,11 +478,9 @@ enddo
 
 end subroutine
  
-!                                                        Grønbech-Jensen Farago   
-!------------------------------------------------------------------------------ 
-! Grønbech-Jensen, N., & Farago, O. (2014). Constant pressure and temperature
-! discrete-time Langevin molecular dynamics. The Journal of Chemical Physics,
-! 141(19), 194108. http://doi.org/10.1063/1.4901303
+! Grønbech-Jensen Farago (@Grønbech-Jensen2014) 
+!----------------------------------------------
+
 subroutine set_lgf(it,temp,press,pgama0,pgamav,pmass)
 use gems_constants, only:kB_ui
 class(integrate)        :: it 

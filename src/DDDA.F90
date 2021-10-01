@@ -19,13 +19,13 @@
 !
 ! Kent et. al. (2007). Efficient algorithm for “on-the-fly” error analysis of
 ! local or distributed serially correlated data. JCC 28 2309.
-! https://doi.org/10.1002/jcc.20746
+! DOI:10.1002/jcc.20746
 ! 
 ! Flyvbjerg and Petersen (1989). Error estimates on averages of correlated
-! data. JCP 91 461. https://doi.org/10.1063/1.457480 
+! data. JCP 91 461. DOI:10.1063/1.457480 
 !
 ! Paz & Leiva (2015). Time Recovery for a Complex Process Using Accelerated
-! Dynamics. JCTC 11 1725. http://doi.org/10.1021/ct5009729
+! Dynamics. JCTC 11 1725. DOI:10.1021/ct5009729
 ! 
 module gems_DDDA
 use gems_errors

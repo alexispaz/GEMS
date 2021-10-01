@@ -40,8 +40,6 @@ use gems_output
 
 use gems_neb
 
-use gems_quasi_newton
-
 use gems_random
 use gems_algebra
 use gems_variables, only:polvar_expand
@@ -88,6 +86,8 @@ use gems_replicaexchange, only: parallel_tempering,parallel_tempering2
 use gems_metadynamics, only:  metadynamics, wtmd2D_set,dm_cv_set,&
                                wall2D_set,wallauxCore_set,wallauxShell_set,&
                                wall1D_set,wtmetad_set,posicion1d_set
+use gems_quasi_newton, only: lbfgs_minimizator, minvol
+
                               
 character(*)  :: com
 
@@ -299,6 +299,12 @@ case('neb_run')
   call readi(i1)   ! Iteracciones
   call readf(f1)   ! Constante resorte
   call neb(gsel,f1,i1,.true.)
+case('minvol')
+  b1=.true.
+  call readf(f1)
+  call readf(f2)
+  if (nitems>item) call readb(b1)
+  call minvol(f1,f2,b1) 
 case('lbfgs')
   b1=.true.
   if (nitems>item) call readb(b1)
