@@ -135,9 +135,11 @@ do i = 1,g%nat
     if (la%o%pbc(k)) then
       if(la%o%pos(k)>=box(k)) then
         la%o%pos(k)=la%o%pos(k)-box(k)
+        la%o%pos_old(k)=la%o%pos_old(k)-box(k)
         la%o%boxcr(k)=la%o%boxcr(k)+1
       elseif(la%o%pos(k)<0.0_dp) then
         la%o%pos(k)=la%o%pos(k)+box(k)
+        la%o%pos_old(k)=la%o%pos_old(k)+box(k)
         la%o%boxcr(k)=la%o%boxcr(k)-1
       endif
     endif
