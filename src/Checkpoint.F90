@@ -19,6 +19,7 @@
 module gems_checkpoint
 use gems_errors
 use gems_program_types
+use gems_groups, only: atom_dclist
 use gems_neighbor, only: fullghost
 use gems_constants, only: dm, linewidth
 use gems_input_parsing
@@ -83,11 +84,12 @@ function search_chp(step,nsteps,fname)
 ! Esta subrrutina es llamada cuando se esta por entrar al algoritmo en el cual
 ! se corto el calculo. Antes de entrar leo el paso del chepoint, tomo la
 ! configuracion del checkpoint, y disminuyo el numero de pasos acorde.
-integer,intent(out)    :: step,nsteps
-logical                :: search_chp
-character(*),optional  :: fname      
-integer                :: i,j,na
-logical                :: ghosted
+integer,intent(out)       :: step,nsteps
+logical                   :: search_chp
+character(*),optional     :: fname      
+integer                   :: i,j,na
+logical                   :: ghosted
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -122,13 +124,15 @@ if(search_chp) then
   call read_chppiston(chpunit)
               
   read(chpunit) time,dm_steps,frame
-  do i =1,sys%nat
-    read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
-    read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
-    read(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
-    read(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
-    read(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
-    read(chpunit) (sys%a(i)%o%acel4(j),j=1,dm)
+  la => sys%alist
+  do i = 1,sys%nat
+    la => la%next
+    read(chpunit) (la%o%pos(j),j=1,dm)
+    read(chpunit) (la%o%vel(j),j=1,dm)
+    read(chpunit) (la%o%acel(j),j=1,dm)
+    read(chpunit) (la%o%acel2(j),j=1,dm)
+    read(chpunit) (la%o%acel3(j),j=1,dm)
+    read(chpunit) (la%o%acel4(j),j=1,dm)
   enddo
 
   chpmode=.false.
@@ -152,6 +156,7 @@ subroutine write_chp(step,nsteps,fname)
 integer,intent(in)    :: step,nsteps
 character(*),optional :: fname      
 integer               :: i,j
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -171,13 +176,15 @@ call write_chpseed(chpunit)
 call write_chppiston(chpunit)
 
 write(chpunit) time,dm_steps,frame
-do i =1,sys%nat
-  write(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
-  write(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
-  write(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
-  write(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
-  write(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
-  write(chpunit) (sys%a(i)%o%acel4(j),j=1,dm) 
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  write(chpunit) (la%o%pos(j),j=1,dm)
+  write(chpunit) (la%o%vel(j),j=1,dm)
+  write(chpunit) (la%o%acel(j),j=1,dm)
+  write(chpunit) (la%o%acel2(j),j=1,dm)
+  write(chpunit) (la%o%acel3(j),j=1,dm)
+  write(chpunit) (la%o%acel4(j),j=1,dm) 
 enddo
 close(chpunit)
 
@@ -191,6 +198,7 @@ integer,intent(out)    :: step,nsteps
 character(*),optional  :: fname  
 integer                :: i,j,na
 logical                :: ghosted
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -214,13 +222,15 @@ call read_chpseed(chpunit)
 call read_chppiston(chpunit)
                   
 read(chpunit) time,dm_steps,frame
-do i =1,na
-  read(chpunit) (sys%a(i)%o%pos(j),j=1,dm)
-  read(chpunit) (sys%a(i)%o%vel(j),j=1,dm)
-  read(chpunit) (sys%a(i)%o%acel(j),j=1,dm)
-  read(chpunit) (sys%a(i)%o%acel2(j),j=1,dm)
-  read(chpunit) (sys%a(i)%o%acel3(j),j=1,dm)
-  read(chpunit) (sys%a(i)%o%acel4(j),j=1,dm)
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  read(chpunit) (la%o%pos(j),j=1,dm)
+  read(chpunit) (la%o%vel(j),j=1,dm)
+  read(chpunit) (la%o%acel(j),j=1,dm)
+  read(chpunit) (la%o%acel2(j),j=1,dm)
+  read(chpunit) (la%o%acel3(j),j=1,dm)
+  read(chpunit) (la%o%acel4(j),j=1,dm)
 enddo
 close(chpunit)
 

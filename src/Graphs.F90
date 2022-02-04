@@ -28,7 +28,7 @@
 !  page are distributed under the GNU LGPL license.
  
 module gems_graphs 
-use gems_groups, only:atom
+use gems_groups, only:atom, atom_dclist
 use gems_neighbor, only:ngroup
 use gems_constants, only:isp, dm, dp
 
@@ -72,16 +72,18 @@ use gems_neighbor, only:ngroup
 use gems_constants, only:linewidth
 use gems_errors, only:werr
 class(ngroup),intent(inout)  :: g
-real(dp)                         :: rc
-character(len=linewidth)         :: w1
+real(dp)                     :: rc
+character(len=linewidth)     :: w1
+integer                      :: i
 
+i=g%amax
 select type(g)
 type is(graph_adj)  
-  allocate(g%adj(g%nat,g%nat))
+  allocate(g%adj(i,i))
 type is(graph) 
-  allocate(g%order(g%nat))
-  allocate(g%stack(g%nat))
-  allocate(g%label(g%nat))
+  allocate(g%order(i))
+  allocate(g%stack(i))
+  allocate(g%label(i))
 class default
   call werr('Interaction type mismatch. Expected graph type.')
 end select  
@@ -124,16 +126,20 @@ subroutine graph_block(g)
 use gems_program_types, only: mic
 use gems_inq_properties, only: vdistance
 class(graph_adj),intent(inout)  :: g
-integer                         :: i,j,l
+integer                         :: i,ii,j,l
 real(dp)                        :: vd(dm),dr
 type(atom),pointer              :: o1,o2
+type(atom_dclist),pointer       :: la
 
 ! Set zeros
 g%adj(:,:)=0
  
 ! Search edges and fill adj matrix
-do i = 1,g%nat
-  o1=>g%a(i)%o
+la => g%ref%alist
+do ii = 1,g%ref%nat
+  la => la%next
+  o1 => la%o
+  i = o1%gid(g)
 
   ! g%adj(i,i)=1
   do l = 1, g%nn(i)  ! sobre los vecinos
@@ -173,6 +179,9 @@ k = 0         ! Visiting order counter
 i = 1         ! ID of visited atom
 lstack = 0    ! Stack of visited atoms
 g%ngraphs=1  ! Current subgraph number
+
+! Update here since clean index is asumed below.
+call g%update_index()
 
 main: do
   k = k + 1
@@ -479,6 +488,7 @@ use gems_groups, only: atom_dclist, atom
 use gems_elements, only: csym
 class(outfile)       :: of
 type(atom),pointer   :: o
+type(atom_dclist),pointer :: la
 integer              :: i,j
 
 select type(gr)
@@ -486,8 +496,10 @@ type is(graph)
 write(of%un,*) gr%nat
 write(of%un,*) gr%ngraphs
 
+la => gr%alist
 do i = 1,gr%nat
-  o => gr%a(i)%o
+  la => la%next
+  o => la%o
   write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),gr%label(i)
 enddo
 
@@ -506,6 +518,9 @@ real(dp)                   :: rd,rad,ctr(dm)
 type (atom),pointer        :: at
 integer                    :: i
 logical, allocatable       :: lmask(:)
+
+! Update index... just in case (TODO: check)
+call g%update_index()
 
 ! Compute subraphs  
 call g%interact()

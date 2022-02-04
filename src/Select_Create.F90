@@ -786,22 +786,20 @@ call gout%attach(pa)
 
 end subroutine select_lower_bond_order
       
-subroutine select_atom(id,gini,gout)
-! selecciona el atomo con indice id
-class(group),intent(in)     :: gini
-class(group),intent(inout)  :: gout
+subroutine select_atom(i,gini,gout)
+! Select the i'th atom from gini group
+class(group),intent(in)    :: gini
+class(group),intent(inout) :: gout
 type (atom_dclist),pointer :: la
-integer                    :: i,id
+integer                    :: i, ii
+
+if(i>gini%nat) return
 
 la => gini%alist
-do i = 1,gini%nat
+do ii = 1,i
   la => la%next
-  if(id==la%o%gid(sys)) then
-    call gout%attach(la%o)
-    return
-  endif    
 enddo
-
+call gout%attach(la%o)
 
 end subroutine select_atom
 

@@ -38,7 +38,7 @@ like:
 	  le=>le%next
 	enddo
 
-And if we group all them in user-types, like this:
+And if we group all them in user defined types, like this:
 
 	la=>group%alist
 	lp=>group%properties
@@ -49,31 +49,60 @@ And if we group all them in user-types, like this:
 	  epsilon=lp%e
 	enddo
 
-Then we need to code the `group%properties` dynamic structure procedures for
-each child **group**. We can attempt to introduce a class pointer from the
-`alist` to this kind of property structure, but then `select type` blocks
-appears again.
+But we need to code the `group%properties` dynamic structure procedures for
+each user defined type. We can attempt to introduce a
+class pointer from the `alist` to this kind of property structure, but then
+`select type` blocks appears again.
 
-So, I think plain arrays may be the best. If atoms are added or deleted from
-a group, these arrays should be reallocated. To associate each **atom**
-with its arrays, an internal **group** index is needed. Still, for those algorithms
-that do not require further parameters than the basic components of the
-**atom**, dynamic memory groups may be better. Therefore, I
-keep two kind of groups:
+So, I think plain arrays in extended **group** types may be the best. Although
+these arrays should be reallocated when atoms are added to the group, an
+arbitrary grow step can be used to avoid a low performance. In a similar way,
+memory rearrangements due to atom deletions can be fix made in a
+step fashion, for instance, when more than 100 atoms are deleted. However, to
+associate each **atom** with its corresponding array element, we needed to
+create and maintain and index. Still, for those simple algorithms
+that do not require further **atom** parameters, using a basic group
+object without index may be better. Therefore, I keep two kind of groups:
 
 - A **group** class that use a dynamic linked list of atoms.
 
 - An **igroup** that keeps an index of atoms and can be extended to include
 arrays with new atom properties.
+ 
+To cyle a **group** we can use:
+
+    la => g%alist
+    do ii = 1,g%ref%nat
+      la => la%next
 
 I make the **igroup** a child of the **group**, retaining also the linked list
-to re use the **group** procedures. The atom index can be maintained using an
-array of pointers in the **igroup**. An array of integers can be included in
-each **atom** to save the index associated to the **igroup** it belong. When an
-**atom** pointer is attached to a **group**, this **group** is also added to
-this array of ids.
+to re use the **group** procedures. So we can cycle an **igroup** in the same
+way that we cycle a **group**. From the **igroup** structure, we can browse
+the index of atoms using an array of pointers. On the other hand, an
+array of integers, probably small, can be included in each **atom** to access
+its ids, i.e. its index positions in each **igroup** it belongs. We can cycle
+the **igroup** and access to the index in two ways. First:
 
-There are to extensions of igroups that are worth to discuss more.
+    la => g%alist
+    do ii = 1,g%nat
+      la => la%next
+      a => la%o
+      i = a%gid(g)
+
+where `gid` is a function that find the in the internal index of the atom.
+Second:
+       
+    do i = 1,g%amax
+      a => g%a(i)%o
+      if(.not.associated(a)) cycle
+
+Where `g%a` is the array of pointers and the conditional filter out already
+detached atoms. `g%amax` is always grather or equal to `g%nat` and its
+difference can be used to decide when to update the structure, or even to
+reduce the arrays sice in case memory is important.
+
+There are two particular extensions of igroups that are worth to discuss
+more.
 
 - The **cgroup** includes components and procedures for sorting atoms in cells. 
 

@@ -18,6 +18,9 @@
 
 module gems_forcefield
 
+! FIXME: This module was build without considering that sys index may have
+! null atoms due to detaching.
+
 ! Existen los boundgr que son grupos de objetos bound. Los bound, son objetos
 ! que contienen 2,3,4 atomos unidos. Cada boundgr tiene asignada una funcion y
 ! parametros que va a aplicar a los objetos bounds que contenga. Por ejemplo, un
@@ -1140,6 +1143,7 @@ subroutine read_psf(topfile)
 
       ! Asumo que ya estan allocateado los atomos
       ! leyendo por ejemplo el pdb
+      ! FIXME: sys index may have null atoms
       natoms=n
       do m=1,n
         read(u,*) i,seg,j,resn,nomb,tipo,carga,masa

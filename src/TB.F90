@@ -109,7 +109,7 @@ subroutine smatb_attach(g,a)
 class(smatb),target        :: g
 class(atom),target         :: a
 type(atom_dclist),pointer  :: la
-integer                    :: i,n,k  
+integer                    :: n,k  
 
 ! Save current atom number
 n=g%nat
@@ -121,15 +121,11 @@ call g%ngroup_attach_atom(a)
 if(n==g%nat) return
                                   
 ! Search new internal atom types
-la=>g%alist
-do i = 1,g%nat
-  la=>la%next
-  k=la%o%z
-
-  if(g%z(k)/=0) cycle
+k=a%z
+if(g%z(k)==0) then
   g%nz=g%nz+1
   g%z(k)=g%nz
-enddo
+endif
 
 n=g%nz
   
@@ -170,14 +166,13 @@ if(.not.allocated(g%prm)) then
 endif
                         
 ! Reallocate if needed
+n=size(g%a)
 if(allocated(g%band)) then
-  n=size(g%band)
-  if(g%nat<n) return
+  if(n==size(g%band)) return
   deallocate(g%band)
   deallocate(g%eband)
 endif
   
-n=g%nat+g%pad
 allocate(g%band(n))
 allocate(g%eband(n))
  

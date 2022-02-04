@@ -150,7 +150,7 @@ Algebra.o:  Constants.o $(random_obj)
 Errors.o:   Constants.o Strings.o
 Elements.o: Constants.o Strings.o Errors.o
 
-Groups.o:        Constants.o Elements.o
+Groups.o:        Constants.o Elements.o Errors.o
 Input_Parsing.o: Constants.o Elements.o Algebra.o 
 Program_Types.o: Constants.o Groups.o Errors.o Elements.o Input_Parsing.o 
 Variables.o:     Constants.o Strings.o Errors.o Program_Types.o 
@@ -179,7 +179,7 @@ Quasi_Newton.o: Algebra.o   Program_Types.o   Inq_Properties.o Set_Properties.o 
 
 Integration.o: Constants.o Algebra.o    Program_Types.o  Variables.o Neighbor.o   Inq_Properties.o Set_Properties.o   Bias.o 
 Interaction.o: Constants.o    Program_Types.o Neighbor.o    CVS.o   Output.o   TB.o ForceField.o Bias.o Pairs.o  Graphs.o
-Checkpoint.o:  Input_Parsing.o    Program_Types.o   Output.o   Integration.o Interaction.o
+Checkpoint.o:  Groups.o    Input_Parsing.o    Program_Types.o   Output.o   Integration.o Interaction.o
 
 NEB.o:         Constants.o Algebra.o Errors.o    Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o  Interaction.o Integration.o    
 
