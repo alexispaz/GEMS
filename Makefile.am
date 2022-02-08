@@ -4,14 +4,14 @@ AUTOMAKE_OPTIONS = foreign
 
 ACLOCAL_AMFLAGS = -I m4
 
-EXTRA_DIST = COPYRIGHT COPYING README.md examples 
+EXTRA_DIST = ABOUT LICENSE COPYING README.md examples parameters
 
 if SPRNG
   sprng_dir =  lib/sprng5
 endif
 
 # SUBDIRS = src doc examples scripts
-SUBDIRS = lib/fparser $(sprng_dir) src
+SUBDIRS = lib/fparser $(sprng_dir) lib/fpt src
 
 # DIST_SUBDIRS = ${SUBDIRS} lib/fpt-dds-a25f
 

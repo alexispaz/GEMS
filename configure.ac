@@ -64,9 +64,12 @@ AC_ARG_ENABLE([debug],
 # External software
 AC_ARG_WITH([sprng], 
   AS_HELP_STRING([--with-sprng],[Use sprng library for random number generation]),,with_sprng=no)
+
+# Call ./configure script recursively
 AC_CONFIG_SUBDIRS([
     lib/sprng5
     lib/fparser
+    lib/fpt
 ])
  
 # Usefull variables to use inside the Makefile.am files
@@ -84,7 +87,6 @@ AM_CONDITIONAL([SPRNG], [test "x$with_sprng" = "xyes"])
 
 AC_CONFIG_FILES([
  Makefile
- lib/fparser/Makefile
  src/Makefile
 ])
 

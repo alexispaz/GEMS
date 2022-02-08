@@ -16,7 +16,7 @@ gems_SOURCES = Algebra.F90            \
                Inq_Properties.F90     \
                Integration.F90        \
                Interaction.f90        \
-               Pairs.f90                \
+               Pairs.F90                \
 	       Bias.f90	              \
                Main.F90               \
                Metadynamics.f90       \
@@ -40,17 +40,17 @@ gems_SOURCES = Algebra.F90            \
 # Fortran Preprocesor Templates	       
 FPTDDS=$(top_srcdir)/lib/fpt/include/
 AM_FCFLAGS = -I$(FPTDDS)
-include_HEADERS = $(FPTDDS)/prep.inc \
-                  $(FPTDDS)/vector_header.inc \
-                  $(FPTDDS)/vector_body.inc   \
-                  $(FPTDDS)/list_header.inc   \
-                  $(FPTDDS)/list_body.inc     \
-                  $(FPTDDS)/dlist_header.inc  \
-                  $(FPTDDS)/dlist_body.inc    \
-                  $(FPTDDS)/cdlist_header.inc \
-                  $(FPTDDS)/cdlist_body.inc   \
-                  $(FPTDDS)/arrayofptrs_header.inc
-
+# include_HEADERS = $(FPTDDS)/prep.inc \
+#                   $(FPTDDS)/vector_header.inc \
+#                   $(FPTDDS)/vector_body.inc   \
+#                   $(FPTDDS)/list_header.inc   \
+#                   $(FPTDDS)/list_body.inc     \
+#                   $(FPTDDS)/dlist_header.inc  \
+#                   $(FPTDDS)/dlist_body.inc    \
+#                   $(FPTDDS)/cdlist_header.inc \
+#                   $(FPTDDS)/cdlist_body.inc   \
+#                   $(FPTDDS)/arrayofptrs_header.inc
+#
 # nodist_gems_SOURCES = $(gems_common_SOURCES)
 # gems_common_SOURCES = sprng_f.h
 # CLEANFILES = $(gems_common_SOURCES)
