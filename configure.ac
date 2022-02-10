@@ -50,8 +50,40 @@ AX_PROG_FC_MPI([test x"$with_mpi" != xno],[use_mpi=yes],[
 #   fi
 # ])
 
+
+# External software
+# =================
+
+# subtrees
+# --------	
+AC_CONFIG_SUBDIRS([
+    lib/sprng5
+    lib/fparser
+    lib/fpt
+])
+ 
+# sprng
+# -----	
+AC_ARG_WITH(sprng, 
+  AS_HELP_STRING([--with-sprng],[Use sprng library for random number generation]),,
+	with_sprng=no)
+AM_CONDITIONAL([SPRNG], [test "x$with_sprng" = "xyes"])
+ 
+# other options
+# =============
+
+AM_CONDITIONAL([COMPILER_IS_IFORT], [test x"$FC" = xifort])
+AM_CONDITIONAL([COMPILER_IS_GFORTRAN], [test x"$FC" = xgfortran])
+AM_CONDITIONAL([HAVE_MPI], [test x"$use_mpi" = "xyes"])
+
+# To check for a compile flag
+# AX_CHECK_COMPILE_FLAG([-std=c11],
+#   [AX_APPEND_FLAG([-std=c11])],
+#   [AC_MSG_WARN([-std=c11 not supported, you may have to set CFLAGS to enable C11 support.])
+# ])
     
-# Debug options
+# Debug
+# -----
 AC_ARG_ENABLE([debug],
   AS_HELP_STRING([--enable-debug],[Turn on debugging]),
   [case "${enableval}" in
@@ -59,31 +91,8 @@ AC_ARG_ENABLE([debug],
     no)  debug=false ;;
     *) AC_MSG_ERROR([bad value "${enableval}" for --enable-debug]) ;;
   esac],enable_debug=no)
-
-
-# External software
-AC_ARG_WITH([sprng], 
-  AS_HELP_STRING([--with-sprng],[Use sprng library for random number generation]),,with_sprng=no)
-
-# Call ./configure script recursively
-AC_CONFIG_SUBDIRS([
-    lib/sprng5
-    lib/fparser
-    lib/fpt
-])
- 
-# Usefull variables to use inside the Makefile.am files
-AM_CONDITIONAL([COMPILER_IS_IFORT], [test x"$FC" = xifort])
-AM_CONDITIONAL([COMPILER_IS_GFORTRAN], [test x"$FC" = xgfortran])
-AM_CONDITIONAL([HAVE_MPI], [test x"$use_mpi" = "xyes"])
 AM_CONDITIONAL([DEBUG], [test "x$enable_debug" = "xyes"])
-AM_CONDITIONAL([SPRNG], [test "x$with_sprng" = "xyes"])
 
-# To check for a compile flag
-# AX_CHECK_COMPILE_FLAG([-std=c11],
-#   [AX_APPEND_FLAG([-std=c11])],
-#   [AC_MSG_WARN([-std=c11 not supported, you may have to set CFLAGS to enable C11 support.])
-# ])
 
 AC_CONFIG_FILES([
  Makefile

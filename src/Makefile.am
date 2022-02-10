@@ -36,21 +36,11 @@ gems_SOURCES = Algebra.F90            \
                TB.F90                 \
                Variables.F90
 
-
-# Fortran Preprocesor Templates	       
-FPTDDS=$(top_srcdir)/lib/fpt/include/
-AM_FCFLAGS = -I$(FPTDDS)
-# include_HEADERS = $(FPTDDS)/prep.inc \
-#                   $(FPTDDS)/vector_header.inc \
-#                   $(FPTDDS)/vector_body.inc   \
-#                   $(FPTDDS)/list_header.inc   \
-#                   $(FPTDDS)/list_body.inc     \
-#                   $(FPTDDS)/dlist_header.inc  \
-#                   $(FPTDDS)/dlist_body.inc    \
-#                   $(FPTDDS)/cdlist_header.inc \
-#                   $(FPTDDS)/cdlist_body.inc   \
-#                   $(FPTDDS)/arrayofptrs_header.inc
-#
+    
+# zeros...
+gems_LDADD =
+AM_FCFLAGS =
+ 
 # nodist_gems_SOURCES = $(gems_common_SOURCES)
 # gems_common_SOURCES = sprng_f.h
 # CLEANFILES = $(gems_common_SOURCES)
@@ -60,23 +50,44 @@ AM_FCFLAGS = -I$(FPTDDS)
 
 
 AM_FCFLAGS += $(OPENMP_CFLAGS)
-gems_LDADD =
-gems_LDFLAGS =
-                           
+AM_FCFLAGS += -DDIM3
+
+# Only compile ReplicaExchange if MPI is ensure
+if HAVE_MPI
+replicaexchange_obj = ReplicaExchange.o
+AM_FCFLAGS += -DHAVE_MPI
+gems_SOURCES += ReplicaExchange.f90
+ReplicaExchange.o: Metadynamics.o Constants.o Errors.o Program_Types.o Programs.o MPI.o Interaction.o Integration.o $(random_obj)
+endif
+        
+# External software
+# =================
+
+# Note on local vs external libraries:
+# > We recommend that you avoid using -l options in LDADD or prog_LDADD when
+#   referring to libraries built by your package. Instead, write the file name of
+#   the library explicitly as in the above cpio example. Use -l only to list
+#   third-party libraries. If you follow this rule, the default value of
+#   prog_DEPENDENCIES will list all your local libraries and omit the other ones.
+# [source](https://www.gnu.org/software/automake/manual/html_node/Linking.html)
+
+# Fortran Preprocesor Templates
+# -----------------------------
+AM_FCFLAGS += -I$(top_srcdir)/lib/fpt/include/
+  
+# fparser
+# -------
 AM_FCFLAGS += -I$(top_srcdir)/lib/fparser/src/
 gems_LDADD += $(top_srcdir)/lib/fparser/src/libfparser.a
 
-
-AM_FCFLAGS += -DDIM3
-      
-# Optional compilation of SPRNG for random number generation
+# sprng
+# -----	
 if SPRNG
 random_obj = Random_sprng.o
 gems_SOURCES += Random_sprng.F90 
             
 AM_FCFLAGS += -I$(top_srcdir)/lib/sprng5/include 
-gems_LDFLAGS += -L$(top_srcdir)/lib/sprng5/lib     
-gems_LDADD += -lsprng -lstdc++ -lm    
+gems_LDADD += $(top_srcdir)/lib/sprng5/lib/libsprng.a -lstdc++ -lm    
                  
 Random_sprng.o: Constants.o  Errors.o
 
@@ -89,16 +100,10 @@ Random.o: Constants.o  Errors.o
 
 endif
         
-
-# Only compile ReplicaExchange if MPI is ensure
-if HAVE_MPI
-replicaexchange_obj = ReplicaExchange.o
-AM_FCFLAGS += -DHAVE_MPI
-gems_SOURCES += ReplicaExchange.f90
-ReplicaExchange.o: Metadynamics.o Constants.o Errors.o Program_Types.o Programs.o MPI.o Interaction.o Integration.o $(random_obj)
-endif
-
-
+ 
+# Debug
+# =====
+   
 DEBUG_FLAGS = -g -O0 -p
 PROF_FLAGS = -p 
 
