@@ -17,30 +17,18 @@
 
 
 module gems_neighbor
-
-! This module compute the neighbor list of a group of atoms. It also sort the
-! atoms into cells to improve the search efficiency. A second group of atoms
-! is used to perform the neighbor search. This group of neighbor is
-! considered only for reading operations, not for writing. That is, using a
-! single loop to change the atoms and its neighbors in the same iteration
-! (i.e. add a reaction force to a neighbor), can save a computing factor
-! near 2x but is not thread safe. Thus I will ignore this possibility and
-! consider that only the atom properties of the first group may change and
-! not the atoms of the neighbor group.
-
 use gems_program_types, only: boxed, box, vdistance, sys, box_old, mic
 use gems_groups
 use gems_constants,     only: dp,cdm,dm,ui_ev
 use gems_errors
-! use gems_algebra
 
 implicit none
 
 public :: polvar_neighbor, polvar_ngroup, ngroup_verlet_half
- 
+
 ! Groups for selection
 type(group),target,public    :: ghost
- 
+
 ! From 1 to 13 are the upper cells. From 14 to 26 the lower. 0 is the center
 integer,parameter :: map(3,0:26) = &
          reshape( [ 0, 0, 0,  &
@@ -64,7 +52,7 @@ integer,parameter,dimension(26,3) :: n1cells = transpose(reshape( &
                      1,-1,-1, -1,-1,-1 ],[3,26]))
 
 ! integer,public,dimension(26,3) :: n1test = 0.5_dp*(sign(n1cells(:,:))+1)-abs(n1cells(:,:))
- 
+
 ! Group split in cells
 type, extends(igroup), public :: cgroup
 
@@ -89,35 +77,41 @@ type, extends(igroup), public :: cgroup
   ! Cut radius
   real(dp)                      :: rcut=1.e10_dp,rcut2=1.e10_dp
 
-  ! Protocol to set cells
-  ! TODO: Build different update protocols. e.g update cells if box change a
-  ! lot or without box but using min and max coordinates of the group.
-  procedure(cgroup_first),pointer :: update => cgroup_first
+  ! Tessellation
+  ! TODO: tessellation update if box change a lot
+  ! TODO: tessellation without box using min and max positions.
+  procedure(cgroup_tessellate),pointer :: tessellate => cgroup_tessellate
+
+  ! Turn false after first tessellation
+  logical                         :: b_out = .true.
 
   contains
-  
+
     ! Parent procedures that set a polymorphic pointer to an extension
     ! (see group type construct).
-    procedure :: cgroup_attach_atom 
-   
+    procedure :: cgroup_attach_atom
+    procedure :: cgroup_detach_atom
+
+    procedure :: init => cgroup_construct
     procedure :: dest => cgroup_destroy
     procedure :: attach_atom => cgroup_attach_atom
+    procedure :: detach_atom => cgroup_detach_atom
 
     procedure :: setrc => cgroup_setrc
-    procedure :: sort => cgroup_sort
+
+    procedure :: sort => cgroup_sort, cgroup_sort_atom
+    procedure :: unsort => cgroup_unsort_atom
 
 end type
 
 ! Group with neighbors
-! ngroup holds all atoms in a interaction.
-! A general interaction is of type ngroup%a<ngroup%b, i.e. forces are
-! computed in group a given group b. The intrinsic ngroup gives an index to
-! give an index to each atom.
+! Forces are computed in group `ref` given group `b` (without newton reaction).
+! ngroup gives a unique index to each atom in `ref` or `b`.
 type, abstract, extends(igroup), public :: ngroup
-                       
+
   ! The reference group
   type(group)   :: ref
-                      
+
   ! The group of possible neighbors. It might be sorted in cells.
   type(cgroup)  :: b
 
@@ -143,12 +137,12 @@ type, abstract, extends(igroup), public :: ngroup
   procedure(ngroup_cells_atom),pointer :: lista_atom=>ngroup_cells_atom
 
   contains
-  
+
     ! Parent procedures that set a polymorphic pointer to an extension
     ! (see group type construct).
-    procedure :: ngroup_construct   
-    procedure :: ngroup_attach_atom 
-   
+    procedure :: ngroup_construct
+    procedure :: ngroup_attach_atom
+
     procedure :: init => ngroup_construct
     procedure :: dest => ngroup_destroy
     procedure :: attach_atom => ngroup_attach_atom
@@ -156,7 +150,7 @@ type, abstract, extends(igroup), public :: ngroup
     ! Keep access to procedures of abstract parent
     ! see (https://fortran-lang.discourse.group/t/call-overridden-procedure-of-abstract-parent-type/590/23)
     procedure :: ngroup_init => ngroup_construct
-    procedure :: ngroup_dest => ngroup_destroy  
+    procedure :: ngroup_dest => ngroup_destroy
 
     procedure :: setrc => ngroup_setrc
 
@@ -218,6 +212,12 @@ contains
 ! cgroup events
 ! =============
 
+subroutine cgroup_construct(g)
+class(cgroup),target         :: g
+call g%igroup_construct()
+allocate(g%next(g%pad))
+end subroutine cgroup_construct
+
 subroutine cgroup_destroy(g)
 class(cgroup),target         :: g
 call g%igroup%dest()
@@ -229,25 +229,46 @@ subroutine cgroup_attach_atom(g,a)
 class(cgroup),target  :: g
 class(atom),target    :: a
 integer               :: n
+integer,allocatable   :: t_next(:)
+integer               :: aux1(dm)
 
-! Save current atom number
-n=g%nat
- 
 ! Attempt to attach
+n=g%nat
 call g%igroup_attach_atom(a)
- 
-! Return if atom was already in the group
 if(n==g%nat) return
-                             
-if(allocated(g%next)) then
-  if(g%nat<size(g%next)) return
-  deallocate(g%next)
+
+! Continue reallocations
+! TODO: Implement a "preserve" boolean?
+! TODO: Skip this if not allocated head?
+if(size(g%next)<size(g%a)) then
+  allocate(t_next(size(g%a)))
+  t_next(:size(g%next)) = g%next(:)
+  call move_alloc(to=g%next,from=t_next)
 endif
 
-n=g%nat+g%pad
-allocate(g%next(n))
-
 end subroutine cgroup_attach_atom
+
+subroutine cgroup_detach_atom(g,a)
+! Detach atom `a` from cgroup `g`
+class(cgroup)         :: g
+class(atom),target    :: a
+class(atom),pointer   :: aj
+integer               :: i,j,k
+integer               :: rc(3)
+
+! Return if there is not cells
+if(.not.g%cells) return
+
+! Search index of `a`
+i=a%gid(g)
+if(i==-1) return
+
+j=g%next(i)
+
+! Detach atom
+call g%igroup_detach_atom(a)
+     
+end subroutine cgroup_detach_atom
 
 ! Set properties
 ! --------------
@@ -263,99 +284,49 @@ maxrcut=max(maxrcut,rc)
 
 end subroutine cgroup_setrc
 
-subroutine cgroup_first(g)
-! FIXME: Instead of print, use error handling, I can merge it with
-! cgroup_update()
-class(cgroup) :: g
+subroutine cgroup_tessellate(g)
+! TODO: Use error handling.
+class(cgroup)     :: g
+real(dp)          :: rcut
 integer,parameter :: mincells=60 ! (4x4x4)
+
+rcut=g%rcut+nb_dcut
+g%b_out = .true.
+
+! If the box has not changed or if only a small adjustment of the cell size
+! is sufficient.
+if(g%cells) then
+
+  ! Make sure that the box has not grown large enough to include new cells.
+  if(all(g%ncells(:)+1>=box(:)/rcut)) then
+
+    ! Make sure that the box has not dropped below cut-off radius
+    if(all(rcut<box(:)/g%ncells(:))) then
+
+      ! Update cell size (needed for NPT)
+      call wlog('NHB','Update cell size.',g%b_out)
+      g%cell(:)=box(:)/g%ncells(:)
+      return
+
+    endif
+
+  endif
+endif
 
 g%cells = .false.
 
 ! If not a box defined, do not use linked cells
 if(.not.boxed) then
-  call wlog('NHB','Not using linked cells since box is not defined.')
-  g%update => cgroup_update
+  call wlog('NHB','Not using linked cells since box is not defined.',g%b_out)
   return
 endif
 
 ! If rcut not defined, do not use linked cells
 if(g%rcut==1.e10_dp) then
-  call wlog('NHB','Not using linked cells since interaction does not have rcut.')
-  g%update => cgroup_update
-  return
-endif
-   
-! Redimension of ncells
-g%ncells(:)=int(box(:)/(g%rcut+nb_dcut)) ! Number of cells in each direction
-
-! Less than 4 have no sense to use cells
-if(all(g%ncells(:)<4)) then
-  call wlog('NHB','Not using linked cells since it would involve less than 4 cells.')
-  call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' -cut radious: ', g%rcut
-  g%update => cgroup_update
+  call wlog('NHB','Not using linked cells since interaction does not have rcut.',g%b_out)
   return
 endif
 
-! Flag that cells where build
-g%cells = .true.
-
-! Cell size
-g%ncell = g%ncells(1)*g%ncells(2)*g%ncells(3)
-g%cell(:) = box(:)/g%ncells(:)
-
-! Reallocate head array
-if(allocated(g%head)) deallocate(g%head)
-
-! Using extra cells around the box size for ghost atmos
-allocate(g%head(0:g%ncells(1)+1,0:g%ncells(2)+1,0:g%ncells(3)+1))
-
-! Used to compute cell index
-g%cellaux(1) = 1
-g%cellaux(2) = g%ncells(1)
-g%cellaux(3) = g%ncells(1)*g%ncells(2)
-
-call wlog('NHB','Using Linked Cells.')
-call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' cut radious: ', g%rcut
-call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(f10.5,2x))") ' cell size: ', g%cell(1:dm)
-call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(i3,2x))") ' cell numbers: ', g%ncells(1:dm)
-
-! This will run only once
-g%update => cgroup_update
-
-end subroutine cgroup_first
-
-subroutine cgroup_update(g)
-! TODO: Instead of print, use error handling.
-class(cgroup) :: g
-real(dp)          :: rcut
-integer,parameter :: mincells=60 ! (4x4x4)
-
-rcut=g%rcut+nb_dcut
-
-! Si ya viene configurado, chequear si hace falta cambios y si no actualizar
-! el tamaño de las celdas solamente
-! Esto evita alocatear head t odo el tiempo 
-if(g%cells) then
-  ! Check if it is not possible to include more cells
-  if(all(box(:)-g%ncells(:)*rcut<=rcut)) then
-       
-    ! Check if the cell size do not drop below cut radious
-    if(all(box(:)/g%ncells(:)>rcut)) then
-                
-      ! Update cell size (needed for NPT)
-      g%cell(:)=box(:)/g%ncells(:)
-      return
-
-    endif
-         
-  endif
-endif
-             
-g%cells = .false.
-
-! If not a box defined, do not use linked cells
-if(.not.boxed) return
- 
 !TODO: Cuando el sistema no esta en una caja.. se podría hacer algo asi.
 ! Pero para ello hay que primero generalizar GEMS para que la caja no tenga
 ! el punto minimo en (0,0,0).
@@ -366,12 +337,18 @@ if(.not.boxed) return
 !   box_min(:)=min(box_min(:),amin(:))
 !   set box
 ! endif
- 
+
 ! Redimension of ncells
 g%ncells(:)=int(box(:)/(g%rcut+nb_dcut)) ! Number of cells in each direction
 
 ! Less than 4 have no sense to use cells
-if(all(g%ncells(:)<4))  return
+if(all(g%ncells(:)<4)) then
+  if(g%b_out) then
+    call wlog('NHB','Not using linked cells since it would involve less than 4 cells.')
+    call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' -cut radious: ', g%rcut
+  endif
+  return
+endif
 
 ! Flag that cells where build
 g%cells = .true.
@@ -391,47 +368,78 @@ g%cellaux(1) = 1
 g%cellaux(2) = g%ncells(1)
 g%cellaux(3) = g%ncells(1)*g%ncells(2)
 
-end subroutine cgroup_update
+if(g%b_out) then
+  call wlog('NHB','Using Linked Cells.')
+  call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' cut radious: ', g%rcut
+  call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(f10.5,2x))") ' cell size: ', g%cell(1:dm)
+  call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(i3,2x))") ' cell numbers: ', g%ncells(1:dm)
+  g%b_out=.false.
+end if
+
+end subroutine cgroup_tessellate
 
 subroutine cgroup_sort(g)
-! Sort g atoms into the linked list of each cell.
-! Esta subrrutina debe llamarse siempre antes del calculo de las fuerzas Las
-! variables extrañas son seteadas en la subrutina maps.
+! Sort g atoms into the g cells.
 class(cgroup),intent(inout)  :: g
 integer                      :: i,aux1(dm)
 type(atom),pointer           :: a
 
 g%head(:,:,:) = 0
-
-! Atoms of list a
-! !$OMP  PARALLEL DO DEFAULT(NONE) &
-! !$OMP& PRIVATE(i,a,aux1) &
-! !$OMP& SHARED(g)
 do i = 1,g%amax
-  a => g%a(i)%o
-  if(.not.associated(a)) cycle
-
-  ! FIXME
-  ! ! Si no hago pbc podria salirse alguna fuera y dar un segfull
-  ! where(a%pbc(:))
-  !   a%pos(:)=mod(a%pos(:)+box(:),box(:))
-  ! endwhere
-
-  ! Get cell index
-  aux1(:)=int(a%pos(:)/g%cell(:))+1
-  ! j = 1 + dot_product(aux1,cellaux)
-
-  ! Build cell list
-  ! !$OMP CRITICAL
-  g%next(i) = g%head(aux1(1),aux1(2),aux1(3))
-  g%head(aux1(1),aux1(2),aux1(3)) = i
-  ! !$OMP END CRITICAL
-
+  if(.not.associated(g%a(i)%o)) cycle
+  call cgroup_sort_atom(g,i)
 enddo
-! !$OMP END PARALLEL DO
 
 end subroutine cgroup_sort
 
+subroutine cgroup_sort_atom(g,i)
+! Sort atom ith of g into the g cells.
+class(cgroup),intent(inout)  :: g
+integer                      :: i,ci(dm)
+type(atom),pointer           :: a
+
+a => g%a(i)%o
+
+ci(:)=int(a%pos(:)/g%cell(:))+1
+! j = 1 + dot_product(ci,cellaux)
+
+g%next(i) = g%head(ci(1),ci(2),ci(3))
+g%head(ci(1),ci(2),ci(3)) = i
+
+end subroutine cgroup_sort_atom
+                  
+subroutine cgroup_unsort_atom(g,i)
+! Revert sorting of atom ith and fix cell index.
+class(cgroup),intent(inout)  :: g
+integer                      :: i,j,k,ci(dm)
+type(atom),pointer           :: a
+
+a => g%a(i)%o
+
+! Get cell index
+ci(:)=int(a%pos(:)/g%cell(:))+1
+
+! Remove i from its cell
+if(g%head(ci(1),ci(2),ci(3))==i) then
+  g%head(ci(1),ci(2),ci(3))=g%next(i)
+else
+
+  j = g%head(ci(1),ci(2),ci(3))
+  do while( j>0 )
+
+    k = g%next(j)
+    if (k==i) then
+      g%next(j)=g%next(i)
+      exit
+    endif
+    j = k
+
+  enddo
+
+endif
+ 
+end subroutine cgroup_unsort_atom
+                  
 ! ngroup events
 ! =============
 
@@ -441,7 +449,7 @@ class (ngroup),target             :: g
 ! Initialize
 call g%igroup_construct()
 
-! Ghost atoms must have its own index in order to comunicate back 
+! Ghost atoms must have its own index in order to comunicate back
 ! to the real image the computed properties
 g%ghost=.true.
 
@@ -470,7 +478,7 @@ do i=1,ngindex%size
 enddo
 call ngindex%del(i,1)
 
-! Destroy internal groups  
+! Destroy internal groups
 call g%ref%dest()
 call g%b%dest()
 
@@ -490,10 +498,10 @@ integer                :: n
 n=g%nat
 
 call g%igroup_attach_atom(a)
- 
+
 ! Return if atom was already in the group
 if(n==g%nat) return
- 
+
 ! TODO Check if neighbor list is needed
 
 if(g%nat<size(g%nn)) return
@@ -519,7 +527,7 @@ g%rcut = rc
 g%rcut2 = rc*rc
 maxrcut=max(maxrcut,rc)
 call g%b%setrc(rc)
- 
+
 end subroutine ngroup_setrc
 
 subroutine ngroup_setlista(g)
@@ -529,7 +537,7 @@ class(ngroup) :: g
 if(.not.associated(g%lista)) return
 
 ! Update cells
-call g%b%update()
+call g%b%tessellate()
 
 if(.not.g%autoswitch) return
 
@@ -655,7 +663,7 @@ enddo
 g%nn(i)=m
 
 end subroutine ngroup_verlet_atom
- 
+
 subroutine ngroup_verlet_half(g)
 ! Build neighbors verlet list.
 class(ngroup),intent(inout)  :: g
@@ -737,7 +745,7 @@ enddo
 g%nn(i)=m
 
 end subroutine ngroup_verlet_atom_half
- 
+
 subroutine ngroup_cells(g)
 ! Build neighbors verlet list over linked cells.
 class(ngroup),intent(inout)  :: g
@@ -762,7 +770,7 @@ call g%b%sort()
 !Bucle sobre los atomos de g
 la => g%ref%alist
 !$OMP PARALLEL
-!$OMP SINGLE 
+!$OMP SINGLE
 do ii = 1,g%ref%nat
   la => la%next
   ai => la%o
@@ -770,8 +778,8 @@ do ii = 1,g%ref%nat
   !$OMP TASK DEFAULT(NONE)             &
   !$OMP& FIRSTPRIVATE(ai)              &
   !$OMP& SHARED(g,rcut,mic)            &
-  !$OMP& PRIVATE(rc,i,nabor,nc,j,aj,k,vd,rd)   
- 
+  !$OMP& PRIVATE(rc,i,nabor,nc,j,aj,k,vd,rd)
+
   i = ai%gid(g)
 
   ! Get cell index
@@ -814,7 +822,7 @@ enddo
 
 !$OMP END SINGLE NOWAIT
 !$OMP END PARALLEL
- 
+
 
 end subroutine ngroup_cells
 
@@ -888,7 +896,7 @@ nupd_vlist = nupd_vlist +1
 
 la => sys%alist
 do i = 1,sys%nat
-  la => la%next 
+  la => la%next
   la%o%pos_old = la%o%pos
 enddo
 
@@ -924,7 +932,7 @@ dispmax2 = 1.e-16_dp
 
 la => sys%alist
 do i = 1,sys%nat
-  la => la%next 
+  la => la%next
 
   vd = la%o%pos - la%o%pos_old
 
@@ -1218,7 +1226,7 @@ do m =1,26
 
   la => sys%alist
   do i = 1,sys%nat
-    la => la%next 
+    la => la%next
     o => la%o
 
     ! Image position..
@@ -1344,8 +1352,8 @@ do m =1,26
 
   la => sys%alist
   do i = 1,sys%nat
-    la => la%next 
-    o => la%o 
+    la => la%next
+    o => la%o
     ! if (.not.all(la%o%pbc(:)*n1cells(m,:))) cycle
 
     r(:)=o%pos(:)+n1cells(m,:)*box(:)

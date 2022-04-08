@@ -189,8 +189,13 @@ type, extends(group), public :: igroup
   ! Efective dimension of `a` (nat<amax<size(a)).
   integer                 :: amax=0 
 
-  ! Control index update
-  real(dp)                :: aupd=0.1
+  ! Update index if 10% of the index is null. 
+  ! Set to 0 to avoid updates.
+  real(dp)                :: aupd=0.1       
+
+  ! Signal out to rebuild internal arrays in extended types.
+  ! It becomes `.true.` if there is an index update.
+  logical                 :: update=.false. 
     
   ! The growth speed for reallocation
   integer                 :: pad=100
@@ -201,6 +206,7 @@ type, extends(group), public :: igroup
   ! (see group type construct).
   procedure :: igroup_construct   
   procedure :: igroup_attach_atom 
+  procedure :: igroup_detach_atom 
            
   procedure :: init => igroup_construct
   procedure :: dest => igroup_destroy
@@ -679,17 +685,17 @@ subroutine group_detach_link(g,la)
 ! Detach link `la` from group `alist`
 ! It return previous link in `la`
 class(group)               :: g
-class(atom), pointer       :: o
+class(atom), pointer       :: a
 type(atom_dclist), pointer :: la, prev
 integer                    :: n
 
 ! Delete group from atom register
-o=>la%o
-n=o%ngr
-call o%delgr(g)
+a=>la%o
+n=a%ngr
+call a%delgr(g)
 
 ! Return if atom was not in group  
-if(o%ngr==n) return  
+if(a%ngr==n) return  
                   
 ! Delete group id from atom `gr` list
 prev=>la%prev
@@ -699,7 +705,7 @@ la=>prev
 
 ! TODO: propiedades extras para modificar?
 g%nat = g%nat - 1
-g%mass = g%mass - o%mass
+g%mass = g%mass - a%mass
 
 end subroutine group_detach_link
            
@@ -726,85 +732,48 @@ enddo
 end subroutine group_detach_atom
 
 subroutine group_detach_all(g)
-! Detach all atoms from group
-class(group)               :: g
-type(atom_dclist), pointer :: la,next
+! Detach all atoms from `g`
+class(group)        :: g
+type(atom), pointer :: a
 
-! Circulo por la lista hasta que la vacio
-la => g%alist%next
 do while(g%nat/=0)
-  next => la%next
-    
-  ! Delete group id from atom `gr` list
-  call la%o%delgr(g)
-    
-  ! Deattach the link from the group
-  call la%deattach()
-  deallocate(la)
-  g%nat = g%nat - 1
-
-  la=>next
+  a => g%alist%next%o
+  call g%detach_atom(a)
 enddo
-
-! TODO: propiedades extras para modificar?
-g%nat = 0
-g%mass = 0._dp
 
 end subroutine group_detach_all
 
 subroutine group_all_destroy_attempt(g)
-! Detach all atoms from group
-class(group)               :: g
-type(atom_dclist), pointer :: la
-type(atom), pointer        :: o
+! Detach all atoms from `g` and destroy free atoms.
+class(group)        :: g
+type(atom), pointer :: a
 
-! Circulo por la lista hasta que la vacio
-la => g%alist
 do while(g%nat/=0)
-  la=>la%next
-  o=>la%o
-    
-  ! Detach
-  call g%detach_link(la)
-
-  if (o%ngr==0) then
-    call o%dest()
-    deallocate(o)
+  a => g%alist%next%o
+  call g%detach_atom(a)
+ 
+  if (a%ngr==0) then
+    call a%dest()
+    deallocate(a)
   endif
    
 enddo
 
-! TODO: propiedades extras para modificar?
-g%nat = 0
-g%mass = 0._dp
-
 end subroutine group_all_destroy_attempt
 
 subroutine group_all_destroy(g)
-! Detach all atoms from group
+! Destroy all atoms from group
 class(group)               :: g
 type(atom_dclist), pointer :: la
-type(atom), pointer        :: o
+type(atom), pointer        :: a
 
-! Circulo por la lista hasta que la vacio
-la => g%alist
 do while(g%nat/=0)
-  la=>la%next
-  o=>la%o
-    
-  ! Detach
-  call g%detach_link(la)
-
-  ! Destroy
-  call o%dest()
-  deallocate(o)
-   
+  a => g%alist%next%o
+  call g%detach_atom(a)
+  call a%dest()
+  deallocate(a)
 enddo
-
-! TODO: propiedades extras para modificar?
-g%nat = 0
-g%mass = 0._dp
-    
+   
 end subroutine group_all_destroy
 
 ! Select atoms
@@ -836,10 +805,9 @@ call group_construct(g)
 allocate(g%a(g%pad))
 end subroutine igroup_construct
 
-subroutine igroup_destroy (g)
+subroutine igroup_destroy(g)
 class(igroup),target :: g
 call group_destroy(g)
-! TODO: No needed, allocatable components are deallocated at type deallocation
 deallocate(g%a) 
 end subroutine igroup_destroy
 
@@ -907,7 +875,7 @@ g%a(i)%o=>null()
 ! Detach atom
 call group_detach_atom(g,a)
 
-! Update index if "null" count is above a fraction of array size.  
+! Update index if null count is above a fraction of array size.  
 if ((g%amax-g%nat)>size(g%a)*g%aupd) call igroup_update_index(g)
 
 end subroutine igroup_detach_atom
@@ -918,6 +886,7 @@ class(igroup)              :: g
 class(atom),pointer        :: a
 integer                    :: i,j,k
 
+! Skip if there is not null components
 if(g%amax==g%nat) return
 
 i=0
@@ -941,8 +910,10 @@ do j=1,g%amax
 enddo
 
 call werr('Index inconsistency while updating',g%nat/=i)
-
 g%amax=g%nat
+
+! Signal out to rebuild internal arrays in extended types.
+g%update=.true. 
 
 end subroutine igroup_update_index
 

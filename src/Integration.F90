@@ -21,8 +21,33 @@
 ! discrete-time Langevin molecular dynamics. JCP 141(19) 194108.
 ! DOI:10.1063/1.4901303
 !
-! Kolb, A., & Dünweg, B. (1999). Optimized constant pressure stochastic
+! Grønbech-Jensen & Farago (2012). A simple and effective Verlet-type
+! algorithm for simulating Langevin dynamics.
+! DOI:10.1080/00268976.2012.760055
+!
+! Kolb & Dünweg (1999). Optimized constant pressure stochastic
 ! dynamics. JCP 111(10) 4453. DOI:10.1063/1.479208  
+!
+! Allen & Tildesley (1987). Computer simulation of liquids.
+! Oxford science publications. ISBN: 9780198556459.
+!
+! Snook (2006). The ermak and Generalised Langevin Apprroach to the
+! Dynamics of Atomic, Polymeric and Colloidal System. Elsevier. ISBN:
+! 9780444521293.
+!
+! Ermak & Buckholz (1980). Numerical integration of the Langevin equation:
+! Monte Carlo simulation, J. Comput. Phys. 35 169.
+!
+! Andersen (1980). Molecular dynamics simulations at constant pressure
+! and/or temperature. J. of Chem. Phys. 72(4) 2384. DOI:10.1063/1.439486 
+!
+! Papadopoulou et al (1993). Molecular Dynamics and Monte Carlo Simulations
+! in the Grand Canonical Ensemble: Local versus Global Control. J. of Chem.
+! Phys. 98(6) 4897. DOI:10.1063/1.464945. 
+!
+! Heffelfinger & van Swol (1998). Diffusion in Lennard‐Jones Fluids Using Dual
+! Control Volume Grand Canonical Molecular Dynamics Simulation (DCV‐GCMD).
+! J. of Chem. Phys. 100(10) 7548. DOI:10.1063/1.466849.
  
 module gems_integration
 use gems_program_types         !, nghost
@@ -695,15 +720,11 @@ it%fixt=temp
 end subroutine
  
 subroutine lgf_flex_stepa(it)
-! Following 
-!   Andersen, H. C. (1980). Molecular dynamics simulations at constant pressure
-!   and/or temperature. The Journal of Chemical Physics, 72(4), 2384–2393.
-!   http://doi.org/10.1063/1.439486
-! I wrote a extended Lagrangian with Lx, Ly and Lz as extended variable and using
-! the reduce atomic variables px=rx/Lx and \dot{px}=\dot{rx}/Lx (see eq 3.2 and
-! the discussion of eq 3.3 in Andersen paper). Then I got the Hamiltonian trough a
-! Legendre transformation and find the "piston" force (after come back to real variables) as:
-! fpx=V/Lx( (Wx+NKT)/V-Pext )
+! Following @Andersen1980, I wrote a extended Lagrangian with Lx, Ly and Lz
+! as extended variable and using the reduce atomic variables px=rx/Lx and
+! \dot{px}=\dot{rx}/Lx (see eq 3.2 and the discussion of eq 3.3). Then I got
+! the Hamiltonian trough a Legendre transformation and find the "piston"
+! force (after come back to real variables) as: fpx=V/Lx( (Wx+NKT)/V-Pext )
 use gems_random, only:rang
 class(integrate)              :: it 
 real(dp)                      :: r1
@@ -828,8 +849,8 @@ enddo
 end subroutine
                        
                                                                                         
-!                                                                      Brownian
-!------------------------------------------------------------------------------ 
+! Brownian
+!--------- 
 subroutine set_cbrownian(it,temp,gama)
 use gems_constants, only:kB_ui
 class(integrate)    :: it
@@ -880,30 +901,12 @@ enddo
 
 end subroutine
   
-!                                                                Ermak Buckholz
-!------------------------------------------------------------------------------ 
-!Reference:
-!  D. L. Ermak and H. Buckholz, “Numerical integration of the Langevin equation:
-!  Monte Carlo simulation”, J. Comput. Phys. 35, 169 (1980)
-!See also the Introduction of:
-!  Grønbech-Jensen, N., & Farago, O. (2012). A simple and effective Verlet-type
-!  algorithm for simulating Langevin dynamics, 1–10.
-!  http://doi.org/10.1080/00268976.2012.760055
-!
-!  "The appearance of exponential “weight functions” in the integrals in Eqs.
-!  (9) and (10) opens the possibility for using a variety of linear
-!  combinations involving fn−1, fn, and fn+1. Themost popular integration
-!  schemes for the determinis- tic force constitute the van Gunsteren-Berendsen
-!  [9] and the Langevin impulse [10] methods."
-!
-!TODO:Find the method used in this implementation
-!
-!For the implementation see
-!  "Computer simulation of liquids" de Allen Chap 9, "Brownian Dinamics", Pag 263 
-!A similar algorithm is in 
-!  "The ermak and Generalised Langevin Apprroach to the Dynamics of
-!  Atomic, Polymeric and Colloidal System" de Ian Snook de Elsevier, Sec 6.2.4 "A
-!  third first-order BD algorithm", Pag 118.
+! Ermak Buckholz (@Ermak1980)
+!----------------------------
+!Following the implementation in @Allen1987, Chap 9 "Brownian Dinamics", Pag
+!263. A similar algorithm is in @Snook2006, Sec.  6.2.4 "A third first-order
+!BD algorithm", Pag 118. See also the nice introduction in
+!@Grønbech-Jensen2012.
      
 subroutine set_ermak(it,dt,gama,temp,i)
 class(integrate)    :: it
@@ -1136,15 +1139,13 @@ end subroutine ermak_a_reverse
   !
   ! end subroutine
  
-!                            Explicit velocity Störmer-Verlet (Velocity-Verlet)
-!------------------------------------------------------------------------------
-! Verlet algorithm suffers from the problem that the total kinetic energy of
-! a simulated system (which is supposed to be proportional to the temperature)
-! becomes pro- gressively depressed for increasing time step dt5,6 compared to
-! the potential energy. Other thermodynamic ! observables also exhibit varia-
-! tions with dt... Grønbech-Jensen, N., & Farago, O. (2014). Constant pressure and temperature
-! discrete-time Langevin molecular dynamics. Journal of Chemical Physics,
-! 141(19). http://doi.org/10.1063/1.4901303 
+! Explicit velocity Störmer-Verlet (Velocity-Verlet)
+!---------------------------------------------------
+! From @Grønbech-Jensen2014: "Verlet algorithm suffers from the problem that
+! the total kinetic energy of a simulated system (which is supposed to be
+! proportional to the temperature) becomes progressively depressed for
+! increasing time step dt compared to the potential energy. Other
+! thermodynamic observables also exhibit varia- tions with dt"
   
 subroutine velocity_verlet_a(it)
 class(integrate)             :: it
@@ -1185,8 +1186,8 @@ enddo
 end subroutine
 
 
-!                                                         predictor - corrector
-!------------------------------------------------------------------------------ 
+! Predictor Corrector
+!--------------------
 
 subroutine nordsieck_predictor(it)
 !nordsieck predictor corrector 5to orden algorithm to solve the equation of motion
@@ -1265,7 +1266,8 @@ enddo
 
 end subroutine 
 
-! Termostatos
+! Simple scaling
+!---------------
 
 subroutine set_scalvel(it,steps,temp,upto)
 class(integrate)              :: it
@@ -1338,6 +1340,8 @@ if(dabs(it%temp-temp)>upto*temp) call scalvel(it)
 
 end subroutine scalvel_after
 
+! Andersen
+!---------
 
 subroutine set_andersen(it,temp,nu)
 use gems_constants, only:kB_ui
@@ -1445,8 +1449,8 @@ enddo
 
 end subroutine from_openfile_b
 
-!                                                                 PBC
-!-------------------------------------------------------------------------
+! PBC
+!----
       
 ! subroutine triclinic_pbc
 !  !Si ahora no tengo una celda cubica, sino los vectores que indican los lados
