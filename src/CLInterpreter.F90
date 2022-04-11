@@ -62,7 +62,6 @@ real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,
 ! character(:)              :: help_file='DOCDIR/help.md'
 
 ! Selection of atoms in creation
-type(group),target    :: gnew    
 type(group),target    :: gsel    ! current selection
       
 ! Groups stored in memory with `group 1 add`.
@@ -129,19 +128,19 @@ case('cycle')
   cycle_signal=.true.
    
 case('<') ! Crea
-  call create_commands(gnew)
-  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
+  call create_commands(sys)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
 case('+<') ! Crea y agrega a la seleccion previa
 
   ! WARNING FIXME Aquellas selecciones en donde gini=gsel, a medida que
   ! agreguen a gs (gout) incrementan el gini.... esto puede traer conflicto
-  ! call create_commands(gnew,gsel)
+  ! call create_commands(sys,gsel)
 
   call gsel_aux%init()
   call create_commands(gsel_aux)
-  call gnew%attach(gsel_aux)
-  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
+  call sys%attach(gsel_aux)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
   call gsel%attach(gsel_aux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
@@ -154,8 +153,8 @@ case('><') ! Crea y selecciona lo creado
 
   call gsel_aux%init()
   call create_commands(gsel_aux)
-  call gnew%attach(gsel_aux)
-  call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
+  call sys%attach(gsel_aux)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
   call gsel%detach_all()
   call gsel%attach(gsel_aux)
@@ -165,20 +164,6 @@ case('><') ! Crea y selecciona lo creado
   call gsel_aux%detach_all()
   call gsel_aux%dest()
 
-case('.>') ! Seleccioname esto de la creacion
-
-  call gsel%detach_all()
-  call select_commands(gnew,gsel)
-  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
-  call wwan('empty selection',gsel%nat==0)
-
-case('.+') ! Agrega esto a mi seleccion (Union de conjuntos)
-
-  call select_commands(gnew,gsel)
-  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
-  call wwan('empty selection',gsel%nat==0) 
-
-! Seleccion en el sistema
 
 case('>') ! Seleccioname esto del sistema
 
@@ -192,8 +177,6 @@ case('+') ! Agrega esto a mi seleccion (Union de conjuntos)
   call select_commands(sys,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0) 
-
-! Seleccion tanto en creacion como en el sistema
 
 case('>>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
 
@@ -233,8 +216,6 @@ case('interact')
   call interacciones()
 case('getin') ! 
   call get_commands()
-case('sys')
-  call sys_commands()
 case('group')
   call group_commands()
 case('mpi')
@@ -715,36 +696,6 @@ subroutine help(w)
 
 endsubroutine help
 
-subroutine sys_commands
-
-call readl(w1)
-selectcase(w1)
-case('add')    !FIXME Makeme remember the previously group selecction...
-
-  call werr('No se agrego ningun atomo',gsel%nat==0)
-             
-  ! Por si se les quiere cambiar el tipo
-  ! FIXME: Esto antes estaba debajo para evitar cambiar el tipo a la
-  ! seleccion y solo a lo que se agrega al systema
-  if(item<nitems) then
-    call readelement(i1)
-    call set_element(gsel,i1)
-  endif
-          
-  ! ! Agrego los atomos
-  ! call system_group_add(gsel)
-
-  ! Agrego los atomos XGHOST
-  call sys%attach(gsel)
-          
-  call inq_mass(sys) 
-  call wstd(); write(logunit,*) sys%nat, 'particles in the system '
-
-case default  
-  call wwan('I do not understand the last command')  
-endselect      
-endsubroutine sys_commands
-
 subroutine evolve_commands
 use gems_integration,only: polvar_integrate
 use gems_variables,only: polvar_link
@@ -865,7 +816,7 @@ selectcase(w1)
 case('creation')
   call gsel%detach_all()
   call gsel%attach(sys)
-  call gnew%try_destroy_all()
+  call sys%try_destroy_all()
   call wstd(); write(logunit,*) 'sys is selected'
 case default  
   call wwan('I do not understand the last command')  
@@ -889,8 +840,8 @@ endsubroutine group_commands
 
 subroutine create_commands(gn)
 ! Create atoms and add them to `gn` group
-type(group),intent(inout)            :: gn
-integer     :: i
+class(group),intent(inout)    :: gn
+integer                       :: i
 
 call readl(w1)
 selectcase(w1)
@@ -908,9 +859,9 @@ case('fillpbc')     ! Llena con n atomos agregados sequencialmente al pbc
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gnew,gn,fv,fv2,opt_pbc=.true.)
+    call create_fill(f1,i1,sys,gn,fv,fv2,opt_pbc=.true.)
   else
-    call create_fill(f1,i1,gnew,gn,opt_pbc=.true.)
+    call create_fill(f1,i1,sys,gn,opt_pbc=.true.)
   endif 
 case('fill')     ! Llena con n atomos separados por un cierto radio
   call wlog(''); write(logunit,*) "box: ",box
@@ -919,9 +870,9 @@ case('fill')     ! Llena con n atomos separados por un cierto radio
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gnew,gn,fv,fv2)
+    call create_fill(f1,i1,sys,gn,fv,fv2)
   else
-    call create_fill(f1,i1,gnew,gn)
+    call create_fill(f1,i1,sys,gn)
   endif
 case('fillh')    ! Llena con hidrogenos los atomos de carbono.
   call create_fillh(gsel,gn) 
@@ -946,6 +897,9 @@ case('read')
 case default  
 call wwan('I do not understand the last command')  
 endselect      
+
+! Adding new atoms to sys group
+call sys%attach(gsel)
 
 endsubroutine create_commands
 
@@ -1012,9 +966,6 @@ selectcase(w1)
 case('group')
   call readi(i1)
   call gout%attach(gr(i1))
-  return
-case('creation')
-  call gout%attach(gnew)
   return
 case('sys')
   call gout%attach(sys)

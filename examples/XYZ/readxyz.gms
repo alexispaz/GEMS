@@ -11,7 +11,6 @@ dimension 3
 box size    13.1399  12.64396  20.0000 
 
 >< read Pos.md.xyz
-sys add
 
 > sys
 group 1 add

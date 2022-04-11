@@ -7,7 +7,6 @@ prng lcg
 prng seed 123456
 
 >< read conf.xyz
-sys add
 
 > sys
 set pbc F F F 

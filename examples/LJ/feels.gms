@@ -26,7 +26,7 @@ box size 5.78 5.78 5.78
 +< atom 2.2 1 5
 +< atom 3.4 1 1
 # m0=1uma
-sys add H
+set element H
 
 > sys
 set pbc F F F 

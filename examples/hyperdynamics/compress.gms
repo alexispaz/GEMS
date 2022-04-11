@@ -14,7 +14,7 @@ prng lcg
 prng seed 123456
  
 >< read coords_min.xyz
-sys add Ag
+set element Ag
 
 > element Ag
 group 1 add

@@ -9,7 +9,7 @@
 dimension 3
 
 >< read coords.xyz
-sys add Ag
+set element Ag
 
 > element Ag
 group 1 add

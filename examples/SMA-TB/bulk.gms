@@ -41,7 +41,7 @@ d0:={sqrt(0.5)}
 +< reply   1 0 0     10
 +< reply   0 1 0     10
 +< reply   0 0 1     10
-sys add Ag
+set element Ag
 box size 12 12 12
 
 > sys

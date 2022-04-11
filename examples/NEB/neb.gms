@@ -9,13 +9,13 @@
 dimension 3
 
 >< read ../configs/ref/gold_cube.xyz
-sys add Au
+set element Au
 
 # box size 12.19500   8.13000  12.19500 
 box size 12.19500   15  12.19500 
 
 >< atom {$boxx$*0.2} 9.13000 {$boxz$*0.2}
-sys add Pt
+set element Pt
 
 > sys 
 group 1 add

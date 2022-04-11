@@ -24,13 +24,13 @@ set rotate z {$rnd*360}
 set maxpos x 10
 set minpos y 1
 set minpos z 1
-sys add Au
+set element Au
 
 >< read clst_Ih0013i.xyz
 set minpos x 13
 set minpos y 1
 set minpos z 1
-sys add Co
+set element Co
  
 box move
 

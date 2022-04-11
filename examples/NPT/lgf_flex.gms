@@ -27,7 +27,7 @@ box size 6 6 6
 box expand {$d$*sqrt(2)} {$d$*sqrt(2)} {$d$*sqrt(2)}
 
 # m0=1uma
-sys add H
+set element H
 
 
 > sys

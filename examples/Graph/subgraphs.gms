@@ -27,7 +27,7 @@ prng seed 123456
  
 >< fillpbc 10 1.0 10. 10. 10. 0. 0. 0. 
 +< fillpbc 5 1.0 {$boxx-12} {$boxy-12} {$boxz-12} 12. 12. 12. 
-sys add H
+set element H
 
 > sys
 group 1 add

@@ -22,7 +22,7 @@ dimension 3
 >< atom 1 1 1
 +< atom 1 1 1
 # m0=1uma
-sys add H
+set element H
 
 > sys
 set pbc F F F 

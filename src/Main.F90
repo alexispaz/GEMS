@@ -287,9 +287,6 @@ call sys%init()
 ! Ghost
 call ghost%init()
    
-! Creation
-call gnew%init()
-
 ! Selection
 call gsel%init()
   

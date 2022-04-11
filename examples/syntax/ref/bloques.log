@@ -22,14 +22,14 @@
 #  OpenMP: Using 8 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    1776104328
-#    -803875819
-#    -1475045286
-#    -1598770815
-#    -719870143
-#    1300636267
-#    920301297
-#    -39090592
+#    2141572081
+#    2136675069
+#    227326333
+#    -888092350
+#    1300483361
+#    3672730
+#    -935759922
+#    -842415431
 # Input script for GEMS
 
 # Testing blocks
@@ -76,14 +76,13 @@ bloque load 1
 box size 5.78 5.78 5.78
 
 >< atom 1 1 1
-#-STD->            1 particles in creation
+#-STD->            1 particles in system
 #-STD->            1 particles selected
 +< atom 2.2 1 1
-#-STD->            2 particles in creation
+#-STD->            2 particles in system
 #-STD->            2 particles selected
 # m0=1uma
-sys add H
-#-STD->            2 particles in the system 
+set element H
 
 > sys
 #-STD->            2 particles selected
@@ -162,6 +161,6 @@ print cm_pos
 # 1.000000
 # 1.000000
 
-#-STD-> cpu time:      0.010 s
+#-STD-> cpu time:      0.006 s
 #-STD-> wall time:      0.001 s
 #-STD-> vecinos actualizados: 1 veces

@@ -20,10 +20,10 @@ prng lcg
 prng seed 123456
 
 >< fill 100 2.6
-sys add He
+set element He
 
 >< fill 100 2.6
-sys add Ne
+set element Ne
 
 > sys
   set pbc T T T 

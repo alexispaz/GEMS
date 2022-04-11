@@ -26,10 +26,10 @@ prng lcg
 prng seed 123456
  
 >< fill 10 0.25 $boxx $boxy 0.1  0. 0. 3.3  
-sys add H
+set element H
 
 >< fill 10 0.25 0.1 0.1 $boxz    5. 5. 0.
-sys add C
+set element C
 
 > sys
 group 1 add
