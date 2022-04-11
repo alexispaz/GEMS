@@ -20,24 +20,24 @@
 dimension 3
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
-+< atom 1 1 5
-+< atom 2.2 1 5
-+< atom 3.4 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
+^+ atom 1 1 5
+^+ atom 2.2 1 5
+^+ atom 3.4 1 1
 # m0=1uma
 set element H
 
-> sys
+> all
 set pbc F F F 
 group 1 add
  
-> sys
-- atom 5
+> all
+^~ atom 5
 group 2 add
  
 > atom 2 
-+ atom 4
+^ atom 4
 group 3 add
 
 > atom 5
@@ -75,7 +75,7 @@ outfile :f1 each 10
 # outfile :f3 each 1
          
 
-> sys
+> all
 
 out state
 evolve v_verlet

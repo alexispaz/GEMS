@@ -22,14 +22,14 @@
 #  OpenMP: Using 8 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    2141572081
-#    2136675069
-#    227326333
-#    -888092350
-#    1300483361
-#    3672730
-#    -935759922
-#    -842415431
+#    -1112042056
+#    530525088
+#    364513989
+#    -1653425248
+#    -1426479949
+#    -742062200
+#    -19037222
+#    1963206470
 # Input script for GEMS
 
 # Testing blocks
@@ -72,33 +72,50 @@ fin
 bloque load 1
 # hola
 
-# Define a sistem
+# Box
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
+# Play with particles that will not be used
++ atom 2.2 1 10
 #-STD->            1 particles in system
+> all
 #-STD->            1 particles selected
-+< atom 2.2 1 1
-#-STD->            2 particles in system
+^+ reply 0 0 1 10
+#-STD->           10 particles in system
+#-STD->           10 particles selected
+^- zrange 15 20
+#-STD->            4 particles deleted
+^~ zrange 13 20
+#-STD->            4 particles selected
+group 2 add
+#-STD->            4 particles in group           2
+
+# Particles that will be used
+>+ atom 1 1 1
+#-STD->            7 particles in system
+#-STD->            1 particles selected
+^+ atom 2.2 1 1
+#-STD->            8 particles in system
 #-STD->            2 particles selected
-# m0=1uma
 set element H
 
-> sys
+> element H
 #-STD->            2 particles selected
 set pbc F F F
 set mass 3.
 group 1 add
 #-STD->            2 particles in group           1
 
-# Get variables
-> atom 1
+# Save variables for later use
+^> atom 1
 #-STD->            1 particles selected
 getin x1 cm_pos
 #-STD-> x1[1] = 1.000000
 #-STD-> x1[2] = 1.000000
 #-STD-> x1[3] = 1.000000
-> atom 2
+> group 1
+#-STD->            2 particles selected
+^> atom 2
 #-STD->            1 particles selected
 getin x2 cm_pos
 #-STD-> x2[1] = 2.200000
@@ -116,8 +133,8 @@ tau_ps:=0.01018
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
 # Testing evolve commands
-> sys
-#-STD->            2 particles selected
+> all
+#-STD->            8 particles selected
 evolve ermak 100 1
 #-STD-> The algorithm label is :1
 # REF This feature use the following references:
@@ -139,13 +156,13 @@ dinamica 6
 # 6.000000
 
 # Print properties
-> atom 1
+> atom 7
 #-STD->            1 particles selected
 print cm_pos
 # 1.000053
 # 1.000000
 # 1.000000
-> atom 2
+> atom 8
 #-STD->            1 particles selected
 print cm_pos
 # 2.199947
@@ -153,7 +170,9 @@ print cm_pos
 # 1.000000
 
 # Testing set/get
-> atom 1
+> group 1
+#-STD->            2 particles selected
+^> atom 1
 #-STD->            1 particles selected
 set cm_pos $x1[1] $x1[2] $x1[3]
 print cm_pos
@@ -161,6 +180,10 @@ print cm_pos
 # 1.000000
 # 1.000000
 
-#-STD-> cpu time:      0.006 s
-#-STD-> wall time:      0.001 s
+# Final deletion of particles
+- group 2
+#-STD->            2 particles deleted
+
+#-STD-> cpu time:      0.011 s
+#-STD-> wall time:      0.000 s
 #-STD-> vecinos actualizados: 1 veces

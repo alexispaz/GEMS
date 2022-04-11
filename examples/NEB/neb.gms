@@ -8,16 +8,16 @@
 
 dimension 3
 
->< read ../configs/ref/gold_cube.xyz
+>+ read ../configs/ref/gold_cube.xyz
 set element Au
 
 # box size 12.19500   8.13000  12.19500 
 box size 12.19500   15  12.19500 
 
->< atom {$boxx$*0.2} 9.13000 {$boxz$*0.2}
+>+ atom {$boxx$*0.2} 9.13000 {$boxz$*0.2}
 set element Pt
 
-> sys 
+> all 
 group 1 add
 set pbc f f f
 set move 0.5 0.5 0.5
@@ -38,25 +38,25 @@ outfile :f2 each 1
 
 
 # Image number and system dimension
-> sys
+> all
 neb_nimg 30
 
 # Initial configuration
-> sys
+> all
 lbfgs
 neb_img 1
 
 # Middle configuration
 > group 2
 set move 2 0 2
-> sys
+> all
 lbfgs
 neb_img 15
           
 # Final configuration
 > group 2
 set move 2 0 -2
-> sys
+> all
 lbfgs
 neb_img 30
           

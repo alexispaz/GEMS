@@ -8,7 +8,7 @@
 
 dimension 3
 
->< read coords.xyz
+>+ read coords.xyz
 set element Ag
 
 > element Ag
@@ -29,7 +29,7 @@ outfile :f1 each 100
 lbfgs
 out posxyz asd.xyz
 
-> sys
+> all
 set cm_vel 1. 1. 0.1
 evolve v_verlet 
 cv cm x 50.

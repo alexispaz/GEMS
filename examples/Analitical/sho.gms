@@ -25,13 +25,13 @@ box size 20 20 20
 prng lcg
 prng seed 123456
  
->< fill 10 0.25 $boxx$ $boxy$ 0.1   0. 0. 3.3  
+>+ fill 10 0.25 $boxx$ $boxy$ 0.1   0. 0. 3.3  
 set element H
 
->< fill 10 0.25 0.1 0.1 $boxz$      5. 5. 0.
+>+ fill 10 0.25 0.1 0.1 $boxz$      5. 5. 0.
 set element C
 
-> sys
+> all
 set pbc T T T 
 group 1 add
 out posxyz 
@@ -61,7 +61,7 @@ outfile :f1 each 100
 # outfile :f3 pos 1
 # outfile :f3 each 1
 
-> sys
+> all
 evolve v_verlet
 set tempgdist 300
 dinamica 1000

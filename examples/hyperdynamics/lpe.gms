@@ -12,7 +12,7 @@ dimension 3
 prng lcg
 prng seed 123456
  
->< read clst_a42.xyz
+>+ read clst_a42.xyz
 
 # Tomo una cara aleatoria
 set cm_pos 0.0 0.0 0.0
@@ -26,7 +26,7 @@ set minpos y 1
 set minpos z 1
 set element Au
 
->< read clst_Ih0013i.xyz
+>+ read clst_Ih0013i.xyz
 set minpos x 13
 set minpos y 1
 set minpos z 1
@@ -36,7 +36,7 @@ box move
 
 time step 0.005
 
-> sys
+> all
 group 1 add
 
 > element Au
@@ -76,7 +76,7 @@ outfile :f4 hd_fpp
 outfile :f4 each 100
 outfile :f4 at hd
  
-> sys
+> all
 set tempgdist 300  
 evolve :termo ermak 300 10.
 evolve :termo voter .true.

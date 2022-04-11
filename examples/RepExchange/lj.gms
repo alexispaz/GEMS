@@ -29,12 +29,12 @@ prng seed {123456*$pc$}
 
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
 # m0=1uma
 set element H
 
-> sys
+> all
 set move 1. 1. 1.
 set pbc F F F 
 set mass 3.
@@ -62,7 +62,7 @@ tau_ps:=0.01018
        
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
-> sys
+> all
 
 # MPI example 1: Note the variable substitution using rank
 temp:={$pc$*5.+30}
@@ -92,7 +92,7 @@ outfile :f1 each 10
 # outfile :f3 flush on
          
 
-> sys
+> all
 out state
 partemp2 100 100
 

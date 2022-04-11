@@ -18,10 +18,10 @@ c:=1
  
 
 aux:={0.5*$a0}
->< atom  0       0      0    
-+< atom  $aux    $aux   0
-+< atom  0       $aux   $aux  
-+< atom  $aux    0      $aux  
+>+ atom  0       0      0    
+^+ atom  $aux    $aux   0
+^+ atom  0       $aux   $aux  
+^+ atom  $aux    0      $aux  
                           
 #    y
 #    ^
@@ -33,6 +33,6 @@ aux:={0.5*$a0}
 #    |  |         |
 #   0+  0--------0.5   
 #    |         
-#    +--+---------+----> x
+#    +--+---------+----< x
 #       0         0.5         
 

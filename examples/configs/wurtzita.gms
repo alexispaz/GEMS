@@ -19,14 +19,14 @@ gr_rad:={$pi$/180}
 #     (0,0)         (1,0)
 # 
  
->< atom    0       0        0
+>+ atom    0       0        0
 s:=1./3. 
 t:=1./3. 
-+< atom  {$t$+$s$*cos(60*$gr_rad$)}  {$s$*sin(60*$gr_rad$)}  {1./2.}
+^+ atom  {$t$+$s$*cos(60*$gr_rad$)}  {$s$*sin(60*$gr_rad$)}  {1./2.}
 set element Cd
 
->< atom    0       0     {3./8.}
-+< atom  {$t$+$s$*cos(60*$gr_rad$)}  {$s$*sin(60*$gr_rad$)}  {7./8.}
+>+ atom    0       0     {3./8.}
+^+ atom  {$t$+$s$*cos(60*$gr_rad$)}  {$s$*sin(60*$gr_rad$)}  {7./8.}
 set element Se
 
 
@@ -43,9 +43,9 @@ nz:= 11
 # Repeat
 > creation
 #                 lattice vectors (x y z)            (nr times)       
-+< reply           1              0               0      $nx$
-+< reply  {cos(60*$gr_rad$)}  {sin(60*$gr_rad$)}  0      $ny$
-+< reply           0              0               1      $nz$
+^+ reply           1              0               0      $nx$
+^+ reply  {cos(60*$gr_rad$)}  {sin(60*$gr_rad$)}  0      $ny$
+^+ reply           0              0               1      $nz$
 
 
 # Lattice parameters from:
@@ -63,10 +63,10 @@ out posxyz wurzita_bulk.xyz
 
 
 # # Perform the cutting operation using planes
-# >> below   3.5  3    3     1  2.5  0.5   1  0.5 2.5
-# >> below   3.5  3    3     1  2.5  0.5   3  0.5 0.5 
-# >> below   3.5  3    3     1  0.5  2.5   3  0.5 0.5
-# >> above   1   2.5  0.5    1  0.5  2.5   3  0.5 0.5
+# ^> below   3.5  3    3     1  2.5  0.5   1  0.5 2.5
+# ^> below   3.5  3    3     1  2.5  0.5   3  0.5 0.5 
+# ^> below   3.5  3    3     1  0.5  2.5   3  0.5 0.5
+# ^> above   1   2.5  0.5    1  0.5  2.5   3  0.5 0.5
 
 # Get a position in the fraction coordinate system of the CdSe cell 1x1x1, for
 # instance, the center:
@@ -89,12 +89,12 @@ zc:={$c$*($znc$ +$zc$)}
 xc:={$tc$+$sc$*cos(60*$gr_rad$)} 
 yc:={$sc$*sin(60*$gr_rad$)}
 
-# >< atom $xc$ $yc$ $zc$
+# <+ atom $xc$ $yc$ $zc$
 # set element Xe
 
 # Perform the cutting operation using a sphere of radius 5
 > creation
->> sphere 4.0 $xc$ $yc$ $zc$
+^> sphere 4.0 $xc$ $yc$ $zc$
 print cm_pos
 
 # Output the sphere
@@ -104,7 +104,7 @@ out posxyz Cd6Se6.xyz
 
 # Perform the cutting operation using a sphere of radius 5
 > creation
->> sphere 6.0 $xc$ $yc$ $zc$
+^> sphere 6.0 $xc$ $yc$ $zc$
 print cm_pos
 
 # Output the sphere

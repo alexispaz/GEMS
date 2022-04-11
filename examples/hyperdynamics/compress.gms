@@ -13,7 +13,7 @@ dimension 3
 prng lcg
 prng seed 123456
  
->< read coords_min.xyz
+>+ read coords_min.xyz
 set element Ag
 
 > element Ag
@@ -32,7 +32,7 @@ outfile :f2 name Energy.$jobname$.dat
 outfile :f2 cols time energy 1 bias
 outfile :f2 each 10
              
-> sys
+> all
 evolve :termo ermak 300 1
 evolve :termo voter .true.
 dinamica 300

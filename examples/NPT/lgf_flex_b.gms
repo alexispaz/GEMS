@@ -13,9 +13,9 @@
 dimension 3
 
 #include ../configs/unitcells/fcc.gms
-+< reply 1 0 0   6
-+< reply 0 1 0   6
-+< reply 0 0 1   6
+^+ reply 1 0 0   6
+^+ reply 0 1 0   6
+^+ reply 0 0 1   6
 d:=1.
 set expand {$d$*sqrt(2)} {$d$*sqrt(2)} {$d$*sqrt(2)}
 box size 6 6 6
@@ -25,7 +25,7 @@ box expand {$d$*sqrt(2)} {$d$*sqrt(2)} {$d$*sqrt(2)}
 set element H
 
 
-> sys
+> all
   set pbc T T T 
   group 1 add
 box mic F
@@ -33,7 +33,7 @@ box mic F
 ((((((((((( caja )))))))))))
 
 box move (make the total velocity zero)
-> sys
+> all
 set move 0.2 0.2 0.2
 
 # Epsilon=1eV=1E0
@@ -77,7 +77,7 @@ outfile :f5 cols virial 1
 outfile :f5 each 10
            
 
-> sys
+> all
 
 # T=1E0/kB=eV/kB=11604.45 K
 kt_k:=11604.45

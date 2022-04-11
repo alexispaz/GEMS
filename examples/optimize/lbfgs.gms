@@ -15,10 +15,10 @@ prng seed 123456
 
 # Primitive cell for the generation of a face-centered diamond-cubic
 # (fcdc) crystal structure.
->< atom  0      0      0    
-+< atom  0.5    0.5    0
-+< atom  0    0.5    0.5  
-+< atom  0.5    0    0.5  
+>+ atom  0      0      0    
+^+ atom  0.5    0.5    0
+^+ atom  0    0.5    0.5  
+^+ atom  0.5    0    0.5  
                           
 #    y
 #    ^
@@ -38,13 +38,13 @@ d0:={sqrt(0.5)}
 
 # All the surfaces exposed are (100). 
  
-+< reply   1 0 0     5
-+< reply   0 1 0     5
-+< reply   0 0 1     5
+^+ reply   1 0 0     5
+^+ reply   0 1 0     5
+^+ reply   0 0 1     5
 set element Ag
 box size 12 12 12
 
-> sys
+> all
 set move 1 1 1 
 # fact:={2.89/$d0$}
 fact:={3.89/$d0$}

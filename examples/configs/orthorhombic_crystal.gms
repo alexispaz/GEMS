@@ -29,9 +29,9 @@
 nx:=3
 ny:=2
 nz:=3
-+< reply $a$ 0   0   $nx$
-+< reply 0  $b$  0   $ny$
-+< reply 0   0  $c$  $nz$
+^+ reply $a$ 0   0   $nx$
+^+ reply 0  $b$  0   $ny$
+^+ reply 0   0  $c$  $nz$
                
 # Update the box size
 box size   $nx$ $ny$ $nz$

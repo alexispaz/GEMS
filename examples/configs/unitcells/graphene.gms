@@ -4,10 +4,10 @@ s60:= {sin(60*$pi$/180)}
 c60:= 0.5
 
 # Primitive cell for the generation of a graphene/graphite
->< atom   0.00      $s60$  0.00
-+< atom {2*$c60$+1} $s60$  0.00
-+< atom   $c60$      0.00  0.00
-+< atom {$c60$+1}    0.00  0.00
+>+ atom   0.00      $s60$  0.00
+^+ atom {2*$c60$+1} $s60$  0.00
+^+ atom   $c60$      0.00  0.00
+^+ atom {$c60$+1}    0.00  0.00
 
 #    y
 #    ^
@@ -18,7 +18,7 @@ c60:= 0.5
 #    |     \          /  
 #   0+      0--------0   
 #    |
-#    +--+---+--------+---+----> x
+#    +--+---+--------+---+----< x
 #       0  0.5      1.5  2
 
 # The distance between first neighbors.

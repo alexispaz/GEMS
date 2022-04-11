@@ -287,7 +287,7 @@ call sys%init()
 ! Ghost
 call ghost%init()
    
-! Selection
+! Selections
 call gsel%init()
   
 ! FIXME:

@@ -19,13 +19,13 @@ box size 50 50 50
 prng lcg
 prng seed 123456
 
->< fill 100 2.6
+>+ fill 100 2.6
 set element He
 
->< fill 100 2.6
+>+ fill 100 2.6
 set element Ne
 
-> sys
+> all
   set pbc T T T 
   group 1 add
  
@@ -79,7 +79,7 @@ outfile :f2 name Pos.$jobname$.xyz
 outfile :f2 pos 1
 outfile :f2 each 100
  
-> sys
+> all
 set tempgdist 300  
 evolve brownian 300 10
 dinamica 10000

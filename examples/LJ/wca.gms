@@ -11,11 +11,11 @@
 dimension 3
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
 set element H
 
-> sys
+> all
 set pbc F F F 
 group 1 add
  
@@ -54,7 +54,7 @@ outfile :f3 pos 1
 outfile :f3 each 1
          
 
-> sys
+> all
 
 out state
 
@@ -72,7 +72,7 @@ set move 0.9 0 0
 bloque repeat 250
 > group 2
 set move 0.01 0 0
-> sys
+> all
 out state
 # lbfgs
 fin
@@ -82,7 +82,7 @@ set move -2.5 0 0
 set move -0.9 0 0
 set move 0.95 0 0
 
-> sys
+> all
 evolve v_verlet
 dinamica 1000
 

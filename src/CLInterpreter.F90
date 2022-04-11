@@ -62,7 +62,7 @@ real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,
 ! character(:)              :: help_file='DOCDIR/help.md'
 
 ! Selection of atoms in creation
-type(group),target    :: gsel    ! current selection
+type(group),target    :: gsel     ! current selection
       
 ! Groups stored in memory with `group 1 add`.
 ! TODO, use labels
@@ -89,9 +89,7 @@ use gems_quasi_newton, only: lbfgs_minimizator, minvol
 
                               
 character(*)  :: com
-
-! TODO: should I add this to the `groups` dclist?
-type(group)   :: gsel_aux
+type(group)   :: gaux
 
 select case(com)
 case('license')
@@ -126,43 +124,66 @@ case('cycle')
 
   ! This allow to cycle in a repeat block
   cycle_signal=.true.
-   
-case('<') ! Crea
+     
+case('-') ! Destroy
+
+  ! Seleccioname esto del sistema
+  call gaux%init()
+  call select_commands(sys,gaux)
+  call wwan('empty selection',gaux%nat==0)
+           
+  call wstd(); write(logunit,*) i1, 'particles deleted'
+  call gaux%destroy_all()
+  call gaux%dest()
+      
+case('^-') ! Destroy
+  
+  ! Seleccioname esto de mi seleccion 
+  call gaux%init()
+  call select_commands(gsel,gaux)
+  call wwan('empty selection',gaux%nat==0)
+       
+  ! Seleccioname esto del sistema
+  call wstd(); write(logunit,*) gaux%nat, 'particles deleted'
+  call gaux%destroy_all()
+  call gaux%dest()
+          
+case('+') ! Create
   call create_commands(sys)
   call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
-case('+<') ! Crea y agrega a la seleccion previa
+case('^+') ! Crea y agrega a la seleccion previa
 
   ! WARNING FIXME Aquellas selecciones en donde gini=gsel, a medida que
   ! agreguen a gs (gout) incrementan el gini.... esto puede traer conflicto
   ! call create_commands(sys,gsel)
 
-  call gsel_aux%init()
-  call create_commands(gsel_aux)
-  call sys%attach(gsel_aux)
+  call gaux%init()
+  call create_commands(gaux)
+  call sys%attach(gaux)
   call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
-  call gsel%attach(gsel_aux)
+  call gsel%attach(gaux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
 
   call wwan('empty selection',gsel%nat==0)  
-  call gsel_aux%detach_all()
-  call gsel_aux%dest()
+  call gaux%detach_all()
+  call gaux%dest()
 
-case('><') ! Crea y selecciona lo creado
+case('>+') ! Crea y selecciona lo creado
 
-  call gsel_aux%init()
-  call create_commands(gsel_aux)
-  call sys%attach(gsel_aux)
+  call gaux%init()
+  call create_commands(gaux)
+  call sys%attach(gaux)
   call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
   call gsel%detach_all()
-  call gsel%attach(gsel_aux)
+  call gsel%attach(gaux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
 
   call wwan('empty selection',gsel%nat==0) 
-  call gsel_aux%detach_all()
-  call gsel_aux%dest()
+  call gaux%detach_all()
+  call gaux%dest()
 
 
 case('>') ! Seleccioname esto del sistema
@@ -172,24 +193,24 @@ case('>') ! Seleccioname esto del sistema
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
 
-case('+') ! Agrega esto a mi seleccion (Union de conjuntos)
+case('^') ! Agrega esto a mi seleccion (Union de conjuntos)
 
   call select_commands(sys,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0) 
 
-case('>>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
+case('^>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
 
-  call gsel_aux%init()
-  call select_commands(gsel,gsel_aux)
+  call gaux%init()
+  call select_commands(gsel,gaux)
   call gsel%detach_all()
-  call gsel%attach(gsel_aux) 
-  call gsel_aux%dest()
+  call gsel%attach(gaux) 
+  call gaux%dest()
 
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
 
-case('-')  ! Borrame esto de mi seleccion (resta de conjuntos)
+case('^~')  ! Borrame esto de mi seleccion (resta de conjuntos)
 
   call unselect_commands(gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
@@ -967,7 +988,7 @@ case('group')
   call readi(i1)
   call gout%attach(gr(i1))
   return
-case('sys')
+case('all')
   call gout%attach(sys)
   return
 endselect

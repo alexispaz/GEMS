@@ -6,9 +6,9 @@ dimension 3
 prng lcg
 prng seed 123456
 
->< read conf.xyz
+>+ read conf.xyz
 
-> sys
+> all
 set pbc F F F 
 group 1 add
 > element Co
@@ -39,10 +39,10 @@ outfile :f2 pos 1
 outfile :f2 each 1e6
         
 
-> sys
+> all
 out state 
 
-> sys
+> all
 set tempgdist 500
 evolve ermak 500 2     
 

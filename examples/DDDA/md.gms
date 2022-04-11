@@ -13,7 +13,7 @@ dimension 3
 prng lcg
 prng seed 123456
 
->< read coords.xyz
+>+ read coords.xyz
 set element Ag
 
 > element Ag
@@ -38,7 +38,7 @@ outfile :f3 cols energy 1
 outfile :f3 each 1
 outfile :f3 ddda 10
  
-> sys
+> all
 evolve ermak 300 1
                 
 dinamica 100
