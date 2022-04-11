@@ -19,14 +19,13 @@
 module gems_checkpoint
 use gems_errors
 use gems_program_types
-use gems_groups, only: atom_dclist
+use gems_groups, only: atom_dclist, gindex_all_changed
 use gems_neighbor, only: fullghost
 use gems_constants, only: dm, linewidth
 use gems_input_parsing
 use gems_random, only: write_chpseed, read_chpseed
 use gems_integration, only: write_chppiston, read_chppiston
 use gems_interaction, only: interact
-use gems_set_properties, only: posvel_changed
 use gems_output, only: chpmode
 #ifdef HAVE_MPI
  use mpi_f08
@@ -137,7 +136,7 @@ if(search_chp) then
 
   chpmode=.false.
 
-  call posvel_changed()
+  call gindex_all_changed()
    
   ! CHECK: I think this require full ghost updates
   ghosted=fullghost
@@ -234,7 +233,7 @@ do i = 1,sys%nat
 enddo
 close(chpunit)
 
-call posvel_changed()
+call gindex_all_changed()
 
 
 ! CHECK: I think this require full ghost updates

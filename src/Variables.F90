@@ -110,7 +110,7 @@ end subroutine
 
 function polvar_expand(var) result(w)
 character(*),intent(in)  :: var
-character(linewidth)     :: w
+character(:),allocatable :: w
 type(polvar),pointer     :: pv
 
 pv=>polvar_find(var)
@@ -142,20 +142,21 @@ endif
 end subroutine  
 
 subroutine polvar_get(pv,w)
+use gems_strings, only: operator(.ich.)
 ! Set a polvar with the value given as a character
-type(polvar),pointer      :: pv
-character(*),intent(out)  :: w
-
+type(polvar),pointer                  :: pv
+character(:),allocatable,intent(out)  :: w
 
 call werr('Internal error',.not.associated(pv))
 call werr('Internal error',.not.associated(pv%val))
 
 select type(v=>pv%val)
 type is (integer)
-  write(w,'(i0)') v
+  w=.ich.v
 type is (real(dp))
   ! Note that v can't be an array
-  write(w,'(e15.8)') v
+  w=.ich.v
+  w=trim(adjustl(w))  
 type is (character(*))
   w=v
 class default

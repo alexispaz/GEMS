@@ -291,7 +291,7 @@ else
   call do_pbc(sys)
 endif
 
-call posvel_changed()
+call gindex_all_changed()
   
 end subroutine
      
@@ -311,7 +311,7 @@ else
   call do_pbc(sys)
 endif
 
-call posvel_changed()
+call gindex_all_changed()
   
 ! No creo que sea necesario
 ! do i=1,size(gr)

@@ -1349,7 +1349,8 @@ integer                    :: i
 character(:),allocatable   :: var, vari
 
 ! Reding the variable name
-call readl(var) 
+call readl(var)
+var=trim(var)  
 
 ! Las variables que empiezan con underscore son solo internas
 ! no para que definan o accedan los usuarios
@@ -1360,21 +1361,22 @@ i2=print_commands()
 if (i2>1) then
   do i =1, i2
 
-    write(vari,'(a,i0,a)') trim(var)//'[',i,']'
-    write(w1,'(a,i0,a)') '_ans[',i,']'
+    w1=.ich.i
+    vari=var//'['//w1//']'
+    w1='_ans['//w1//']'
 
     w2=polvar_expand(w1)
-    call polvar_hard(trim(vari),trim(w2))
-    call wstd(trim(vari)//' = '//trim(w2))
+    call polvar_hard(vari,w2)
+    call wstd(vari//' = '//w2)
    
   enddo 
   return
 endif
 
-w2=trim(polvar_expand('_ans[1]'))
+w2=polvar_expand('_ans[1]')
 
-call polvar_hard(trim(var),w2)
-call wstd(trim(var)//' = '//w2)
+call polvar_hard(var,w2)
+call wstd(var//' = '//w2)
 
 endsubroutine get_commands
 
@@ -1432,14 +1434,9 @@ function print_commands() result(ans)
 use gems_random
 use gems_tables, only: etable
 use gems_variables,only:polvar_hard
-integer                :: ans
+integer                   :: ans
 type(atom_dclist),pointer :: la
-! type(etable) :: t
-integer             :: i
-
-!if (gsel%nat==int(gsel%mass)) call wwan('Atomo/s sin elemento definidos')
-
-call pos_changed()
+integer                   :: i
 
 ! Reading print order
 call readl(w1)
@@ -1498,11 +1495,11 @@ case('cm_diff2','cm_diff')
   if (i1==-1) then
     fv = gsel%cm_pos-gsel%cm_pos
   else if (i1==0) then
-    call pos_changed()
+    !call pos_changed()
     call group_inq_cmpos(sys)
     fv = gsel%cm_pos-sys%cm_pos
   else
-    call pos_changed()
+    !call pos_changed()
     call group_inq_cmpos(gr(i1))
     fv = gsel%cm_pos-gr(i1)%cm_pos
   endif

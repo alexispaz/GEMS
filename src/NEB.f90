@@ -25,6 +25,7 @@ module gems_neb
   use gems_program_types
   use gems_integration, only: integrate, integrate_cli
   use gems_interaction
+  use gems_groups, only: gindex_pos_changed
   use gems_inq_properties
   use gems_set_properties
   use gems_errors
@@ -106,7 +107,7 @@ allocate(qneb(nebdim))         !Fuerza tangente?
 
 do i =1 , nimg-1
   g%pp = pneb(i,:)  ! Cargo la posocion
-  call pos_changed()
+  call gindex_pos_changed()
   call interact(.false.)
   call inq_pot_energy(g)
   eimg(i) = g%epot
@@ -151,7 +152,7 @@ do ns = 1,iter
     aux(:) = pneb(i,:)-aux(:)
     delr = delr + dot_product(aux,aux)
 
-    call pos_changed()
+    call gindex_pos_changed()
     call interact(.false.)
     fneb(i,:) = g%pf  ! Cargo la fuerza
     vneb(i,:) = g%pv  ! Cargo la velocidad
@@ -396,7 +397,7 @@ do i =1, nimg
   time=gcr(i)/sumrad/time_out
   g%pp = pneb(i,:) ! Cargo la posocion
   g%pf = fneb(i,:) ! Cargo la fuerza
-  call pos_changed()
+  call gindex_pos_changed()
   call interact(.true.)
   call write_out_force(1)
 enddo

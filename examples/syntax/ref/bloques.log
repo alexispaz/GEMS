@@ -13,45 +13,46 @@
 #  This is free software, and you are welcome to redistribute it
 #  under certain conditions; type `license` for details.
 #  
-#  Version:eea5-dirty
+#  Version:0149-dirty
 #  I/O Units:
 #    -input: bloques.gms
 #    -log:   bloques.log
 #    -chp:   bloques.chp
 #  MPI: Not compiled for MPI
-#  OpenMP: Using 4 threads
+#  OpenMP: Using 8 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    502067135
-#    299688736
-#    1143573079
-#    55175885
-#    366921879
-#    1133710388
-#    1206100884
-#    -1905503571
-# Input script for GeMS
+#    1776104328
+#    -803875819
+#    -1475045286
+#    -1598770815
+#    -719870143
+#    1300636267
+#    920301297
+#    -39090592
+# Input script for GEMS
 
+# Testing blocks
 bloque repeat 12
   print {2*$i$}
 fin
-#-STD->  >>> iterando: $i$=01
+#-STD->  >>> iterando: $i$=0
 # 2.0000000000000000
-#-STD->  >>> iterando: $i$=02
+#-STD->  >>> iterando: $i$=0
 # 4.0000000000000000
-#-STD->  >>> iterando: $i$=03
+#-STD->  >>> iterando: $i$=0
 # 6.0000000000000000
-#-STD->  >>> iterando: $i$=04
+#-STD->  >>> iterando: $i$=0
 # 8.0000000000000000
-#-STD->  >>> iterando: $i$=05
+#-STD->  >>> iterando: $i$=0
 # 10.000000000000000
-#-STD->  >>> iterando: $i$=06
+#-STD->  >>> iterando: $i$=0
 # 12.000000000000000
-#-STD->  >>> iterando: $i$=07
+#-STD->  >>> iterando: $i$=0
 # 14.000000000000000
-#-STD->  >>> iterando: $i$=08
+#-STD->  >>> iterando: $i$=0
 # 16.000000000000000
-#-STD->  >>> iterando: $i$=09
+#-STD->  >>> iterando: $i$=0
 # 18.000000000000000
 #-STD->  >>> iterando: $i$=10
 # 20.000000000000000
@@ -71,6 +72,7 @@ fin
 bloque load 1
 # hola
 
+# Define a sistem
 box size 5.78 5.78 5.78
 
 >< atom 1 1 1
@@ -90,14 +92,31 @@ set mass 3.
 group 1 add
 #-STD->            2 particles in group           1
 
+# Get variables
+> atom 1
+#-STD->            1 particles selected
+getin x1 cm_pos
+#-STD-> x1[1] = 1.000000
+#-STD-> x1[2] = 1.000000
+#-STD-> x1[3] = 1.000000
+> atom 2
+#-STD->            1 particles selected
+getin x2 cm_pos
+#-STD-> x2[1] = 2.200000
+#-STD-> x2[2] = 1.000000
+#-STD-> x2[3] = 1.000000
+
+# Testing interaction commands
 interact 1 pair lj 1. 0.890898718140339 2
 #-STD-> The interaction label is :i1
 # NHB Not using linked cells since it would involve less than 4 cells.
 # NHB  -cut radious:    2.00000
 
+# Testing math
 tau_ps:=0.01018
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
+# Testing evolve commands
 > sys
 #-STD->            2 particles selected
 evolve ermak 100 1
@@ -114,11 +133,35 @@ bloque load_each 3 2
 dinamica 6
 #-STD-> 1 steps reached!
 #-STD-> 1neigh searches
-#-STD-> average wall time per step:      0.003 s
+#-STD-> average wall time per step:      0.000 s
 #-STD->       0.00ps simulated!
-#-STD-> average wall time per ns: 40 h 55 m
-#  0.30000000E+01
-#  0.60000000E+01
-#-STD-> cpu time:      0.024 s
-#-STD-> wall time:      0.004 s
+#-STD-> average wall time per ns:      0.000 s
+# 3.000000
+# 6.000000
+
+# Print properties
+> atom 1
+#-STD->            1 particles selected
+print cm_pos
+# 1.000053
+# 1.000000
+# 1.000000
+> atom 2
+#-STD->            1 particles selected
+print cm_pos
+# 2.199947
+# 1.000000
+# 1.000000
+
+# Testing set/get
+> atom 1
+#-STD->            1 particles selected
+set cm_pos $x1[1] $x1[2] $x1[3]
+print cm_pos
+# 1.000000
+# 1.000000
+# 1.000000
+
+#-STD-> cpu time:      0.010 s
+#-STD-> wall time:      0.001 s
 #-STD-> vecinos actualizados: 1 veces

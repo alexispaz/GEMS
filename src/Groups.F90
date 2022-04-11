@@ -173,6 +173,11 @@ type, public :: group
   procedure :: detach_all => group_detach_all
   generic   :: detach => detach_all, detach_atom
 
+  procedure :: epot_changed
+  procedure :: pos_changed
+  procedure :: vel_changed
+  procedure :: all_changed
+
   ! devuelve un puntero correspondiendo a un indice desde el head
   ! XXX: Note that igroup might be a better resource
   procedure :: atom => group_atombyindex 
@@ -233,6 +238,10 @@ public :: group_ap
 
 ! Index of groups (see `id` in group type)
 type(group_vop),target,public   :: gindex
+public :: gindex_epot_changed, &
+          gindex_all_changed, &
+          gindex_vel_changed, &
+          gindex_pos_changed 
 
 ! TODO
 public :: group_switch_vectorial
@@ -661,6 +670,8 @@ if(associated(g%pp)) then
   deallocate(g%pf)
 endif
 
+call all_changed(g)
+
 end subroutine group_attach_atom
 
 subroutine group_attach_group(g,g1)
@@ -706,6 +717,8 @@ la=>prev
 ! TODO: propiedades extras para modificar?
 g%nat = g%nat - 1
 g%mass = g%mass - a%mass
+
+call all_changed(g)
 
 end subroutine group_detach_link
            
@@ -776,6 +789,105 @@ enddo
    
 end subroutine group_all_destroy
 
+! Group Update Properties 
+! -----------------------
+! A change in 1 group implies a potential change in all of them: if an atom
+! changes, all groups might include that atom. Thus, all this update system
+! is only useful while nothing change.
+! TODO: I should build/check connections between groups to selectively update?
+                 
+subroutine gindex_all_changed()
+integer :: i  
+do i=1,gindex%size
+  call gindex%o(i)%o%all_changed()
+enddo
+end subroutine gindex_all_changed
+                  
+subroutine gindex_pos_changed()
+integer :: i  
+do i=1,gindex%size
+  call gindex%o(i)%o%pos_changed()
+enddo
+end subroutine gindex_pos_changed
+                   
+subroutine gindex_vel_changed()
+integer :: i  
+do i=1,gindex%size
+  call gindex%o(i)%o%vel_changed()
+enddo
+end subroutine gindex_vel_changed
+                    
+subroutine gindex_epot_changed()
+integer :: i  
+do i=1,gindex%size
+  call gindex%o(i)%o%epot_changed()
+enddo
+end subroutine gindex_epot_changed
+                  
+subroutine all_changed(g)
+class(group) :: g
+g%b_mass     =.false.
+g%b_erot     =.false.
+g%b_evib     =.false.
+g%b_cm_vel   =.false.
+g%b_ang_mom  =.false.
+g%b_ang_vel  =.false.
+g%b_maxpos   =.false.
+g%b_minpos   =.false.
+g%b_mainaxis =.false.
+g%b_cm_pos   =.false.
+g%b_rg_pos   =.false.
+g%b_covar    =.false.
+g%b_inercia  =.false.
+g%b_virial   =.false.
+g%b_pressure =.false.
+g%b_ekin    =.false.
+g%b_temp    =.false.
+g%b_tempvib =.false.
+g%b_temprot =.false.
+g%b_mass     =.false.
+call epot_changed(g)
+end subroutine all_changed
+            
+subroutine pos_changed(g)
+class(group) :: g
+g%b_erot     =.false.
+g%b_evib     =.false.
+g%b_cm_vel   =.false.
+g%b_ang_mom  =.false.
+g%b_ang_vel  =.false.
+g%b_maxpos   =.false.
+g%b_minpos   =.false.
+g%b_mainaxis =.false.
+g%b_cm_pos   =.false.
+g%b_rg_pos   =.false.
+g%b_covar    =.false.
+g%b_inercia  =.false.
+g%b_virial   =.false.
+g%b_pressure =.false.
+call epot_changed(g)
+end subroutine pos_changed
+
+subroutine epot_changed(g)
+class(group) :: g
+g%b_epot  =.false.
+g%b_virial =.false.
+end subroutine epot_changed
+                          
+subroutine vel_changed(g)
+class(group) :: g
+g%b_ekin    =.false.
+g%b_temp    =.false.
+g%b_tempvib =.false.
+g%b_temprot =.false.
+g%b_erot    =.false.
+g%b_evib    =.false.
+g%b_cm_vel  =.false.
+g%b_ang_mom =.false.
+g%b_ang_vel =.false.
+g%b_pressure =.false.
+end subroutine vel_changed
+                    
 ! Select atoms
 ! ------------
 

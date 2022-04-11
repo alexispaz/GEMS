@@ -18,7 +18,8 @@
 
 module gems_set_properties
  use gems_program_types, only: dt,sys
- use gems_groups, only: group,gindex,atom,atom_dclist
+ use gems_groups, only: group,atom,atom_dclist
+ use gems_groups, only: gindex_pos_changed, gindex_vel_changed, gindex_all_changed, gindex
  use gems_constants,only:dp,pi,dm,find_io
  use gems_algebra
  use gems_inq_properties
@@ -36,98 +37,6 @@ module gems_set_properties
 
  contains
 
-!                                     control de booleanos
-!----------------------------------------------------------
-
-subroutine mass_changed
-integer                :: i
-
-do i=1,gindex%size
-  gindex%o(i)%o%b_mass    =.false.
-enddo
-end subroutine mass_changed
-
-subroutine vel_changed
-integer                :: i
-
-do i=1,gindex%size
-  gindex%o(i)%o%b_ekin    =.false.
-  gindex%o(i)%o%b_temp    =.false.
-  gindex%o(i)%o%b_tempvib =.false.
-  gindex%o(i)%o%b_temprot =.false.
-  gindex%o(i)%o%b_erot    =.false.
-  gindex%o(i)%o%b_evib    =.false.
-  gindex%o(i)%o%b_cm_vel  =.false.
-  gindex%o(i)%o%b_ang_mom =.false.
-  gindex%o(i)%o%b_ang_vel =.false.
-  gindex%o(i)%o%b_pressure =.false.
-enddo
-end subroutine vel_changed
-
-subroutine pos_changed
-integer                :: i
-
-do i=1,gindex%size
-  gindex%o(i)%o%b_erot     =.false.
-  gindex%o(i)%o%b_evib     =.false.
-  gindex%o(i)%o%b_cm_vel   =.false.
-  gindex%o(i)%o%b_ang_mom  =.false.
-  gindex%o(i)%o%b_ang_vel  =.false.
-  gindex%o(i)%o%b_maxpos   =.false.
-  gindex%o(i)%o%b_minpos   =.false.
-  gindex%o(i)%o%b_mainaxis =.false.
-  gindex%o(i)%o%b_cm_pos   =.false.
-  gindex%o(i)%o%b_rg_pos   =.false.
-  gindex%o(i)%o%b_covar    =.false.
-  gindex%o(i)%o%b_inercia  =.false.
-  gindex%o(i)%o%b_virial =.false.
-  gindex%o(i)%o%b_pressure =.false.
-enddo
-
-call epot_changed
-
-end subroutine pos_changed
-
-subroutine epot_changed
-integer                :: i
-
-do i=1,gindex%size
-  gindex%o(i)%o%b_epot  =.false.
-  gindex%o(i)%o%b_virial =.false.
-enddo
-
-end subroutine epot_changed
-
-subroutine posvel_changed
-integer                :: i
-
-do i=1,gindex%size
-  gindex%o(i)%o%b_ekin    =.false.
-  gindex%o(i)%o%b_temp    =.false.
-  gindex%o(i)%o%b_tempvib =.false.
-  gindex%o(i)%o%b_temprot =.false.
-  gindex%o(i)%o%b_erot    =.false.
-  gindex%o(i)%o%b_evib    =.false.
-  gindex%o(i)%o%b_cm_vel  =.false.
-  gindex%o(i)%o%b_rg_pos   =.false.
-  gindex%o(i)%o%b_ang_mom =.false.
-  gindex%o(i)%o%b_ang_vel =.false.
-
-  gindex%o(i)%o%b_maxpos   =.false.
-  gindex%o(i)%o%b_minpos   =.false.
-  gindex%o(i)%o%b_mainaxis =.false.
-  gindex%o(i)%o%b_cm_pos   =.false.
-  gindex%o(i)%o%b_covar    =.false.
-  gindex%o(i)%o%b_inercia  = .false.
-
-  gindex%o(i)%o%b_virial =.false.
-  gindex%o(i)%o%b_pressure =.false.
-enddo
-
-call epot_changed
-
-end subroutine posvel_changed
-
 !                                                 elementos
 !----------------------------------------------------------
 
@@ -143,7 +52,7 @@ do i = 1,g%nat
   la => la%next
 enddo
 
-call mass_changed()
+call gindex_all_changed()
 
 end subroutine set_z
 
@@ -168,7 +77,7 @@ do i = 1,g%nat
   la => la%next
 enddo
 
-call mass_changed()
+call gindex_all_changed()
 
 end subroutine set_mass
 
@@ -277,7 +186,7 @@ do j =1, g%nat
   la => la%next
 enddo
 
-call vel_changed()
+call gindex_vel_changed()
 end subroutine set_add_cmvel
 
 subroutine set_gdist(g,newtemp)
@@ -318,7 +227,7 @@ do i = 1,g%nat
   la => la%next
 enddo
 
-call vel_changed()
+call gindex_vel_changed()
 
 ! Para compenzar la pobre distribución
 call set_scal_vel(g,newtemp)
@@ -351,7 +260,7 @@ do i = 1,g%nat
   la%o%vel = la%o%vel * factor
 enddo
 
-call vel_changed()
+call gindex_vel_changed()
 
 g%temp = g%temp*(factor**2)
 g%b_temp=.true.
@@ -402,60 +311,60 @@ end select
 
 close(u)
 
-call vel_changed()
+call gindex_vel_changed()
 end subroutine set_vel_from_file
 
 !                                      posición y velocidad
 !----------------------------------------------------------
 
-   subroutine move(g,r)
-   ! rota un grupo un angulo r sobre el punto v
-   real(dp)                   :: r(dm)
-   class(group)                :: g
-   class(atom_dclist),pointer  :: la
-   integer                    :: i
+subroutine move(g,r)
+! rota un grupo un angulo r sobre el punto v
+real(dp)                   :: r(dm)
+class(group)                :: g
+class(atom_dclist),pointer  :: la
+integer                    :: i
 
-    la => g%alist%next
-    do i = 1,g%nat
-      la%o%pos = la%o%pos + r
-      la => la%next
-    enddo
+la => g%alist%next
+do i = 1,g%nat
+  la%o%pos = la%o%pos + r
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine move
+end subroutine move
 
-  subroutine rotate_axis_ref(g,tita,p,v)
-   ! rotacion de un angulo tita usando un eje paralelo a algun eje cartesiano
-   ! (p) que pasa por algun punto v.  El eje de rotacion viene dado por p:
-   ! [1,2]=z; [1,3]=y; etc..
-   real(dp)   ,intent(in)     :: tita
-   integer    ,intent(in)     :: p(2)
-   class(group),intent(in)     :: g
-   real(dp)                   :: c,s,aux(2),t,v(dm)
-   integer                    :: i
-   class(atom_dclist),pointer  :: la
+subroutine rotate_axis_ref(g,tita,p,v)
+! rotacion de un angulo tita usando un eje paralelo a algun eje cartesiano
+! (p) que pasa por algun punto v.  El eje de rotacion viene dado por p:
+! [1,2]=z; [1,3]=y; etc..
+real(dp)   ,intent(in)     :: tita
+integer    ,intent(in)     :: p(2)
+class(group),intent(in)     :: g
+real(dp)                   :: c,s,aux(2),t,v(dm)
+integer                    :: i
+class(atom_dclist),pointer  :: la
 
-    ! supongo tita en grados
-    call inq_pos_v(g,v)
+! supongo tita en grados
+call inq_pos_v(g,v)
 
-    t=tita*pi/180.0_dp
+t=tita*pi/180.0_dp
 
-    c=cos(t)
-    s=sin(t)
+c=cos(t)
+s=sin(t)
 
-    la => g%alist%next
-    do i = 1,g%nat
-      aux(1) = c*(la%o%pos_v(p(1))) + s*(la%o%pos_v(p(2)))
-      aux(2) = c*(la%o%pos_v(p(2))) - s*(la%o%pos_v(p(1)))
-      la%o%pos(p(1)) = aux(1)+v(p(1))
-      la%o%pos(p(2)) = aux(2)+v(p(2))
-      la => la%next
-    enddo
+la => g%alist%next
+do i = 1,g%nat
+  aux(1) = c*(la%o%pos_v(p(1))) + s*(la%o%pos_v(p(2)))
+  aux(2) = c*(la%o%pos_v(p(2))) - s*(la%o%pos_v(p(1)))
+  la%o%pos(p(1)) = aux(1)+v(p(1))
+  la%o%pos(p(2)) = aux(2)+v(p(2))
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine rotate_axis_ref
+end subroutine rotate_axis_ref
 
   subroutine rotate_rodrigues(g,tita,v,p)
    ! rotacion de un angulo tita (rad) usando el eje v que pasa por algun punto p.
@@ -473,7 +382,7 @@ end subroutine set_vel_from_file
       la => la%next
     enddo
 
-    call pos_changed()
+    call gindex_pos_changed()
 
   end subroutine rotate_rodrigues
 
@@ -493,7 +402,7 @@ end subroutine set_vel_from_file
       la%o%pos = matmul(matrix,la%o%pos_v)+center
     enddo
 
-    call pos_changed()
+    call gindex_pos_changed()
 
   end subroutine rotate
 
@@ -521,7 +430,7 @@ end subroutine set_vel_from_file
       la => la%next
     enddo
 
-    call pos_changed()
+    call gindex_pos_changed()
 
   end subroutine givens_rotation
 
@@ -662,7 +571,7 @@ end subroutine set_vel_from_file
 !      la => la%next
 !    enddo
 !
-!    call pos_changed()
+!    call gindex_pos_changed()
 !
 !  end subroutine rotate_2d
 !
@@ -686,131 +595,131 @@ end subroutine set_vel_from_file
 !      la => la%next
 !    enddo
 !
-!    call pos_changed()
+!    call gindex_pos_changed()
 !
 !  end subroutine rotate_3d
 !
 
-  subroutine minterdist(g,rm)
-   ! Normaliza las distancias interatomicas con la minima
-   real(dp)                   :: rm,r(dm),vd(dm),rd,m
-   class(group)                :: g
-   class(atom_dclist),pointer  :: la,lb
-   integer                    :: i,j
+subroutine minterdist(g,rm)
+! Normaliza las distancias interatomicas con la minima
+real(dp)                   :: rm,r(dm),vd(dm),rd,m
+class(group)                :: g
+class(atom_dclist),pointer  :: la,lb
+integer                    :: i,j
 
-    la => g%alist%next
-    m = 1e9_dp
-    do i = 1,g%nat-1
-      lb => la%next
-      do j = i+1,g%nat
-        vd = vdistance(la%o,lb%o, mic)
-        rd = dot_product(vd,vd)
-        if (rd<m) m = rd
-        lb => lb%next
-      enddo
-      la => la%next
-    enddo
+la => g%alist%next
+m = 1e9_dp
+do i = 1,g%nat-1
+  lb => la%next
+  do j = i+1,g%nat
+    vd = vdistance(la%o,lb%o, mic)
+    rd = dot_product(vd,vd)
+    if (rd<m) m = rd
+    lb => lb%next
+  enddo
+  la => la%next
+enddo
 
-    r(:)=rm/sqrt(m)
+r(:)=rm/sqrt(m)
 
-    call group_inq_cmpos(g)
-    call expand(g,r,g%cm_pos)
+call group_inq_cmpos(g)
+call expand(g,r,g%cm_pos)
 
-  end subroutine
+end subroutine
 
-  subroutine expand(g,r,v)
-   real(dp)                   :: v(dm),r(dm)
-   class(group)                :: g
-   class(atom_dclist),pointer  :: la
-   integer                    :: i,j
+subroutine expand(g,r,v)
+real(dp)                   :: v(dm),r(dm)
+class(group)                :: g
+class(atom_dclist),pointer  :: la
+integer                    :: i,j
 
-    call inq_pos_v(g,v)
+call inq_pos_v(g,v)
 
-    la => g%alist%next
-    do i = 1,g%nat
-      do j = 1,dm
-        la % o % pos_v(j) = la % o % pos_v(j) * r(j)
-      enddo
-      la%o%pos = la%o%pos_v + v
-      la => la%next
-    enddo
+la => g%alist%next
+do i = 1,g%nat
+  do j = 1,dm
+    la % o % pos_v(j) = la % o % pos_v(j) * r(j)
+  enddo
+  la%o%pos = la%o%pos_v + v
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine expand
+end subroutine expand
 
-  subroutine set_sp(g,sp)
-   class(group)                 :: g
-   integer,intent(in)          :: sp
-   integer                     :: i
-   type(atom_dclist),pointer   :: la
+subroutine set_sp(g,sp)
+class(group)                 :: g
+integer,intent(in)          :: sp
+integer                     :: i
+type(atom_dclist),pointer   :: la
 
-    la => g%alist
-    do i = 1,g%nat
-      la => la%next
-      la%o % sp = sp
-    enddo
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  la%o % sp = sp
+enddo
 
-  end subroutine set_sp
+end subroutine set_sp
 
-  subroutine set_maxpos(g,r,k)
-   real(dp)                    :: r
-   class(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i,k
+subroutine set_maxpos(g,r,k)
+real(dp)                    :: r
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i,k
 
-    call inq_boundingbox(g)
+call inq_boundingbox(g)
 
-    r = r - g % maxpos(k)
+r = r - g % maxpos(k)
 
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % pos(k) = la % o % pos(k) + r
-      la => la%next
-    enddo
+la => g%alist%next
+do i = 1,g%nat
+  la % o % pos(k) = la % o % pos(k) + r
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine set_maxpos
+end subroutine set_maxpos
 
-  subroutine set_minpos(g,r,k)
-   real(dp)                    :: r
-   class(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i,k
+subroutine set_minpos(g,r,k)
+real(dp)                    :: r
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i,k
 
-    call inq_boundingbox(g)
+call inq_boundingbox(g)
 
-    r = r - g % minpos(k)
+r = r - g % minpos(k)
 
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % pos(k) = la % o % pos(k) + r
-      la => la%next
-    enddo
+la => g%alist%next
+do i = 1,g%nat
+  la % o % pos(k) = la % o % pos(k) + r
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine set_minpos
+end subroutine set_minpos
 
-  subroutine set_cm_pos(g,v)
-   real(dp)                    :: v(dm)
-   class(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i
+subroutine set_cm_pos(g,v)
+real(dp)                    :: v(dm)
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i
 
-    call group_inq_cmpos(g)
+call group_inq_cmpos(g)
 
-    v = v - g % cm_pos
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % pos = la % o % pos + v
-      la => la%next
-    enddo
+v = v - g % cm_pos
+la => g%alist%next
+do i = 1,g%nat
+  la % o % pos = la % o % pos + v
+  la => la%next
+enddo
 
-    call pos_changed()
+call gindex_pos_changed()
 
-  end subroutine set_cm_pos
+end subroutine set_cm_pos
 
 subroutine set_element(g,i1)
 use gems_groups, only: atom_dclist, atom_setelmnt
@@ -824,7 +733,7 @@ do i = 1,g%nat
   call atom_setelmnt(la%o,i1)
 enddo
 
-call mass_changed()
+call gindex_all_changed()
 
 end subroutine set_element
 
@@ -834,16 +743,16 @@ class(group)                 :: g
 class(atom_dclist),pointer   :: la
 integer                     :: i
 
- call inq_cg(g)
+call inq_cg(g)
 
- v = v - g % cg_pos
- la => g%alist%next
- do i = 1,g%nat
-   la % o % pos = la % o % pos + v
-   la => la%next
- enddo
+v = v - g % cg_pos
+la => g%alist%next
+do i = 1,g%nat
+  la % o % pos = la % o % pos + v
+  la => la%next
+enddo
 
- call pos_changed()
+call gindex_pos_changed()
 
 end subroutine set_cg_pos
 
@@ -891,7 +800,7 @@ end select
 
 close(u)
 
-call pos_changed()
+call gindex_pos_changed()
 end subroutine set_pos_from_file
 
 subroutine set_clean_acel(g)
@@ -910,24 +819,24 @@ enddo
 
 end subroutine set_clean_acel
 
-  subroutine set_cm_vel(g,v)
-   real(dp)                    :: v(dm)
-   class(group)                 :: g
-   class(atom_dclist),pointer   :: la
-   integer                     :: i
+subroutine set_cm_vel(g,v)
+real(dp)                    :: v(dm)
+class(group)                 :: g
+class(atom_dclist),pointer   :: la
+integer                     :: i
 
-    call inq_cm_vel(g)
+call inq_cm_vel(g)
 
-    v = v - g % cm_vel
-    la => g%alist%next
-    do i = 1,g%nat
-      la % o % vel = la % o % vel + v
-      la => la%next
-    enddo
+v = v - g % cm_vel
+la => g%alist%next
+do i = 1,g%nat
+  la % o % vel = la % o % vel + v
+  la => la%next
+enddo
 
-    call vel_changed()
+call gindex_vel_changed()
 
-  end subroutine set_cm_vel
+end subroutine set_cm_vel
 
 end module gems_set_properties
 

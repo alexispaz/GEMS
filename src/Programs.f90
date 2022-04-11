@@ -74,7 +74,7 @@ do ns = 1,steps
   do j = 1, k
     read(u,*) sym, sys%a(j)%o%pos(1:dm)
   enddo
-  call pos_changed()
+  call gindex_pos_changed()
 
   call interact(b_out)
    
@@ -109,7 +109,6 @@ end subroutine
     
 subroutine dinamic(steps,b_out,b_time)
 use gems_errors, only: timer_start, timer_dump
-use gems_set_properties, only:pos_changed
 use gems_integration, only: integration_stepa,integration_stepb
 use gems_interaction, only: interact
 use gems_output, only: write_out

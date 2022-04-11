@@ -1141,11 +1141,12 @@ end  subroutine
 
 subroutine get_fg(x,f,g)
 ! Compute gradient and write output
+use gems_groups, only:  gindex_pos_changed
 real(dp),intent(in)    :: x(:)
 real(dp),intent(out)   :: g(:),f
 integer,save           :: icall=0
 icall=icall+1
-call pos_changed() ! Fundamental!
+call gindex_pos_changed() ! Fundamental!
 call interact(.false.,f)
 f = f*ui_ev
 g(:) = -gro%pf(:)*ui_ev
@@ -1154,7 +1155,7 @@ end subroutine
  
 subroutine get_pistonfg(x,f,g)
 use gems_neighbor, only:useghost, ghost, fullghost
-use gems_groups, only:atom_dclist
+use gems_groups, only:atom_dclist, gindex_pos_changed
 use gems_constants, only:kB_ui
 use gems_program_types, only:sys, tbox, box, box_setvars, box_vol
 real(dp),intent(in)        :: x(:)
@@ -1190,7 +1191,7 @@ enddo
 
 ! Calculate atom forces
 icall=icall+1
-call pos_changed() ! Fundamental!
+call gindex_pos_changed() ! Fundamental!
 call interact(.false.,f)
 
 ! Eq. 10 (@Grønbech-Jensen2014)
