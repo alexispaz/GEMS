@@ -409,17 +409,17 @@ subroutine atom_destroy(a)
 class(atom)         :: a
 integer             :: i
 
-deallocate(a%pos)
-deallocate(a%vel)
-deallocate(a%force)
-deallocate(a%acel)
-
-! Dettach the atom from all the groups
+! Detach the atom from all the groups
 do while (a%ngr/=0)
   call a%gr(1)%o%detach(a)
 enddo
 deallocate(a%gr,a%id)
-
+ 
+deallocate(a%pos)
+deallocate(a%vel)
+deallocate(a%force)
+deallocate(a%acel)
+   
 end subroutine atom_destroy
  
 function atom_destroy_attempt(a) result(r)
@@ -782,7 +782,7 @@ type(atom), pointer        :: a
 
 do while(g%nat/=0)
   a => g%alist%next%o
-  call g%detach_atom(a)
+  ! call g%detach_atom(a)
   call a%dest()
   deallocate(a)
 enddo

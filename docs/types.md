@@ -69,7 +69,9 @@ object without index may be better. Therefore, I keep two kind of groups:
 - An **igroup** that keeps an index of atoms and can be extended to include
 arrays with new atom properties.
  
-To cyle a **group** we can use:
+## Loop trough atoms in groups
+
+To cycle a **group** we can use:
 
     la => g%alist
     do ii = 1,g%ref%nat
@@ -106,7 +108,28 @@ more.
 
 - The **cgroup** includes components and procedures for sorting atoms in cells. 
 
-- The **ngroup** includes a neighbor list and a searching procedure. It has also two **group**
-components inside: `ngroup%b` holds the potential atom neighbors of the atoms in the
-`ngroup%ref`. `ngroup%b` is a **cgroup** while `ngroup%ref` a simple **group**. 
+- The **ngroup** includes a neighbor list and a searching procedure. It has
+also two **group** components inside: `ngroup%b` holds the potential atom
+neighbors of the atoms in the `ngroup%ref`. `ngroup%b` is a **cgroup** while
+`ngroup%ref` a simple **group**. 
+
+
+## Attach/detach atoms in groups.
+
+When an atom in the system is destroy, a chain of detaching procedures will
+be invoked for all the groups its belong. Thus, if any special care must be
+take into account for detaching in a particular group extension, this must be
+done by overriding the class detach procedure.
+
+When an atom is created in the system, it might be useful to copy the same
+group membership of another atom already present. Thus, a chain of attaching
+will be run. Thus, again, if any special care must be take into account for
+attaching to a particular group extension, this must be done by overriding
+the class attach procedure.
+
+When an atom is attached into a cgroup, it is possible to sort it immediately
+into the cells, if these are already set. Attach procedure are override to do
+this, but it is required that atom position is correctly set before the
+attaching. If atom position is impossible to sort (i.e. outside the cells),
+then cgroup will be flag to recompute the tessellation again.
 

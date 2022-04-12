@@ -307,9 +307,7 @@ real(dp)                      :: auxtime
 auxtime = time
 maxbias=0._dp
 
-! igb%disable=.true.
 call dinamic(steps,b_out,.false.) 
-! igb%disable=.false.
 
 time = auxtime
 

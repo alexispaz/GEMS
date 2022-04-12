@@ -24,7 +24,7 @@ use gems_errors
 
 implicit none
 
-public :: polvar_neighbor, polvar_ngroup, ngroup_verlet_half
+public :: polvar_neighbor, polvar_ngroup
 
 ! Groups for selection
 type(group),target,public    :: ghost
@@ -56,9 +56,6 @@ integer,parameter,dimension(26,3) :: n1cells = transpose(reshape( &
 ! Group split in cells
 type, extends(igroup), public :: cgroup
 
-  ! Flag if linked cells is made
-  logical   :: cells=.false.
-
   ! TODO: Might be the head can be a linked list.
 
   ! Linked list for atom in each cell (using internal ngroup index)
@@ -80,6 +77,7 @@ type, extends(igroup), public :: cgroup
   ! Tessellation
   ! TODO: tessellation update if box change a lot
   ! TODO: tessellation without box using min and max positions.
+  logical  :: tessellated=.false.
   procedure(cgroup_tessellate),pointer :: tessellate => cgroup_tessellate
 
   ! Turn false after first tessellation
@@ -125,16 +123,12 @@ type, abstract, extends(igroup), public :: ngroup
   integer,allocatable    :: nn(:)        ! Numero de vecinos al atomo i
   integer,allocatable    :: list(:,:)    ! Vecino m-th del i-th atom of the first iteracting group (local and ghost a)
 
-  ! This boolean allows to skip all the interaction.
-  ! From the interact routine. This allows to compute
-  ! forces on selected interactions
-  logical :: disable=.false.
-
   ! Automatic switch between search algorithm
   logical :: autoswitch=.true.
 
-  procedure(ngroup_cells),pointer :: lista=>ngroup_cells
-  procedure(ngroup_cells_atom),pointer :: lista_atom=>ngroup_cells_atom
+  logical :: listed=.false.
+  procedure(ngroup_cells),pointer :: lista => ngroup_cells
+  procedure(ngroup_cells_atom),pointer :: lista_atom => ngroup_cells_atom
 
   contains
 
@@ -228,7 +222,7 @@ end subroutine cgroup_destroy
 subroutine cgroup_attach_atom(g,a)
 class(cgroup),target  :: g
 class(atom),target    :: a
-integer               :: n
+integer               :: n,i
 integer,allocatable   :: t_next(:)
 integer               :: aux1(dm)
 
@@ -245,7 +239,13 @@ if(size(g%next)<size(g%a)) then
   t_next(:size(g%next)) = g%next(:)
   call move_alloc(to=g%next,from=t_next)
 endif
-
+              
+! Add atom to cells
+if(g%tessellated) then
+  i=a%gid(g)
+  call cgroup_sort_atom(g,i)
+endif
+              
 end subroutine cgroup_attach_atom
 
 subroutine cgroup_detach_atom(g,a)
@@ -253,17 +253,14 @@ subroutine cgroup_detach_atom(g,a)
 class(cgroup)         :: g
 class(atom),target    :: a
 class(atom),pointer   :: aj
-integer               :: i,j,k
+integer               :: i
 integer               :: rc(3)
 
-! Return if there is not cells
-if(.not.g%cells) return
-
-! Search index of `a`
-i=a%gid(g)
-if(i==-1) return
-
-j=g%next(i)
+! Attempt to remove atom from cells
+if(g%tessellated) then
+  i=a%gid(g)
+  if(i>0) call cgroup_unsort_atom(g,i)
+endif
 
 ! Detach atom
 call g%igroup_detach_atom(a)
@@ -291,11 +288,11 @@ real(dp)          :: rcut
 integer,parameter :: mincells=60 ! (4x4x4)
 
 rcut=g%rcut+nb_dcut
-g%b_out = .true.
 
 ! If the box has not changed or if only a small adjustment of the cell size
 ! is sufficient.
-if(g%cells) then
+! TODO: What if a particle move a lot?
+if(g%tessellated) then
 
   ! Make sure that the box has not grown large enough to include new cells.
   if(all(g%ncells(:)+1>=box(:)/rcut)) then
@@ -313,7 +310,7 @@ if(g%cells) then
   endif
 endif
 
-g%cells = .false.
+g%tessellated = .false.
 
 ! If not a box defined, do not use linked cells
 if(.not.boxed) then
@@ -351,7 +348,7 @@ if(all(g%ncells(:)<4)) then
 endif
 
 ! Flag that cells where build
-g%cells = .true.
+g%tessellated = .true.
 
 ! Cell size
 g%ncell = g%ncells(1)*g%ncells(2)*g%ncells(3)
@@ -397,12 +394,22 @@ subroutine cgroup_sort_atom(g,i)
 class(cgroup),intent(inout)  :: g
 integer                      :: i,ci(dm)
 type(atom),pointer           :: a
-
+        
 a => g%a(i)%o
 
 ci(:)=int(a%pos(:)/g%cell(:))+1
 ! j = 1 + dot_product(ci,cellaux)
 
+! If atom pos is outside the cells, mark to update
+if(any(ci(:)<0)) then
+  g%tessellated=.false.
+  return
+endif  
+if(any(ci(:)>g%ncells(:))) then
+  g%tessellated=.false.
+  return
+endif
+ 
 g%next(i) = g%head(ci(1),ci(2),ci(3))
 g%head(ci(1),ci(2),ci(3)) = i
 
@@ -418,6 +425,19 @@ a => g%a(i)%o
 
 ! Get cell index
 ci(:)=int(a%pos(:)/g%cell(:))+1
+
+! TODO: Add to the cgroup a vector similar 
+! to hold the cell id for each atom. This will be fast and independent of
+! atom position. It may be better to migrate %head(:,:,:) to a %head(:)
+! scheme.  If atom pos is outside the cells, mark to update
+if(any(ci(:)<0)) then
+  g%tessellated=.false.
+  return
+endif  
+if(any(ci(:)>g%ncells(:))) then
+  g%tessellated=.false.
+  return
+endif
 
 ! Remove i from its cell
 if(g%head(ci(1),ci(2),ci(3))==i) then
@@ -492,28 +512,134 @@ end subroutine ngroup_destroy
 subroutine ngroup_attach_atom(g,a)
 class(ngroup),target   :: g
 class(atom),target     :: a
-integer                :: n
+integer, allocatable   :: t_nn(:), t_list(:,:)
+integer                :: n,i
 
-! Save current atom number
+! Attempt to attach
 n=g%nat
-
 call g%igroup_attach_atom(a)
-
-! Return if atom was already in the group
 if(n==g%nat) return
 
-! TODO Check if neighbor list is needed
+! Continue reallocations
+! TODO: Implement a "preserve" boolean?
+! TODO: Skip this if not allocated head?
+n=size(g%a)
+if(size(g%nn)<n) then
+  allocate(t_nn(n))
+  t_nn(:size(g%nn)) = g%nn(:)
+  call move_alloc(to=g%nn,from=t_nn)
 
-if(g%nat<size(g%nn)) return
-
-deallocate(g%nn)
-deallocate(g%list)
-n=g%nat+g%pad
-allocate(g%nn(n))
-allocate(g%list(n,g%mnb))
-
+  allocate(t_list(n,g%mnb))
+  t_list(:size(g%list,1),:) = g%list(:,:)
+  call move_alloc(to=g%list,from=t_list)
+endif   
+ 
+! Sort atom into neighbor list. 
+! This will only work if atom is already attached to `b` or `ref` before
+! enter to this procedure. For example:
+!   call g%ref%attach(a) 
+!   call g%b%attach(a)  
+!   call g%attach(a)  ! at last
+if(g%listed) then
+  i=a%gid(g)
+  call ngroup_sort_atom(g,i)
+endif
+ 
 end subroutine ngroup_attach_atom
 
+subroutine ngroup_detach_atom(g,a)
+class(ngroup),target   :: g
+class(atom),target     :: a
+integer                :: i
+
+! Remove atom from list
+if(g%listed) then
+  i=a%gid(g)
+  if(i>0) call ngroup_unsort_atom(g,i)
+endif
+
+! Detach atom
+call g%ref%detach(a)
+call g%b%detach(a)
+call g%igroup_detach_atom(a)
+ 
+end subroutine ngroup_detach_atom
+
+subroutine ngroup_unsort_atom(g,i)
+class(ngroup),target   :: g
+integer                :: i,ii,j,jj
+logical                :: found
+
+! Remove atom from its neighbor's list
+do jj=1,g%nn(i)
+  j=g%list(i,jj)
+
+  found=.false.
+  do ii=1,g%nn(j)
+    if(found) g%list(j,ii-1)=g%list(j,ii)
+    if(g%list(j,ii)==i) found=.true.
+  enddo
+  g%nn(j)=g%nn(j)-1
+
+  ! Check sucess
+  call werr("Neighbor list inconsistency.",.not.found)
+
+enddo
+
+! Set cero
+g%nn(i)=0
+ 
+end subroutine ngroup_unsort_atom
+
+subroutine ngroup_sort_atom(g,i)
+! Add atom `a` from ngroup `g` and fix neighbor list.
+! Assume `a` is not already in `g` subgroup.
+class(ngroup),intent(inout)  :: g
+type(atom),pointer           :: a,aj
+integer                      :: i,j,jj,m
+real(dp)                     :: rd,vd(dm)
+real(dp)                     :: rcut
+type(atom_dclist),pointer    :: la
+
+! Point to atom
+a => g%a(i)%o
+
+! If atom is in the ref group
+if(a%gid(g%ref)>0) call g%lista_atom(i)
+
+! If atom is in the b group
+if(a%gid(g%b)>0) then
+ 
+  ! Cut radious
+  rcut=(g%rcut+nb_dcut)
+  rcut=rcut*rcut
+ 
+  la => g%ref%alist
+  do jj = 1,g%ref%nat
+    la => la%next
+    aj => la%o
+    j = aj%gid(g)
+                      
+    ! Skip autointeraction
+    if(associated(aj,target=a)) cycle
+                      
+    vd = vdistance(a,aj,mic)
+    rd = dot_product(vd,vd)
+
+    if (rd>rcut) cycle
+
+    ! Add i as neighbor of j.
+    m = g%nn(j)+1
+    g%list(j,m)=i
+    g%nn(j)=m
+
+  enddo
+ 
+endif
+ 
+
+end subroutine ngroup_sort_atom
+     
 ! Set properties
 ! --------------
 
@@ -533,15 +659,12 @@ end subroutine ngroup_setrc
 subroutine ngroup_setlista(g)
 class(ngroup) :: g
 
-! Check if neighbor list is needed
-if(.not.associated(g%lista)) return
-
 ! Update cells
 call g%b%tessellate()
 
 if(.not.g%autoswitch) return
 
-if(g%b%cells) then
+if(g%b%tessellated) then
   g%lista => ngroup_cells
   g%lista_atom => ngroup_cells_atom
 else
@@ -622,6 +745,8 @@ enddo
 !$OMP END SINGLE NOWAIT
 !$OMP END PARALLEL
 
+g%listed=.true.
+
 end subroutine ngroup_verlet
 
 subroutine ngroup_verlet_atom(g,i)
@@ -663,88 +788,6 @@ enddo
 g%nn(i)=m
 
 end subroutine ngroup_verlet_atom
-
-subroutine ngroup_verlet_half(g)
-! Build neighbors verlet list.
-class(ngroup),intent(inout)  :: g
-type(atom),pointer           :: ai,aj
-integer                      :: i,ii,j,m
-real(dp)                     :: rd,vd(dm)
-real(dp)                     :: rcut
-type(atom_dclist),pointer    :: la
-
-call werr('Half verlet with different sets of atoms?',g%b%nat/=g%nat)
-
-! Set ceros (TODO: I think this is not needed)
-g%nn(:)=0
-
-! Cut radious
-rcut=(g%rcut+nb_dcut)
-rcut=rcut*rcut
-
-do i = 1,g%amax-1
-  ai => g%a(i)%o
-  if(.not.associated(ai)) cycle
-
-  ! Reset number of neighbors
-  m=0
-
-  do j = i+1, g%amax
-    aj => g%a(j)%o
-    if(.not.associated(aj)) cycle
-
-    vd = vdistance(ai,aj,mic)
-    rd = dot_product(vd,vd)
-
-    if (rd>rcut) cycle
-
-    ! Add j as neighbor of i.
-    m=m+1
-    g%list(i,m)=aj%gid(g)
-
-  enddo
-  g%nn(i)=m
-
-enddo
-
-end subroutine ngroup_verlet_half
-
-subroutine ngroup_verlet_atom_half(g,i)
-! Search neighbors for atom i.
-class(ngroup),intent(inout)  :: g
-type(atom),pointer           :: ai,aj
-integer                      :: i,ii,j,m
-real(dp)                     :: rd,vd(dm)
-real(dp)                     :: rcut
-type(atom_dclist),pointer    :: la
-
-g%nn(i)=0
-ai => g%a(i)%o
-
-! Cut radious
-rcut=(g%rcut+nb_dcut)
-rcut=rcut*rcut
-
-! Reset number of neighbors
-m=0
-
-do j = i+1, g%nat
-  aj=>g%a(j)%o
-  if(.not.associated(aj)) cycle
-
-  vd = vdistance(ai,aj,mic)
-  rd = dot_product(vd,vd)
-
-  if (rd>rcut) cycle
-
-  ! Add j as neighbor of i.
-  m=m+1
-  g%list(i,m)=aj%gid(g)
-
-enddo
-g%nn(i)=m
-
-end subroutine ngroup_verlet_atom_half
 
 subroutine ngroup_cells(g)
 ! Build neighbors verlet list over linked cells.
@@ -823,6 +866,7 @@ enddo
 !$OMP END SINGLE NOWAIT
 !$OMP END PARALLEL
 
+g%listed=.true.
 
 end subroutine ngroup_cells
 
@@ -906,12 +950,7 @@ if(boxed) box_old(:)=box(:)
 ! Simple loop
 do i = 1, ngindex%size
   g => ngindex%o(i)%o
-
-  ! Check to skip
-  if (g%disable) cycle
-
   call ngroup_setlista(g)
-
   if(associated(g%lista)) call g%lista()
 enddo
 

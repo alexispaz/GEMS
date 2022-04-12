@@ -111,12 +111,7 @@ endif
 
 do i = 1, ngindex%size
   g => ngindex%o(i)%o
-
-  ! Check to skip
-  if (g%disable) cycle
-
   call g%interact()
-
   tepot=tepot+g%epot
   cepot=tepot
 enddo 
