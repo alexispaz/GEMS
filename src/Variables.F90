@@ -160,7 +160,7 @@ type is (real(dp))
 type is (character(*))
   w=v
 class default
-  call werr('I dont know how to expand that')
+  call werr('I dont know how to expand that',.true.)
 end select
 
 end subroutine
@@ -182,7 +182,7 @@ type is (real(dp))
 type is (character(*))
   v=w
 class default
-  call werr('I dont know how to set that')
+  call werr('I dont know how to set that',.true.)
 end select
       
 end subroutine
@@ -206,7 +206,7 @@ select type(v=>pv%val)
 type is (group)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function

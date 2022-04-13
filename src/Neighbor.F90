@@ -24,7 +24,7 @@ use gems_errors
 
 implicit none
 
-public :: polvar_neighbor, polvar_ngroup
+public :: polvar_neighbor, polvar_ngroup, ghost_from_atom
 
 ! Groups for selection
 type(group),target,public    :: ghost
@@ -136,10 +136,14 @@ type, abstract, extends(igroup), public :: ngroup
     ! (see group type construct).
     procedure :: ngroup_construct
     procedure :: ngroup_attach_atom
+    procedure :: ngroup_detach_atom
 
+                                 
     procedure :: init => ngroup_construct
     procedure :: dest => ngroup_destroy
     procedure :: attach_atom => ngroup_attach_atom
+    procedure :: detach_atom => ngroup_detach_atom
+
 
     ! Keep access to procedures of abstract parent
     ! see (https://fortran-lang.discourse.group/t/call-overridden-procedure-of-abstract-parent-type/590/23)
@@ -220,6 +224,7 @@ if(allocated(g%next)) deallocate(g%next)
 end subroutine cgroup_destroy
 
 subroutine cgroup_attach_atom(g,a)
+use gems_errors, only: silent,errf
 class(cgroup),target  :: g
 class(atom),target    :: a
 integer               :: n,i
@@ -243,7 +248,17 @@ endif
 ! Add atom to cells
 if(g%tessellated) then
   i=a%gid(g)
+
+  ! Let me handle the errors
+  silent=.true.
+
+  ! Attempt to sort atom
   call cgroup_sort_atom(g,i)
+
+  ! Request full update if fail
+  if(errf) g%tessellated=.false.
+  silent=.false.
+
 endif
               
 end subroutine cgroup_attach_atom
@@ -264,7 +279,14 @@ endif
 
 ! Detach atom
 call g%igroup_detach_atom(a)
-     
+
+! Clean null items
+if(g%update) then
+  deallocate(g%next)
+  allocate(g%next(size(g%a)))
+  g%tessellated=.false.
+endif
+ 
 end subroutine cgroup_detach_atom
 
 ! Set properties
@@ -347,7 +369,6 @@ if(all(g%ncells(:)<4)) then
   return
 endif
 
-! Flag that cells where build
 g%tessellated = .true.
 
 ! Cell size
@@ -401,15 +422,9 @@ ci(:)=int(a%pos(:)/g%cell(:))+1
 ! j = 1 + dot_product(ci,cellaux)
 
 ! If atom pos is outside the cells, mark to update
-if(any(ci(:)<0)) then
-  g%tessellated=.false.
-  return
-endif  
-if(any(ci(:)>g%ncells(:))) then
-  g%tessellated=.false.
-  return
-endif
- 
+call werr('Particle outside tessellation',any(ci(:)<0))
+call werr('Particle outside tessellation',any(ci(:)>g%ncells(:)+1))
+
 g%next(i) = g%head(ci(1),ci(2),ci(3))
 g%head(ci(1),ci(2),ci(3)) = i
 
@@ -422,14 +437,14 @@ integer                      :: i,j,k,ci(dm)
 type(atom),pointer           :: a
 
 a => g%a(i)%o
-
+  
 ! Get cell index
 ci(:)=int(a%pos(:)/g%cell(:))+1
 
 ! TODO: Add to the cgroup a vector similar 
 ! to hold the cell id for each atom. This will be fast and independent of
 ! atom position. It may be better to migrate %head(:,:,:) to a %head(:)
-! scheme.  If atom pos is outside the cells, mark to update
+! scheme. If atom pos is outside the cells, mark to update
 if(any(ci(:)<0)) then
   g%tessellated=.false.
   return
@@ -457,7 +472,7 @@ else
   enddo
 
 endif
- 
+
 end subroutine cgroup_unsort_atom
                   
 ! ngroup events
@@ -542,20 +557,22 @@ endif
 !   call g%attach(a)  ! at last
 if(g%listed) then
   i=a%gid(g)
+  ! FIXME, g%listed puede ser true
+  ! pero b%tesselated false...
   call ngroup_sort_atom(g,i)
 endif
- 
+        
 end subroutine ngroup_attach_atom
 
 subroutine ngroup_detach_atom(g,a)
-class(ngroup),target   :: g
+class(ngroup)          :: g
 class(atom),target     :: a
 integer                :: i
 
 ! Remove atom from list
 if(g%listed) then
   i=a%gid(g)
-  if(i>0) call ngroup_unsort_atom(g,i)
+  call ngroup_unsort_atom(g,i)
 endif
 
 ! Detach atom
@@ -563,31 +580,57 @@ call g%ref%detach(a)
 call g%b%detach(a)
 call g%igroup_detach_atom(a)
  
+! FIXME: QUE PASA SI el inice de B fue actualizado
+! Poner que si b%no es tessellado, hay que actualizar lista.
+
+! Clean null items
+if(g%update) then
+  deallocate(g%nn,g%list)
+  allocate(g%nn(size(g%a)))
+  allocate(g%list(size(g%a),g%mnb))
+  g%listed=.false.
+endif
+               
 end subroutine ngroup_detach_atom
 
 subroutine ngroup_unsort_atom(g,i)
-class(ngroup),target   :: g
-integer                :: i,ii,j,jj
-logical                :: found
+class(ngroup),intent(inout)  :: g
+class(ngroup),pointer        :: ng
+type(atom),pointer           :: a,aj
+integer                      :: i,j,jj,ii,k
+real(dp)                     :: rd,vd(dm)
+type(atom_dclist),pointer    :: la
+    
+! Point to atom
+a => g%a(i)%o
+   
+! Set cero 
+! If atom ith is only in b, this is OK too
+g%nn(i)=0
 
-! Remove atom from its neighbor's list
-do jj=1,g%nn(i)
-  j=g%list(i,jj)
+! Continue only if atom is in b.
+if(a%gid(g%b)<1) return
 
-  found=.false.
-  do ii=1,g%nn(j)
-    if(found) g%list(j,ii-1)=g%list(j,ii)
-    if(g%list(j,ii)==i) found=.true.
+! Remove it from list
+la => g%ref%alist
+do jj = 1,g%ref%nat
+  la => la%next
+  aj => la%o
+  j = aj%gid(g)
+                    
+  do ii = 1,g%nn(j)
+    if(g%list(j,ii)/=i) cycle
+
+    g%nn(j)=g%nn(j)-1
+    do k=ii,g%nn(j)
+      g%list(j,k)=g%list(j,k+1)
+    enddo
+    exit
+
   enddo
-  g%nn(j)=g%nn(j)-1
-
-  ! Check sucess
-  call werr("Neighbor list inconsistency.",.not.found)
 
 enddo
 
-! Set cero
-g%nn(i)=0
  
 end subroutine ngroup_unsort_atom
 
@@ -602,10 +645,11 @@ real(dp)                     :: rcut
 type(atom_dclist),pointer    :: la
 
 ! Point to atom
+g%nn(i)=0
 a => g%a(i)%o
 
 ! If atom is in the ref group
-if(a%gid(g%ref)>0) call g%lista_atom(i)
+if(a%gid(g%ref)==0) call g%lista_atom(i)
 
 ! If atom is in the b group
 if(a%gid(g%b)>0) then
@@ -637,7 +681,6 @@ if(a%gid(g%b)>0) then
  
 endif
  
-
 end subroutine ngroup_sort_atom
      
 ! Set properties
@@ -802,7 +845,7 @@ type(atom_dclist),pointer    :: la
 
 ! Set ceros
 g%nn(:)=0
-
+ 
 ! Cut radious
 rcut=(g%rcut+nb_dcut)
 rcut=rcut*rcut
@@ -867,7 +910,7 @@ enddo
 !$OMP END PARALLEL
 
 g%listed=.true.
-
+ 
 end subroutine ngroup_cells
 
 subroutine ngroup_cells_atom(g,i)
@@ -880,15 +923,14 @@ real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
 integer                      :: rc(dm),nc(dm)
 type(atom_dclist),pointer    :: la
-
+  
 ! Set ceros
-g%nn(:)=0
+g%nn(i)=0
+ai => g%a(i)%o
 
 ! Cut radious
 rcut=(g%rcut+nb_dcut)
 rcut=rcut*rcut
-
-ai => g%a(i)%o
 
 ! Get cell index
 rc(:)=int(ai%pos(:)/g%b%cell(:))+1
@@ -956,25 +998,26 @@ enddo
 
 end subroutine update
 
-subroutine test_update()
-! Check if neighbor update is needed
-real(dp)                   :: rd,dispmax1,dispmax2,vd(dm)
-integer                    :: i
-type(atom_dclist),pointer  :: la
-
-! Update the ghost positions
-if(useghost) call pbcghost_move
+subroutine inq_dispmax(g,dispmax1,dispmax2)
+class(group)              :: g
+type(atom_dclist),pointer :: la
+integer                   :: i
+real(dp),intent(out)      :: dispmax1, dispmax2
+real(dp)                  :: rd,vd(dm)
 
 !vecinos con el propio sistema
 dispmax1 = 1.e-16_dp
 dispmax2 = 1.e-16_dp
 
-la => sys%alist
-do i = 1,sys%nat
+la => g%alist
+do i = 1,g%nat
   la => la%next
 
-  vd = la%o%pos - la%o%pos_old
+  if(associated(la%o%ghost)) cycle
 
+  ! TODO: la%pos_old, should be an array inside ngroup
+  ! so individual updates can be done
+  vd(:) = la%o%pos(:) - la%o%pos_old(:)
   rd = dot_product(vd,vd)
 
   if (rd>dispmax1) then
@@ -986,16 +1029,53 @@ do i = 1,sys%nat
 
 enddo
 
-if (sqrt(dispmax1)+sqrt(dispmax2)>nb_dcut) then
-  if(useghost) then
-    if(fullghost) then
-       call pbcfullghost()
-    else
-       call pbcghost()
+end subroutine inq_dispmax
+
+subroutine test_update()
+! Check if neighbor update is needed
+real(dp)                   :: dispmax1,dispmax2
+integer                    :: i
+type(atom_dclist),pointer  :: la
+class(ngroup),pointer      :: ng
+
+! Update the ghost positions
+if(useghost) call pbcghost_move
+
+do i = 1, ngindex%size
+  ng => ngindex%o(i)%o
+
+  ! Capture update flag
+  if (.not.ng%listed) then
+    ! TODO: Individual calls to ng%lista()
+    ! need old_pos to be an array of ngroup
+    if(useghost) then
+      if(fullghost) then
+         call pbcfullghost()
+      else
+         call pbcghost()
+      endif
     endif
+    call update()
+    return
   endif
-  call update()
-endif
+
+  ! Dispmax criteria for update
+  call inq_dispmax(ng,dispmax1,dispmax2)
+
+  if (sqrt(dispmax1)+sqrt(dispmax2)>nb_dcut) then
+    if(useghost) then
+      if(fullghost) then
+         call pbcfullghost()
+      else
+         call pbcghost()
+      endif
+    endif
+    ! TODO: Individual calls to ng%lista()
+    ! need old_pos to be an array of ngroup
+    call update()
+    return
+  endif
+enddo 
 
 end subroutine test_update
 
@@ -1106,6 +1186,7 @@ call ghost%attach(o)
 o%ghost=>o2
 call atom_asign(o,o2)
 o%q=o2%q
+o%pbc(:)=.false.
 o%pos(:)=o2%pos(:)+r(:)*box(:)
 o%boxcr(:)=r(:)
 
@@ -1305,6 +1386,23 @@ enddo
 
 end subroutine
 
+subroutine ghost_from_atom(a)
+! Create ghost images for an atom.
+use gems_program_types, only: box, sys, one_box
+use gems_groups, only: atom_dclist
+real(dp)                     :: rcut,r(dm)
+type(atom)                   :: a
+integer                      :: m
+ 
+rcut=maxrcut+nb_dcut
+
+do m =1,26
+  r(:)=a%pos(:)+n1cells(m,:)*box(:)
+  if (isghost(r(:),rcut)) call new_ghost(a,n1cells(m,:))
+enddo
+ 
+end subroutine ghost_from_atom
+     
 subroutine pbcghost_move()
 ! Move ghost atoms to reflect the motion of their local images
 use gems_program_types, only: box, sys
@@ -1432,7 +1530,7 @@ select type(v=>pv%val)
 class is (ngroup)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function

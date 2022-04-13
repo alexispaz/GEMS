@@ -205,7 +205,7 @@ case('std')
   call std_init()
   call std_read_chpseed(chpunit)
 case default
-  call werr('checkpoint file corrupted')
+  call werr('checkpoint file corrupted',.true.)
 end select
 
 end subroutine read_chpseed

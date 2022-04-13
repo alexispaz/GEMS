@@ -219,7 +219,7 @@ factor = kB_ui*newtemp!/(g%nat*dm)*(dm*g%nat)-drm)
 la => g%alist%next
 do i = 1,g%nat
   !take the sqrt of the average square velocity
-  vel_med = dsqrt(factor* la%o%one_mass)
+  vel_med = sqrt(factor* la%o%one_mass)
   do j = 1,dm
     call rang(r1)
     la%o%vel(j) = vel_med*r1+g%cm_vel(j)
@@ -306,7 +306,7 @@ case ('xyz')
   enddo
 
 case default
-  call werr(); write(logunit,*) 'File format ',trim(ext),' unknown'
+  call werr('File format '//ext//' unknown',.true.)
 end select
 
 close(u)
@@ -763,8 +763,8 @@ integer                     :: i,j,u
 character(*),intent(in)     :: archivo
 class(group)                 :: g
 class(atom_dclist),pointer  :: la
-character(ncsym)            :: sym
 integer,intent(in)          :: frame
+character(ncsym)            :: sym
 character(3)                :: ext
 
 i=len(trim(adjustl(archivo)))
@@ -795,7 +795,7 @@ case ('xyz')
   enddo
 
 case default
-  call werr(); write(logunit,*) 'File format ',trim(ext),' unknown'
+  call werr('File format '//ext//' unknown.',.true.);
 end select
 
 close(u)

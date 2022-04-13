@@ -85,7 +85,7 @@ type is(graph)
   allocate(g%stack(i))
   allocate(g%label(i))
 class default
-  call werr('Interaction type mismatch. Expected graph type.')
+  call werr('Interaction type mismatch. Expected graph type.',.true.)
 end select  
 
 
@@ -112,7 +112,7 @@ case('blocks')    ; allocate(graph_adj::g)
   call wwan("Output routine under construction.") 
   ! Pensar si se puede hacer una subrrutina dedicada de escritura por type
 case default
-  call werr('Graph function not found')
+  call werr('Graph function not found',.true.)
 endselect
   
 ! FIXME Internal 

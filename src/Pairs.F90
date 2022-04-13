@@ -110,7 +110,7 @@ case('sho')    ; allocate(sho::g)
 case('shocm')  ; allocate(shocm::g)
 case('sm1')    ; allocate(sm1::g)
 case default
-  call werr('Pair potential not found')
+  call werr('Pair potential not found',.true.)
 endselect
 
 end subroutine pair_new
@@ -168,7 +168,7 @@ type is(sm1)
   call readf(f3,ev_ui)
   call sm1_set(g,f1,f2,f3)
 class default
-  call werr('Pair potential not found')
+  call werr('Pair potential not found',.true.)
 endselect
 
                            
@@ -278,7 +278,7 @@ do ii = 1,g%ref%nat
   do l = 1, g%nn(i)  ! sobre los vecinos
 
     j  = g%list(i,l)
-    o2 =>g%a(j)%o
+    o2 => g%a(j)%o
 
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
@@ -422,7 +422,6 @@ do ii = 1,g%ref%nat
       if (o2%ghost%gid(g)>o1%gid(g)) then
         ! Una sola vez por par para que se pueda calcular el virial
 
-        ! print *, i,j,l
         o2%epot = o2%epot + p*0.5_dp
         g%epot = g%epot + p*0.5_dp
          

@@ -158,7 +158,7 @@ type(input_options), public, pointer   :: opts=>null()
 
 !     call readx(v)
 !  read an item of type x from the buffer into variable v:
-!     call readf   single or double precision, depending on the type of v
+!     call readf   single or real(dp), depending on the type of v
 !     call readi   integer
 !     call reada   character string
 !     call readu   character string, uppercased
@@ -254,17 +254,14 @@ character, parameter :: space = " ", squote = "'",             &
 character(linewidth) :: file(10)=''
 
 integer, save :: lc=3
-
-interface readf
-  module procedure read_single, read_double, read_vector!, read_quad
-end interface
-
+ 
+ 
 interface readb
   module procedure readb, readb_vector
 end interface
 
 public :: item, nitems, stdinlen,read_line, stream, reada,read_magnitud,read_energy, readu, readl,        &
-    readf, readi, getf, geta, geti, reread, input_options, readblock,     &
+    readf, readi, getf, reread, input_options, readblock,     &
     read_colour,                   &
     parse_items, readb, readelement, readia
     public :: line,level,char,end,loc
@@ -735,12 +732,9 @@ function parse_special(w) result(flag)
     flag=0
 
     ! Just in case opts%comment is #
-    if(len(w)>1) then
-      if(w(2:2) == " ") then
-        if(w(1:1)==opts%comment) then
-          return
-        endif
-      endif
+    if(w(1:1)==opts%comment) then
+      if(len(w)==1)  return
+      if(w(2:2) == " ") return
     endif
 
     ! Le saco los espacios
@@ -921,6 +915,9 @@ integer, intent(in) :: n
 opts%ir=n
 end subroutine stream
 
+! Read
+!-----
+
 subroutine reada(m)
 ! Copy characters from the next item into `m`.
 ! if the first character is a single or double quote, the string is
@@ -929,7 +926,8 @@ character(:),allocatable,intent(out) :: m
 
 if (opts%clear) m=''
 !  if there are no more items on the line, m is unchanged
-if (item >= nitems) return
+! if (item >= nitems) return
+call werr('Expected string',item>=nitems)
 
 item=item+1
 
@@ -940,9 +938,6 @@ m=char(loc(item):end(item))
 
 end subroutine reada
 
- 
-!-----------------------------------------------------------------------
-
 subroutine readf_sbrace(f,m)
 ! lee un escrito de la forma flotante[string] y devuelve flotante en a y string
 ! en m. Util para las unidades.
@@ -952,7 +947,8 @@ real(dp) :: f
 
 if (opts%clear) m=''
 !  if there are no more it/sems on the line, m is unchanged
-if (item >= nitems) return
+! if (item >= nitems) return
+call werr('Expected array',item>=nitems)
 
 item=item+1
 !  null item?
@@ -990,113 +986,12 @@ endif
 
 end subroutine readf_sbrace
  
-!-----------------------------------------------------------------------
-
-!subroutine calckey(mr)
-!!  proyecto para hacer una calculadora
-!
-!character(len=*), intent(inout) :: mr
-!character(len(mr))              :: m,key
-!integer                         :: l,num1,num2,chf,chm,chi,lkey,lm
-!
-!call reada(m)
-!
-!! busco '[' si encuentro busco ']' luego convierto la plabra clave
-!chi=index(m,'[')
-!if (chi==0) return
-!
-!lm=len(m)
-!chf=index(m,']')
-!key=m(chi+1:chf-1)
-!lkey=len(key)
-!
-!print *, key
-!
-!! busco por una suma
-!chm=index(key,'+')
-!if (chm/=0.and.chm<lkey) then
-!  read(unit=key(1:chm-1),fmt=*,err=99) num1
-!  read(unit=key(chm+1:lkey),fmt=*,err=99) num2
-!  write(unit=key(chm+1:lkey),fmt=*,err=99) num1+num2
-!endif
-!! busco por una resta
-!chm=index(key,'-')
-!if (chm/=0.and.chm<lkey) then
-!  read(unit=key(1:chm-1),fmt=*,err=99) num1
-!  read(unit=key(chm+1:lkey),fmt=*,err=99) num2
-!  write(unit=key(chm+1:lkey),fmt=*,err=99) num1-num2
-!endif
-!! busco por producto
-!chm=index(key,'*')
-!if (chm/=0.and.chm<lkey) then
-!  read(unit=key(1:chm-1),fmt=*,err=99) num1
-!  read(unit=key(chm+1:lkey),fmt=*,err=99) num2
-!  write(unit=key(chm+1:lkey),fmt=*,err=99) num1*num2
-!endif 
-!! busco por divicion
-!chm=index(key,'*')
-!if (chm/=0.and.chm<lkey) then
-!  read(unit=key(1:chm-1),fmt=*,err=99) num1
-!  read(unit=key(chm+1:lkey),fmt=*,err=99) num2
-!  write(unit=key(chm+1:lkey),fmt=*,err=99) num1/num2
-!endif  
-!
-!return
-!99 continue
-!
-!print *, 'error leyendo clave en',m
-!stop
-!
-!end subroutine
-!
-
-!-----------------------------------------------------------------------
-
-! subroutine read_quad(a,factor)
-! 
-! !  read the next item from the buffer as a real (quadruple precision) number.
-! !  if the optional argument factor is present, the value read should be
-! !  divided by it. (external value = factor*internal value)
-! 
-! real(kind=qp), intent(inout) :: a
-! real(kind=qp), intent(in), optional :: factor
-! 
-! character(len=linewidth) :: string
-! 
-! if (opts%clear) a=0.0_qp
-! 
-! !  if there are no more items on the line, i is unchanged
-! if (item >= nitems) return
-! 
-! string=""
-! call reada(string)
-! !  if the item is null, i is unchanged
-! if (string == "") return
-! read (unit=string,fmt=*,err=99) a
-! if (present(factor)) then
-!   a=a/factor
-! endif
-! return
-! 
-! 99 a=0.0_qp
-! select case(opts%nerror)
-! case(-1,0)
-!   call report("error while reading real number",.true.)
-! case(1)
-!   write(opts%or,"(2a)") "error while reading real number. input is ", trim(string)
-! case(2)
-!   opts%nerror=-1
-! end select
-! 
-! end subroutine read_quad
-
-!-----------------------------------------------------------------------
 subroutine read_energy(a,flag,factor)
 ! lee una magnitud del tipo 5[eV] y convierte a su equivalente en ui. Si [..] no se
 ! especifica asume que es el valor en ui.
 integer,optional                :: flag
-double precision, intent(inout) :: a
-double precision, intent(in), optional :: factor
+real(dp), intent(inout) :: a
+real(dp), intent(in), optional :: factor
 character(:),allocatable  :: m
 
 if (present(flag)) flag=0
@@ -1122,8 +1017,8 @@ subroutine read_magnitud(a,factor,flag)
 ! lee una magnitud del tipo 5[eV] y convierte a su equivalente en ui. Si [..] no se
 ! especifica asume que es el valor en ui.
 integer,optional                :: flag
-double precision, intent(inout) :: a
-double precision, intent(in), optional :: factor
+real(dp), intent(inout) :: a
+real(dp), intent(in), optional :: factor
 
 flag=int(factor) ! FIXME this variable is here only for compatibility, is not used
 
@@ -1137,86 +1032,6 @@ call read_energy(a,flag)
 
 end subroutine read_magnitud
     
-subroutine read_vector(a,factor)
-! lee un vector
-
-integer                         :: i
-double precision, intent(inout) :: a(:)
-double precision, intent(in), optional :: factor
-character(:),allocatable  :: string
-
-if (opts%clear) a=0d0
-
-do i = 1,size(a)
-
-  !  if there are no more items on the line, i is unchanged
-  if (item >= nitems) return
-
-  string=''
-  call reada(string)
-  !  if the item is null, i is unchanged
-  if (string == "") return
-  read (unit=string,fmt=*,err=99) a(i)
-
-enddo
-
-if (present(factor)) then
-  a=a*factor
-endif
-
-return
-
-99 a=0d0
-select case(opts%nerror)
-case(-1,0)
-  call werr("error while reading real number")
-case(1)
-  write(opts%or,"(2a)") "error while reading real number. input is ", trim(string)
-case(2)
-  opts%nerror=-1
-end select
-
-end subroutine read_vector
-
-subroutine read_double(a,factor)
-
-!  read the next item from the buffer as a real (double precision) number.
-!  if the optional argument factor is present, the value read should be
-!  divided by it. (external value = factor*internal value)
-
-double precision, intent(inout) :: a
-double precision, intent(in), optional :: factor
-character(:),allocatable  :: string
-
-if (opts%clear) a=0d0
-
-!  if there are no more items on the line, i is unchanged
-if (item >= nitems) return
-
-string=''
-call reada(string)
-!  if the item is null, i is unchanged
-if (string == "") return
-read (unit=string,fmt=*,err=99) a
-if (present(factor)) then
-  a=a*factor
-endif
-return
-
-99 a=0d0
-select case(opts%nerror)
-case(-1,0)
-  call werr("error while reading real number")
-case(1)
-  write(opts%or,"(2a)") "error while reading real number. input is ", trim(string)
-case(2)
-  opts%nerror=-1
-end select
-
-end subroutine read_double
-
-!-personalizado para gems------------------------------------------------
-
 subroutine readb(b)
 ! subrutina agregada por alexis paz
 !  read an integer from the current record
@@ -1227,7 +1042,8 @@ character(:),allocatable  :: string
 if (opts%clear) b=.false.
 
 !  if there are no more items on the line, i is unchanged
-if (item >= nitems) return
+! if (item >= nitems) return
+call werr('Expected loigcal',item>=nitems)
 
 string=''
 call reada(string)
@@ -1239,7 +1055,7 @@ return
 99 b=.false.
 select case(opts%nerror)
 case(-1,0)
-  call werr("error while reading bollean number")
+  call werr("error while reading bollean number",.true.)
 case(1)
   write(opts%or,"(2a)") "error while reading bollean. input is ", trim(string)
 case(2)
@@ -1261,7 +1077,8 @@ if (opts%clear) b=.false.
 do i = 1,size(b)
 
   !  if there are no more items on the line, i is unchanged
-  if (item >= nitems) return
+  ! if (item >= nitems) return
+  call werr('Expected vector',item>=nitems)
 
   string=''
   call reada(string)
@@ -1276,7 +1093,7 @@ return
 99 b=.false.
 select case(opts%nerror)
 case(-1,0)
-  call werr("error while reading bollean number")
+  call werr("error while reading bollean number",.true.)
 case(1)
   write(opts%or,"(2a)") "error while reading bollean. input is ", trim(string)
 case(2)
@@ -1296,7 +1113,8 @@ character(:),allocatable  :: string
 if (opts%clear) i=0
 
 !  if there are no more items on the line, i is unchanged
-if (item >= nitems) return
+! if (item >= nitems) return
+call werr('Expected element',item>=nitems)
 
 string=''
 call reada(string)
@@ -1308,7 +1126,7 @@ return
 99 i=0
 select case(opts%nerror)
 case(-1,0)
-  call werr("error while reading integer number")
+  call werr("error while reading integer number",.true.)
 case(1)
   i = inq_z(string)
   if(i==-1) write(opts%or,"(2a)") "error while reading atomic element. input is ", trim(string)
@@ -1330,7 +1148,8 @@ character(:),allocatable, intent(out)  :: m
 if (opts%clear) i=0
 
 !  if there are no more items on the line, i is unchanged
-if (item >= nitems) return
+! if (item >= nitems) return
+call werr('Expected integer or string',item>=nitems)
 
 m=''
 call reada(m)
@@ -1342,7 +1161,7 @@ return
 99 i=0
 select case(opts%nerror)
 case(-1,0)
-  call werr("error while reading integer number")
+  call werr("error while reading integer number",.true.)
 case(1)
   return
 case(2)
@@ -1351,28 +1170,39 @@ end select
 
 end subroutine readia
  
-!-----------------------------------------------------------------------
-
-subroutine read_single(a,factor)
-
-!  read the next item from the buffer as a real (double precision) number.
-!  if the optional argument factor is present, the value read should be
-!  divided by it. (external value = factor*internal value)
-
-real(sp), intent(inout) :: a
+impure elemental subroutine readf(a,factor)
+! Read the next item from the buffer as a real (real(dp)) number.
+! if the optional argument factor is present, the value read should be
+! divided by it. (external value = factor*internal value)
+real(dp), intent(inout)        :: a
 real(dp), intent(in), optional :: factor
-real(dp) :: aa
+character(:),allocatable       :: string
 
+if (opts%clear) a=0._dp
+
+call werr('Expected float',item>=nitems)
+
+string=''
+call reada(string)
+
+if (string == "") return
+read (unit=string,fmt=*,err=99) a
 if (present(factor)) then
-  call read_double(aa,real(factor,dp))
-else
-  call read_double(aa)
+  a=a*factor
 endif
-a=real(aa,kind=sp)
+return
 
-end subroutine read_single
+99 a=0._dp
+select case(opts%nerror)
+case(-1,0)
+  call werr("error while reading real number",.true.)
+case(1)
+  call werr("error while reading real number. input is "//trim(string),.true.)
+case(2)
+  opts%nerror=-1
+end select
 
-!-----------------------------------------------------------------------
+end subroutine readf
 
 subroutine readi(i)
 !  read an integer from the current record
@@ -1383,8 +1213,9 @@ character(:),allocatable  :: string
 
 if (opts%clear) i=0
 
-!  if there are no more items on the line, i is unchanged
-if (item >= nitems) return
+! !  if there are no more items on the line, i is unchanged
+! if (item >= nitems) return
+call werr('Expected integer',item>=nitems)
 
 string=''
 call reada(string)
@@ -1404,7 +1235,7 @@ return
 99 i=0
 select case(opts%nerror)
 case(-1,0)
-  call werr("error while reading integer number")
+  call werr("error while reading integer number",.true.)
 case(1)
   write(opts%or,"(2a)") "error while reading integer. input is ", trim(string)
 case(2)
@@ -1412,8 +1243,6 @@ case(2)
 end select
 
 end subroutine readi
-
-!-----------------------------------------------------------------------
 
 subroutine readu(m)
 character(:),allocatable  :: m
@@ -1423,8 +1252,6 @@ call upcase(m)
 
 end subroutine readu
 
-!-----------------------------------------------------------------------
-
 subroutine readl(m)
 character(:),allocatable  :: m
 
@@ -1433,77 +1260,32 @@ call locase(m)
 
 end subroutine readl
 
-!-----------------------------------------------------------------------
+! Read if possible
+!-----------------
+ 
+impure elemental subroutine getf(a,factor)
+! Read the next item from the buffer as a real (real(dp)) number.
+! if the optional argument factor is present, the value read should be
+! divided by it. (external value = factor*internal value)
+use gems_errors, only: silent, errf
+real(dp), intent(inout)        :: a
+real(dp)                       :: b
+real(dp), intent(in), optional :: factor
+character(:),allocatable       :: string
 
-subroutine getf(a,factor)
-!  read the next item as a double-precision number, reading new data
-!  records if necessary.
-!  if the optional argument factor is present, the value read should be
-!  divided by it. (external value = factor*internal value)
-
-double precision, intent(inout) :: a
-double precision, intent(in), optional :: factor
-
-logical :: eof
-
-do
-  if (item < nitems) then
-    call readf(a,factor)
-    exit
-  else
-    call read_line(eof)
-    if (eof) then
-      write(opts%or,"(a)") "end of file while attempting to read a number"
-      stop
-    endif
-  endif
-end do
-
+! Save default value
+b=a
+silent=.true.
+if (present(factor)) then
+  call readf(a,factor) 
+else
+  call readf(a) 
+endif       
+if(errf) a=b
+silent=.false.
+ 
 end subroutine getf
 
-!-----------------------------------------------------------------------
-
-subroutine geti(i)
-!  get an integer, reading new data records if necessary.
-integer, intent(inout) :: i
-logical :: eof
-
-do
-  if (item < nitems) then
-    call readi(i)
-    exit
-  else
-    call read_line(eof)
-    if (eof) then
-      write(opts%or,"(a)") "end of file while attempting to read a number"
-      stop
-    endif
-  endif
-end do
-
-end subroutine geti
-
-!-----------------------------------------------------------------------
-
-subroutine geta(m)
-!  get a character string
-character(:),allocatable  :: m
-logical       :: eof
-
-do
-  if (item < nitems) then
-    call reada(m)
-    exit
-  else
-    call read_line(eof)
-    if (eof) then
-      write(opts%or,"(a)") "end of file while attempting to read a character string"
-      stop
-    endif
-  endif
-end do
-
-end subroutine geta
 
 !-----------------------------------------------------------------------
 
@@ -1556,14 +1338,14 @@ case("rgbx")
   read (x(5:6),"(z2)") b
   colour(3)=b/255_dp
 case default
-  call werr('colour keyword not recognised')
+  call werr('colour keyword not recognised',.true.)
 end select
 
 if (present(clamp)) then
   if (clamp) then
     do i=1,3
       if (colour(i)>1d0) colour(i)=1d0
-      if (colour(i)<0d0) colour(i)=0d0
+      if (colour(i)<0._dp) colour(i)=0._dp
     end do
   end if
 end if

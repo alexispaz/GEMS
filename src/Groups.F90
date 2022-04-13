@@ -196,7 +196,7 @@ type, extends(group), public :: igroup
 
   ! Update index if 10% of the index is null. 
   ! Set to 0 to avoid updates.
-  real(dp)                :: aupd=0.1       
+  real(dp)                :: aupd=0.5
 
   ! Signal out to rebuild internal arrays in extended types.
   ! It becomes `.true.` if there is an index update.
@@ -409,9 +409,12 @@ subroutine atom_destroy(a)
 class(atom)         :: a
 integer             :: i
 
-! Detach the atom from all the groups
+! Detach the atom from all the groups using a LIFO scheme. Since some
+! attach/deatach precedures may depend on other atom memberships, remeber
+! to build these group dependencies considering the present LIFO
+! destruction.
 do while (a%ngr/=0)
-  call a%gr(1)%o%detach(a)
+  call a%gr(a%ngr)%o%detach(a)
 enddo
 deallocate(a%gr,a%id)
  
@@ -447,6 +450,7 @@ a1 % pos(:)   = a2 % pos(:)
 a1 % vel(:)   = a2 % vel(:)
 a1 % force(:) = a2 % force(:)
 a1 % acel(:)  = a2 % acel(:)
+a1 % pbc(:)   = a2 % pbc(:)
 call atom_setelmnt(a1,a2%z)
 
 a1 % acel(:)    = a2 % acel(:)
@@ -988,12 +992,18 @@ g%a(i)%o=>null()
 call group_detach_atom(g,a)
 
 ! Update index if null count is above a fraction of array size.  
-if ((g%amax-g%nat)>size(g%a)*g%aupd) call igroup_update_index(g)
+if ((g%amax-g%nat)>size(g%a)*g%aupd) then
+  call igroup_update_index(g)
+else
+  g%update=.false.
+endif
 
 end subroutine igroup_detach_atom
      
 subroutine igroup_update_index(g)
 ! Update index
+use gems_strings, only: operator(.ich.)
+use gems_errors, only: wlog, werr
 class(igroup)              :: g
 class(atom),pointer        :: a
 integer                    :: i,j,k
@@ -1026,6 +1036,11 @@ g%amax=g%nat
 
 ! Signal out to rebuild internal arrays in extended types.
 g%update=.true. 
+
+! Write into log file 
+! TODO: Build a warning if several calls are made to this subroutine
+! and set up a CLI to control/deactivate `aupd`
+call wlog('Index of group '//.ich.g%id//' updated')
 
 end subroutine igroup_update_index
 

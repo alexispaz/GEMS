@@ -168,7 +168,7 @@ end subroutine sort_int
 
     enddo
 
-    call werr('bisection didnt converge')
+    call werr('bisection didnt converge',.true.)
     
   end function
   

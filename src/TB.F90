@@ -279,7 +279,7 @@ type is(smatb)
   call g%setrc(maxval(g%rce))
 
 class default
-  call werr('Interaction type mismatch. Expected smatb type.')
+  call werr('Interaction type mismatch. Expected smatb type.',.true.)
 end select  
  
 end subroutine smatb_cli

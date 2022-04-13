@@ -260,7 +260,7 @@ case ('pdb')
   enddo 
 
 case default
-  call werr(); write(logunit,*) 'File format ',trim(ext),' unknown'
+  call werr('File format '//ext//' unknown',.true.)
 end select
 
 close(u)

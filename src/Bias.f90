@@ -82,7 +82,7 @@ case('mcammon')        ; allocate(mccammon::g)
 case('compress_below') ; allocate(compress_below::g) 
 case('compress')       ; allocate(compress::g) 
 case default
-  call werr('Bias function not found')
+  call werr('Bias function not found',.true.)
 endselect  
 g%lista => null()
      
@@ -110,7 +110,7 @@ type is(compress)
   call readf(f1)       ! alpha
   call lp_set(g,f1)
 class default
-  call werr('Bias function not found')
+  call werr('Bias function not found',.true.)
 endselect  
 
 end subroutine

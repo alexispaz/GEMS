@@ -145,7 +145,7 @@ case('sho_line')
 case('lucas1d')
   allocate(lucas1d::g)
 case default
-  call werr('Field type not found')
+  call werr('Field type not found',.true.)
 endselect
 g%lista => null()
 
@@ -218,7 +218,7 @@ type is(lucas1d)
   call readf(f9)
   call lucas1d_set(g,f1,f2,f3,f4,f5,f6,f7,f8,f9)
 class default
-  call werr('Analitical potential not found')
+  call werr('Analitical potential not found',.true.)
 endselect
 
                            

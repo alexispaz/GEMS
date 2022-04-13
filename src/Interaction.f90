@@ -55,7 +55,7 @@ case('tb')
   allocate(smatb::g) 
   call reread(0)
 case default
-  call werr('Interaction not found')
+  call werr('Interaction not found',.true.)
 endselect    
 
 end subroutine interact_new
@@ -88,17 +88,19 @@ type(atom_dclist),pointer :: la
 !    a(i)%o%pos=a(i)%o%pos-rd
 !  endif 
 !enddo 
+          
 call test_update()
-   
+  
 bias = 0._dp
 tepot = 0._dp
 cepot = 0._dp
 if(.not.present(dontclean)) then
   virial(:,:) = 0._dp
+  la=>sys%alist
   do i = 1,sys%nat
-    ap=>sys%a(i)%o
-    ap%force = 0._dp
-    ap%epot = 0._dp
+    la=>la%next
+    la%o%force = 0._dp
+    la%o%epot = 0._dp
   enddo
   la => ghost%alist
   do i = 1,ghost%nat
@@ -130,8 +132,10 @@ if (b_out) call write_out(2,dm_steps)
 if(present(pot)) pot=tepot
 
 ! Soft constrain
+la=>sys%alist
 do i = 1,sys%nat
-  ap=>sys%a(i)%o
+  la=>la%next
+  ap=>la%o
   if (.not.ap%bconst) cycle
   if (ap%lconst) then
     aux=dot(ap%force,ap%vconst)
@@ -154,7 +158,7 @@ enddo
 do i=1,ncvs
   call cvs(i)%calc()
 enddo
-      
+           
 end subroutine interact
      
 subroutine write_eparts(op)
@@ -190,7 +194,7 @@ select type(v=>pv%val)
 class is (ngroup)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function polvar_interact

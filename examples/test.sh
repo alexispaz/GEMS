@@ -382,7 +382,20 @@ if prompt NPT; then
      
   cd ..
 fi
-         
+ 
+if prompt mVT; then
+  cd mVT
+
+  rm -f Energy.main.dat
+  time exe main.gms
+  paste ref/Energy.main.dat Energy.main.dat \
+    | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+           {a+=($1-$5)^2;b+=$1}
+           END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
+            
+  cd ..
+fi
+           
 if prompt DDDA; then
   cd DDDA
 

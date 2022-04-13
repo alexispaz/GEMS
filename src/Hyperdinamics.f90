@@ -104,7 +104,7 @@ end function
 !   select type(igb)
 !   type is(compress_below)
 !   case default
-!     call werr('Bias shoulw be of type lpe to allow hybrid HD-DM algorithm')
+!     call werr('Bias shoulw be of type lpe to allow hybrid HD-DM algorithm',.true.)
 !   end select
 ! case default
 !   call werr('Bad keyword. Use `under`, `with` or `feels`')
@@ -152,7 +152,7 @@ select type(ig)
 type is (compress_below)
   igb=>ig
 class default
-  call werr(':hybrid_ea should be of type compress_below')
+  call werr(':hybrid_ea should be of type compress_below',.true.)
 end select
 
 ! Ensure the parameters to be inside the range

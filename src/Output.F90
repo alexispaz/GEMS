@@ -1166,7 +1166,7 @@ select type(v=>pv%val)
 class is (outfile)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function polvar_outfile

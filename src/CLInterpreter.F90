@@ -567,7 +567,7 @@ case('partemp2')
   endif
   call parallel_tempering2(i1,i2,i3,.true.,.true.) 
 #else
-  call werr('Compile GEMS with MPI (./configure --with-mpi)')
+  call werr('Compile GEMS with MPI (./configure --with-mpi)',.true.)
 #endif  
     
 case('partemp')
@@ -604,14 +604,14 @@ case('partemp')
   call gmeta%attach(gsel)
     call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
     case default
-    call werr('I do not understand the last command')  
+    call werr('I do not understand the last command',.true.)
   endselect
   
   ! FIXME:
   call gmeta%attach(gsel)
   call parallel_tempering(i1,i2,i3,.true.,.true.,w1) 
 #else
-  call werr('Compile GEMS with MPI (./configure --with-mpi)')
+  call werr('Compile GEMS with MPI (./configure --with-mpi)',.true.)
 #endif  
 
 case('help')
@@ -669,10 +669,10 @@ if (.not.associated(ig)) then
   call interact_new(ig,w1)
   call ig%init()
 
-  ! Add groups
-  call ig%attach(gr(i1))
+  ! Add groups (keep order, needed by sort during attach)
   call ig%ref%attach(gr(i1))
   call ig%b%attach(gr(i2))
+  call ig%attach(gr(i1))
   if(i2/=i1) call ig%attach(gr(i2))
  
   ! Create new label
@@ -1296,9 +1296,9 @@ case('rotate')
     call givens_rotation(gsel,f1,ip)
   endif
 case('expand')
-  fv2=0.0_dp   ! Default en el origen?
+  fv2=0._dp   ! Default en el origen?
   call readf(fv)
-  call readf(fv2)
+  call getf(fv2)
   call expand(gsel,fv,fv2)
 case('move')
   call readf(fv)
@@ -1672,7 +1672,7 @@ case('seed_first')
   call readi(i2)
   call init_ran(lstreamnum=i1,lnstreams=i2)
 #else
-  call werr('Feature not enable, configure with --with-sprng')
+  call werr('Feature not enable, configure with --with-sprng',.true.)
 #endif
 
 case('stream')
@@ -1685,7 +1685,7 @@ case('stream')
     call spawn_ran(i1)
   endif
 #else
-  call werr('Feature not enable, configure with --with-sprng')
+  call werr('Feature not enable, configure with --with-sprng',.true.)
 #endif
 
 case default  
@@ -2018,7 +2018,7 @@ case('cols')
 !      case ('nebi'      ); ne%w => writeb_opi
 !      case ('nebf'      ); ne%w => writeb_opf       
     case  default
-      call werr('incorrect imput')
+      call werr('incorrect imput',.true.)
     end select
 
     ! call of%p%attach_hardcpy(op)
@@ -2067,7 +2067,7 @@ case default
   case('charge'     ); of%w => write_charge
  !%case ('border'   ); of%w => write_border    
   case  default
-    call werr('wrong input')
+    call werr('wrong input',.true.)
   end select
   
   call of%reopen()

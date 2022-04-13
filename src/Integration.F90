@@ -219,6 +219,14 @@ case('ermak_x','ermak_y','ermak_z')
   case('z')
     call set_ermak(it,dt,f1,f2,3)
   endselect  
+case('gcmc')
+  call readf(f1)  
+  call readf(f2)
+  call readf(f3)
+  call readf(f4)
+  call readi(i1)
+  call readf(f5)
+  call set_gcmc(it,f1,f2,f3,f4,i1,f5)
 case('secfile')
   it%stepa => from_openfile_a
   it%stepb => from_openfile_b
@@ -256,7 +264,7 @@ case('clean') ! Delete all integration objects
   call its%destroy()
 
 case default
-  call werr('Integration algorithm unknown')
+  call werr('Integration algorithm unknown',.true.)
 end select 
 
 end subroutine integrate_cli
@@ -414,7 +422,6 @@ enddo
 ! Calculate pressure 
 call inq_pressure(it)
 press = (it%pressure(1,1)+it%pressure(2,2)+it%pressure(3,3))/3
-! print *, press,pfix(1)
 
 ! Calculate half piston momentum
 call rang(r1)
@@ -479,7 +486,6 @@ pmass  =it%p%o(6)
 ! Calculate pressure again
 call inq_pressure(it)
 press = (it%pressure(1,1)+it%pressure(2,2)+it%pressure(3,3))/3
-! print *, press,pfix(1)
 
 ! Calculate final piston momentum
 call rang(r1)
@@ -591,8 +597,6 @@ box_vol=box_vol+bv*dt*(pvel(1)+0.5_dp*inv_pmass*(dt*pistonf(1)+rangv))
 
 ! Save rangv
 it%p%o(9)=rangv
-
-! print *, pistonf,(it%virial(1,1)+it%virial(2,2)+it%virial(3,3))/3,it%nat*it%fixtemp*kB_ui/box_vol ,pfix
 
 ! Compute the box lengths
 do k=1,dd
@@ -1396,9 +1400,180 @@ do i=1,it%nat
 enddo
 
 end subroutine andersen
+
+! Gran Canonic Montecarlo (@Papadopoulou1993)
+! -------------------------------------------
+! Grand canonical Monte Carlo in a control volume . It fulfill the
+! distribution for the given thermodynamic activity.  The control volume is
+! the box slice between `z1` and `z2`. The number of attempted adjustments is
+! `nadj` following @Heffelfinger1998
+ 
+subroutine set_gcmc(g, z1, z2, act, rc, nadj, temp)
+use gems_constants, only:kB_ui
+class(integrate)    :: g
+real(dp),intent(in) :: z1, z2, act, rc, temp
+integer,intent(in)  :: nadj
+
+! TODO: Check that all the atoms belong to the same kind (have the same name,
+! etc and belong to same groups) so the atom template is any of them
+ 
+g%stepa => null()
+g%stepb => gcmc
+
+call g%p%append(z1)
+call g%p%append(z2)
+call g%p%append(act)
+call g%p%append(rc)
+call g%p%append(temp)
+call g%i%append(nadj)
+
+end subroutine
+ 
+subroutine gcmc(g)
+! For rigid spheres and considering a particular area between two xy planes.
+! TODO: Generalize with a boltzman energy
+! TODO: Check overlap with a reference group (for mixtures)
+use gems_neighbor, only: useghost,ghost_from_atom,ngindex,ngroup
+use gems_random, only: ranu,rang
+use gems_constants, only: dm, kB_ui
+class(integrate)           :: g
+class(ngroup),pointer      :: ng
+real(dp)                   :: z1,z2,act 
+real(dp)                   :: r(3), vd(3), dr, v, rc, temp, beta
+type(atom_dclist), pointer :: la
+type(atom),pointer         :: o, ref
+integer                    :: nadj
+integer                    :: i,j,n,m
+ 
+z1=g%p%o(1)
+z2=g%p%o(2)
+act=g%p%o(3)
+rc=g%p%o(4)
+temp=g%p%o(5)
+nadj=g%i%o(1)  
+           
+! Compute volume
+v=box(1)*box(2)*(z2-z1)
+     
+! Count particles in the control volume
+n=0
+la=>g%alist
+do j=1,g%nat
+  la=>la%next
+  if(la%o%pos(3)<z1.or.la%o%pos(3)>z2) cycle
+  n=n+1
+enddo
+    
+! Point to an atom that will work as template
+! in order to add new atoms into groups.
+       
+! Attempted adjustments 
+adj: do i=1,nadj
+
+  ref => g%alist%next%o
+  beta = sqrt(kB_ui*temp*ref%one_mass)
+  call werr('No more particles',.not.associated(ref))
+
+  ! Creation attempt
+ if (ranu()<0.5) then
+       
+    ! Random coordinates
+    r(1)=ranu()*box(1)
+    r(2)=ranu()*box(2)
+    r(3)=ranu()*(z2-z1)+z1
+
+    ! Check overlap
+    la=>g%alist
+    do j=1,g%nat
+      la=>la%next
+      o => la%o
+
+      ! ! Skip particles outside the control volume.
+      ! FIXME: consider PBC
+      ! if(o%pos(3)<z1-rc) cycle
+      ! if(o%pos(3)>z2+rc) cycle
+
+      ! Skip if overlapping
+      vd(:) = atom_distancetopoint(o,r)
+      dr = dot_product(vd,vd)
+      if(dr<rc*rc) cycle adj
+
+    enddo
+
+    ! Metropolis acceptance
+    if(act*v/(n+1)>ranu()) then
+   
+      ! Add particle
+      n=n+1
+
+      ! Initialize particle from template.
+      allocate(o)
+      call o%init()
+      call atom_asign(o,ref)
+      o%pos(:)=r(:)
+       
+      ! Give a velocity from maxwell-boltzman distribution
+      ! TODO: Remove CM of added particles.
+      do j = 1,dm
+        call rang(dr)
+        la%o%vel(j) = beta*dr
+      enddo
+
+      ! Add to the same groups of the template.
+      do j=1,ref%ngr
+        call ref%gr(j)%o%attach(o)
+      enddo
+
+      ! Create ghost images
+      if(useghost) call ghost_from_atom(o)
+             
+      ! Free pointer
+      o=>null()
+           
+    endif
+
+  ! Destruction attempt
+  else 
+            
+    ! Metropolis acceptance
+    if(n/(v*act)>ranu()) then
+                  
+      ! Sort particle
+      m=floor(ranu()*n)+1
+      if(m>n) m=n
+
+      la=>g%alist
+      do j=1,g%nat
+        la=>la%next
+        o => la%o
+
+        ! Skip particles outside the control volume.
+        if(o%pos(3)<z1) cycle
+        if(o%pos(3)>z2) cycle
+
+        m=m-1  
+        if(m==0) exit
+      enddo
+      call werr('Particle sorted does not exists',m>0)
+              
+      ! Remove particle
+      n=n-1
+      call o%dest()
+      deallocate(o)
+         
+    endif
+           
+  endif 
+   
+enddo adj
       
-!                                                         desde archivo
-!------------------------------------------------------------------------------ 
+           
+endsubroutine
+
+ 
+
+! Follow file
+!------------
 
 subroutine from_openfile_a(it)
 ! read atoms from file
@@ -1543,7 +1718,7 @@ select type(v=>pv%val)
 type is (integrate)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function
