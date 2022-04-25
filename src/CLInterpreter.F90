@@ -86,6 +86,7 @@ use gems_metadynamics, only:  metadynamics, wtmd2D_set,dm_cv_set,&
                                wall2D_set,wallauxCore_set,wallauxShell_set,&
                                wall1D_set,wtmetad_set,posicion1d_set
 use gems_quasi_newton, only: lbfgs_minimizator, minvol
+use gems_calc, only: calc_cli
 
                               
 character(*)  :: com
@@ -235,6 +236,8 @@ case('set')
   call set_commands()
 case('interact')
   call interacciones()
+case('calc') ! 
+  call calc_cli()
 case('getin') ! 
   call get_commands()
 case('group')
@@ -629,7 +632,7 @@ end select
 endsubroutine execute_command
 
 subroutine interacciones
-use gems_neighbor,only: ngroup,ngindex
+use gems_neighbor,only: ngroup,ngindex, maxrcut
 use gems_interaction,only: polvar_interact, interact_new
 use gems_variables,only: polvar_link
 class(ngroup),pointer  :: ig
@@ -684,8 +687,7 @@ endif
 ! Run CLI
 call ig%cli(ig)
 
-! Update  
-if(useghost) call pbcfullghost()
+! First time here, force pbcfullghost
 call update()  
        
 end subroutine interacciones
@@ -1298,7 +1300,7 @@ case('rotate')
 case('expand')
   fv2=0._dp   ! Default en el origen?
   call readf(fv)
-  call getf(fv2)
+  call try_get(fv2)
   call expand(gsel,fv,fv2)
 case('move')
   call readf(fv)
@@ -1695,7 +1697,7 @@ endselect
 endsubroutine prng_commands
       
 subroutine box_commands
-use gems_neighbor, only: useghost
+use gems_groups, only: useghost
 integer   :: i,j
 
 call readl(w1)

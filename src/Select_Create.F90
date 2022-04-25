@@ -18,9 +18,8 @@
  
 module gems_select_create
 use gems_errors
-use gems_groups, only: group, &
+use gems_groups, only: group, sys, &
                        atom,atom_dclist,atom_setelmnt,atom_asign
-use gems_program_types, only: sys
 use gems_constants,only:dp,grad_rad,find_io,dm
 use gems_set_properties
 use gems_inq_properties

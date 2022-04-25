@@ -17,7 +17,7 @@
 
 
 module gems_program_types
-use gems_groups
+! TODO: Module dedicated to BOX only
 use gems_constants,only:sp,dp,dm,find_io
 use gems_elements,only:elements,ncsym,element,inq_z
 
@@ -30,47 +30,49 @@ private
 ! without quit gems.
 logical,public :: term_signal=.false., cycle_signal=.false.
 
-
 ! Program variables
 real(dp),target,public   :: dm_steps=0._dp
 real(dp),public,target   :: time=0.0_dp
 
-integer,public            :: frame=0 ! Cuando escribe: el frame actual del outunit
-integer,public            :: nstep=100 ! number of integration step
+integer,public           :: frame=0 ! Cuando escribe: el frame actual del outunit
+integer,public           :: nstep=100 ! number of integration step
 
-real(dp),target,public    :: dt=0.002
+real(dp),target,public   :: dt=0.002
 
 public :: box_setvars,box_expand,boxed
-real(dp),public,dimension(dm,dm) :: tbox   =0.0_dp
-real(dp),public,dimension(dm),target    :: box    =1.0e6_dp  
-real(dp),public,dimension(dm)    :: box2   =5.0e5_dp  , &
-                                    one_box=1.0e-6_dp , &
-                                    one_box2=2.5e-5_dp, &
-                                    box_old=0.0_dp      ! For pbcghost. Set this small to force initial ghost inclusion
-real(dp),public                  :: box_vol=1.0e18_dp
-logical                          :: boxed=.false.
+real(dp),public,dimension(dm,dm)     :: tbox   =0.0_dp
+real(dp),public,dimension(dm),target :: box    =1.0e6_dp  
+real(dp),public,dimension(dm)        :: box2   =5.0e5_dp  , &
+                                        one_box=1.0e-6_dp , &
+                                        one_box2=2.5e-5_dp
+real(dp),public                      :: box_vol=1.0e18_dp
+logical                              :: boxed=.false.
 
-real(dp),public             :: virial(dm,dm)=0._dp
-logical,public              :: b_gvirial=.false.
+real(dp),public                      :: virial(dm,dm)=0._dp
+logical,public                       :: b_gvirial=.false.
 
-! Objects
-! =======
+logical,public                       :: mic=.true.
 
-! Atoms
-! -----
+public :: distance
+public :: distance2line
+ 
+! Neigh boxes to a box
+! ====================
 
-! Lista blanda con atomos fantasma
-logical,public                      :: mic=.true.
+integer,parameter,public,dimension(26,3) :: n1cells = transpose(reshape( &
+                   [ 1, 0, 0, -1, 0, 0,  0, 1, 0,&
+                     1, 1, 0, -1, 1, 0,  0,-1, 0,&
+                     1,-1, 0, -1,-1, 0,  0, 0, 1,&
+                     1, 0, 1, -1, 0, 1,  0, 1, 1,&
+                     1, 1, 1, -1, 1, 1,  0,-1, 1,&
+                     1,-1, 1, -1,-1, 1,  0, 0,-1,&
+                     1, 0,-1, -1, 0,-1,  0, 1,-1,&
+                     1, 1,-1, -1, 1,-1,  0,-1,-1,&
+                     1,-1,-1, -1,-1,-1 ],[3,26]))
+ 
+! Others
+! ======
 
-public :: atom_distancetopoint
-public :: atom_distancetoaxis
-public :: vdistance
-public :: do_pbc, set_pbc
-
-! Groups
-! ------
-type(igroup),target,public  :: sys
-    
 contains
                       
 ! Box
@@ -107,98 +109,60 @@ end subroutine box_expand
 ! PBC
 ! ---
 
-subroutine set_pbc(g,pbc)
-! rota un grupo un angulo r sobre el punto v
-class(group),intent(inout)  :: g
-class(atom_dclist),pointer  :: la
-logical,intent(in)         :: pbc(dm)
-integer                    :: i
+function itrans(r,pbc) result(cr)
+! Gives integer with translation needs
+! Note: It can not be `elemental` because it reads box(:)
+real(dp),intent(in)     :: r(dm)
+logical,intent(in)      :: pbc(dm)
+real(dp)                :: cr(dm)
+integer                 :: i
 
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-  la%o%pbc = pbc
-enddo
-
-end subroutine set_pbc
-
-subroutine do_pbc(g)
-class(group),intent(inout)  :: g
-class(atom_dclist),pointer :: la
-integer                    :: i,k
-
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-
-  do k=1,dm
-    if (la%o%pbc(k)) then
-      if(la%o%pos(k)>=box(k)) then
-        la%o%pos(k)=la%o%pos(k)-box(k)
-        la%o%pos_old(k)=la%o%pos_old(k)-box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)+1
-      elseif(la%o%pos(k)<0.0_dp) then
-        la%o%pos(k)=la%o%pos(k)+box(k)
-        la%o%pos_old(k)=la%o%pos_old(k)+box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)-1
-      endif
+cr(:)=0
+do i=1,dm
+  if (pbc(i)) then
+    if(r(i)>=box(i)) then
+      cr(i)=cr(i)+1
+    elseif(r(i)<0._dp) then
+      cr(i)=cr(i)-1
     endif
-  enddo
+  endif
 enddo
      
-end subroutine do_pbc
-   
-function vdistance(i,j,mic) result(vd)
-!calculates the distance of two atoms with or without minimum image convention
-real(dp),dimension(dm)  :: vd
-type(atom),intent(in)   :: i,j
-logical,intent(in)      :: mic
-logical                 :: pbc(dm)
-integer                 :: l
-  
-! Distancia
-vd=i%pos-j%pos
+end function itrans
+ 
+function rtrans(r,pbc)
+real(dp),intent(in)     :: r(dm)
+logical,intent(in)      :: pbc(dm)
+real(dp)                :: rtrans(dm)
+rtrans(:)=r(:)-box(:)*itrans(r,pbc)
+end function rtrans
 
-! Convencion de imagen minima
-if(.not.mic) return
+function distance(r1,r2,pbc) result(vd)
+!calculates the distance between two points considering pbc.
+! TODO: elemental? check speed
+real(dp),intent(in)     :: r1(dm),r2(dm)
+logical,intent(in)      :: pbc(dm)
+real(dp)                :: vd(dm)
+integer                 :: l
 
 ! Mas rapido usar idnint que un if
-pbc=i%pbc.or.j%pbc
+vd(:)=r2(:)-r1(:)
 do l = 1,dm
   if (pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
 enddo
 
-end function vdistance
-           
-! Distancias
-! ----------
+end function distance
 
-function atom_distancetopoint(a,r) result(vd)
-!calculates the distance of two atoms also in pbc case
-class(atom),intent(in)   :: a
-real(dp),dimension(dm)  :: vd
-real(dp),intent(in)     :: r(dm)
-integer                 :: l
+function distance2line(r,p,v,pbc) result(vd)
+!calculates the distance between a line and a points considering pbc.
+real(dp),intent(in)     :: r(dm),p(dm),v(dm)
+logical,intent(in)      :: pbc(dm)
+real(dp)                :: vd(dm),aux(dm)
 
-! Mas rapido usar idnint que un if
-vd=r-a%pos
-do l = 1,dm
-  if (a%pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
-enddo
+aux=distance(r,p,pbc)
+vd(:)=aux(:)-(dot_product(aux,v(:)))*v(:)
 
-end function atom_distancetopoint
-
-function atom_distancetoaxis(a,p,r) result(vd)
-! a es el atomo, p y r dan la recta(t)=p+t*r
-!calculates the distance of two atoms also in pbc case
-class(atom),intent(in)   :: a
-real(dp),dimension(dm)  :: vd,aux
-real(dp),intent(in)    :: r(dm),p(dm)
-
- aux=atom_distancetopoint(a,p)
- vd=aux-(dot_product(aux,r))*r
-
-end function atom_distancetoaxis
-
+end function distance2line
+                  
 end module gems_program_types
  

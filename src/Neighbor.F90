@@ -17,90 +17,15 @@
 
 
 module gems_neighbor
-use gems_program_types, only: boxed, box, vdistance, sys, box_old, mic
-use gems_groups
+use gems_program_types, only: boxed, box, mic
+use gems_groups,        only: vdistance, sys, igroup, group, atom, atom_dclist
 use gems_constants,     only: dp,cdm,dm,ui_ev
+use gems_cells,         only: cgroup, map, n1cells, cell_pbc
 use gems_errors
 
 implicit none
 
-public :: polvar_neighbor, polvar_ngroup, ghost_from_atom
-
-! Groups for selection
-type(group),target,public    :: ghost
-
-! From 1 to 13 are the upper cells. From 14 to 26 the lower. 0 is the center
-integer,parameter :: map(3,0:26) = &
-         reshape( [ 0, 0, 0,  &
-                    1, 0, 0,   1, 1, 0,   0, 1, 0,  -1, 1, 0,&
-                    1, 0,-1,   1, 1,-1,   0, 1,-1,  -1, 1,-1,&
-                    1, 0, 1,   1, 1, 1,   0, 1, 1,  -1, 1, 1,&
-                    0, 0, 1,  -1, 0, 0,  -1,-1, 0,   0,-1, 0,&
-                    1,-1, 0,  -1, 0, 1,  -1,-1, 1,   0,-1, 1,&
-                    1,-1, 1,  -1, 0,-1,  -1,-1,-1,   0,-1,-1,&
-                    1,-1,-1,   0, 0,-1],[3,27])
-
-integer,parameter,dimension(26,3) :: n1cells = transpose(reshape( &
-                   [ 1, 0, 0, -1, 0, 0,  0, 1, 0,&
-                     1, 1, 0, -1, 1, 0,  0,-1, 0,&
-                     1,-1, 0, -1,-1, 0,  0, 0, 1,&
-                     1, 0, 1, -1, 0, 1,  0, 1, 1,&
-                     1, 1, 1, -1, 1, 1,  0,-1, 1,&
-                     1,-1, 1, -1,-1, 1,  0, 0,-1,&
-                     1, 0,-1, -1, 0,-1,  0, 1,-1,&
-                     1, 1,-1, -1, 1,-1,  0,-1,-1,&
-                     1,-1,-1, -1,-1,-1 ],[3,26]))
-
-! integer,public,dimension(26,3) :: n1test = 0.5_dp*(sign(n1cells(:,:))+1)-abs(n1cells(:,:))
-
-! Group split in cells
-type, extends(igroup), public :: cgroup
-
-  ! TODO: Might be the head can be a linked list.
-
-  ! Linked list for atom in each cell (using internal ngroup index)
-  integer,allocatable           :: head(:,:,:)
-  integer,allocatable           :: next(:)
-
-  ! Cells
-  real(dp)                      :: cmax(3),cmin(3)
-  integer                       :: ncell=1
-  integer                       :: cellaux(3)=[1,1,1]
-  real(dp)                      :: cell(3)
-
-  ! Setting this to one force the first cell update
-  integer                       :: ncells(3)=[1,1,1]
-
-  ! Cut radius
-  real(dp)                      :: rcut=1.e10_dp,rcut2=1.e10_dp
-
-  ! Tessellation
-  ! TODO: tessellation update if box change a lot
-  ! TODO: tessellation without box using min and max positions.
-  logical  :: tessellated=.false.
-  procedure(cgroup_tessellate),pointer :: tessellate => cgroup_tessellate
-
-  ! Turn false after first tessellation
-  logical                         :: b_out = .true.
-
-  contains
-
-    ! Parent procedures that set a polymorphic pointer to an extension
-    ! (see group type construct).
-    procedure :: cgroup_attach_atom
-    procedure :: cgroup_detach_atom
-
-    procedure :: init => cgroup_construct
-    procedure :: dest => cgroup_destroy
-    procedure :: attach_atom => cgroup_attach_atom
-    procedure :: detach_atom => cgroup_detach_atom
-
-    procedure :: setrc => cgroup_setrc
-
-    procedure :: sort => cgroup_sort, cgroup_sort_atom
-    procedure :: unsort => cgroup_unsort_atom
-
-end type
+public :: polvar_neighbor, polvar_ngroup
 
 ! Group with neighbors
 ! Forces are computed in group `ref` given group `b` (without newton reaction).
@@ -192,10 +117,6 @@ real(dp),target     :: nb_dcut=1._dp        ! The shell length for verlet update
 integer             :: nupd_vlist = 0       ! Number of updates to print in the log
 real(dp)            :: maxrcut=0.0_dp       ! Maximum cut ratio
 
-! Ghost atoms. No need index.
-logical,public              :: useghost=.false.
-logical,public              :: fullghost=.false.
-
 contains
 
 #define SOFT
@@ -206,275 +127,7 @@ contains
 #define _NODE ngroup_vop
 #define _TYPE type(ngroup_aop)
 #include "vector_body.inc"
-
-! cgroup events
-! =============
-
-subroutine cgroup_construct(g)
-class(cgroup),target         :: g
-call g%igroup_construct()
-allocate(g%next(g%pad))
-end subroutine cgroup_construct
-
-subroutine cgroup_destroy(g)
-class(cgroup),target         :: g
-call g%igroup%dest()
-if(allocated(g%head)) deallocate(g%head)
-if(allocated(g%next)) deallocate(g%next)
-end subroutine cgroup_destroy
-
-subroutine cgroup_attach_atom(g,a)
-use gems_errors, only: silent,errf
-class(cgroup),target  :: g
-class(atom),target    :: a
-integer               :: n,i
-integer,allocatable   :: t_next(:)
-integer               :: aux1(dm)
-
-! Attempt to attach
-n=g%nat
-call g%igroup_attach_atom(a)
-if(n==g%nat) return
-
-! Continue reallocations
-! TODO: Implement a "preserve" boolean?
-! TODO: Skip this if not allocated head?
-if(size(g%next)<size(g%a)) then
-  allocate(t_next(size(g%a)))
-  t_next(:size(g%next)) = g%next(:)
-  call move_alloc(to=g%next,from=t_next)
-endif
-              
-! Add atom to cells
-if(g%tessellated) then
-  i=a%gid(g)
-
-  ! Let me handle the errors
-  silent=.true.
-
-  ! Attempt to sort atom
-  call cgroup_sort_atom(g,i)
-
-  ! Request full update if fail
-  if(errf) g%tessellated=.false.
-  silent=.false.
-
-endif
-              
-end subroutine cgroup_attach_atom
-
-subroutine cgroup_detach_atom(g,a)
-! Detach atom `a` from cgroup `g`
-class(cgroup)         :: g
-class(atom),target    :: a
-class(atom),pointer   :: aj
-integer               :: i
-integer               :: rc(3)
-
-! Attempt to remove atom from cells
-if(g%tessellated) then
-  i=a%gid(g)
-  if(i>0) call cgroup_unsort_atom(g,i)
-endif
-
-! Detach atom
-call g%igroup_detach_atom(a)
-
-! Clean null items
-if(g%update) then
-  deallocate(g%next)
-  allocate(g%next(size(g%a)))
-  g%tessellated=.false.
-endif
- 
-end subroutine cgroup_detach_atom
-
-! Set properties
-! --------------
-
-subroutine cgroup_setrc (g,rc)
-class(cgroup)       :: g
-real(dp),intent(in) :: rc
-
-! New cut radious
-g%rcut = rc
-g%rcut2 = rc*rc
-maxrcut=max(maxrcut,rc)
-
-end subroutine cgroup_setrc
-
-subroutine cgroup_tessellate(g)
-! TODO: Use error handling.
-class(cgroup)     :: g
-real(dp)          :: rcut
-integer,parameter :: mincells=60 ! (4x4x4)
-
-rcut=g%rcut+nb_dcut
-
-! If the box has not changed or if only a small adjustment of the cell size
-! is sufficient.
-! TODO: What if a particle move a lot?
-if(g%tessellated) then
-
-  ! Make sure that the box has not grown large enough to include new cells.
-  if(all(g%ncells(:)+1>=box(:)/rcut)) then
-
-    ! Make sure that the box has not dropped below cut-off radius
-    if(all(rcut<box(:)/g%ncells(:))) then
-
-      ! Update cell size (needed for NPT)
-      call wlog('NHB','Update cell size.',g%b_out)
-      g%cell(:)=box(:)/g%ncells(:)
-      return
-
-    endif
-
-  endif
-endif
-
-g%tessellated = .false.
-
-! If not a box defined, do not use linked cells
-if(.not.boxed) then
-  call wlog('NHB','Not using linked cells since box is not defined.',g%b_out)
-  return
-endif
-
-! If rcut not defined, do not use linked cells
-if(g%rcut==1.e10_dp) then
-  call wlog('NHB','Not using linked cells since interaction does not have rcut.',g%b_out)
-  return
-endif
-
-!TODO: Cuando el sistema no esta en una caja.. se podría hacer algo asi.
-! Pero para ello hay que primero generalizar GEMS para que la caja no tenga
-! el punto minimo en (0,0,0).
-! if(.not.boxed) then
-!   call get_boundingbox(g%alist,box_max,box_min,g%n(2))
-!   call get_boundingbox(g%blist,amax,amin,g%n(4)-g%n(2))
-!   box_max(:)=max(box_max(:),amax(:))
-!   box_min(:)=min(box_min(:),amin(:))
-!   set box
-! endif
-
-! Redimension of ncells
-g%ncells(:)=int(box(:)/(g%rcut+nb_dcut)) ! Number of cells in each direction
-
-! Less than 4 have no sense to use cells
-if(all(g%ncells(:)<4)) then
-  if(g%b_out) then
-    call wlog('NHB','Not using linked cells since it would involve less than 4 cells.')
-    call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' -cut radious: ', g%rcut
-  endif
-  return
-endif
-
-g%tessellated = .true.
-
-! Cell size
-g%ncell = g%ncells(1)*g%ncells(2)*g%ncells(3)
-g%cell(:) = box(:)/g%ncells(:)
-
-! Reallocate head array
-if(allocated(g%head)) deallocate(g%head)
-
-! Using extra cells around the box size for ghost atmos
-allocate(g%head(0:g%ncells(1)+1,0:g%ncells(2)+1,0:g%ncells(3)+1))
-
-! Used to compute cell index
-g%cellaux(1) = 1
-g%cellaux(2) = g%ncells(1)
-g%cellaux(3) = g%ncells(1)*g%ncells(2)
-
-if(g%b_out) then
-  call wlog('NHB','Using Linked Cells.')
-  call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' cut radious: ', g%rcut
-  call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(f10.5,2x))") ' cell size: ', g%cell(1:dm)
-  call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(i3,2x))") ' cell numbers: ', g%ncells(1:dm)
-  g%b_out=.false.
-end if
-
-end subroutine cgroup_tessellate
-
-subroutine cgroup_sort(g)
-! Sort g atoms into the g cells.
-class(cgroup),intent(inout)  :: g
-integer                      :: i,aux1(dm)
-type(atom),pointer           :: a
-
-g%head(:,:,:) = 0
-do i = 1,g%amax
-  if(.not.associated(g%a(i)%o)) cycle
-  call cgroup_sort_atom(g,i)
-enddo
-
-end subroutine cgroup_sort
-
-subroutine cgroup_sort_atom(g,i)
-! Sort atom ith of g into the g cells.
-class(cgroup),intent(inout)  :: g
-integer                      :: i,ci(dm)
-type(atom),pointer           :: a
-        
-a => g%a(i)%o
-
-ci(:)=int(a%pos(:)/g%cell(:))+1
-! j = 1 + dot_product(ci,cellaux)
-
-! If atom pos is outside the cells, mark to update
-call werr('Particle outside tessellation',any(ci(:)<0))
-call werr('Particle outside tessellation',any(ci(:)>g%ncells(:)+1))
-
-g%next(i) = g%head(ci(1),ci(2),ci(3))
-g%head(ci(1),ci(2),ci(3)) = i
-
-end subroutine cgroup_sort_atom
-                  
-subroutine cgroup_unsort_atom(g,i)
-! Revert sorting of atom ith and fix cell index.
-class(cgroup),intent(inout)  :: g
-integer                      :: i,j,k,ci(dm)
-type(atom),pointer           :: a
-
-a => g%a(i)%o
-  
-! Get cell index
-ci(:)=int(a%pos(:)/g%cell(:))+1
-
-! TODO: Add to the cgroup a vector similar 
-! to hold the cell id for each atom. This will be fast and independent of
-! atom position. It may be better to migrate %head(:,:,:) to a %head(:)
-! scheme. If atom pos is outside the cells, mark to update
-if(any(ci(:)<0)) then
-  g%tessellated=.false.
-  return
-endif  
-if(any(ci(:)>g%ncells(:))) then
-  g%tessellated=.false.
-  return
-endif
-
-! Remove i from its cell
-if(g%head(ci(1),ci(2),ci(3))==i) then
-  g%head(ci(1),ci(2),ci(3))=g%next(i)
-else
-
-  j = g%head(ci(1),ci(2),ci(3))
-  do while( j>0 )
-
-    k = g%next(j)
-    if (k==i) then
-      g%next(j)=g%next(i)
-      exit
-    endif
-    j = k
-
-  enddo
-
-endif
-
-end subroutine cgroup_unsort_atom
-                  
+                 
 ! ngroup events
 ! =============
 
@@ -684,7 +337,7 @@ endif
 end subroutine ngroup_sort_atom
      
 ! Set properties
-! --------------
+! ==============
 
 subroutine ngroup_setrc(g,rc)
 ! I could use the g%b%rcut directly.. but may be confuse...
@@ -694,8 +347,8 @@ real(dp),intent(in) :: rc
 ! New cut radious
 g%rcut = rc
 g%rcut2 = rc*rc
-maxrcut=max(maxrcut,rc)
-call g%b%setrc(rc)
+maxrcut=max(maxrcut,rc+nb_dcut)
+g%b%rcut=rc+nb_dcut
 
 end subroutine ngroup_setrc
 
@@ -718,7 +371,7 @@ endif
 end subroutine ngroup_setlista
 
 ! Search algorithms
-! -----------------
+! =================
 
 subroutine ngroup_verlet(g)
 ! Build neighbors verlet list.
@@ -973,6 +626,7 @@ end subroutine ngroup_cells_atom
 
 subroutine update()
 ! Update all neighbor lists
+use gems_groups, only: pbcghost, useghost
 class(ngroup), pointer       :: g
 integer                      :: i
 type(atom_dclist),pointer    :: la
@@ -980,14 +634,13 @@ type(atom_dclist),pointer    :: la
 ! call system_clock(t1)
 nupd_vlist = nupd_vlist +1
 
+! Add/delete ghosts
+if(useghost) call pbcghost(maxrcut)
 la => sys%alist
 do i = 1,sys%nat
   la => la%next
   la%o%pos_old = la%o%pos
 enddo
-
-! Needed for NPT... naaa
-if(boxed) box_old(:)=box(:)
 
 ! Simple loop
 do i = 1, ngindex%size
@@ -1013,7 +666,7 @@ la => g%alist
 do i = 1,g%nat
   la => la%next
 
-  if(associated(la%o%ghost)) cycle
+  if(associated(la%o%prime)) cycle
 
   ! TODO: la%pos_old, should be an array inside ngroup
   ! so individual updates can be done
@@ -1033,14 +686,20 @@ end subroutine inq_dispmax
 
 subroutine test_update()
 ! Check if neighbor update is needed
+use gems_groups, only: pbcghost_move, useghost, do_pbc
 real(dp)                   :: dispmax1,dispmax2
 integer                    :: i
 type(atom_dclist),pointer  :: la
 class(ngroup),pointer      :: ng
 
-! Update the ghost positions
-if(useghost) call pbcghost_move
-
+if(useghost)then
+  ! Update the ghost positions
+  call pbcghost_move
+else
+  ! Needed to avoid atoms outside box when doing neighboor list (on interact)
+  call do_pbc(sys)
+endif
+        
 do i = 1, ngindex%size
   ng => ngindex%o(i)%o
 
@@ -1048,465 +707,20 @@ do i = 1, ngindex%size
   if (.not.ng%listed) then
     ! TODO: Individual calls to ng%lista()
     ! need old_pos to be an array of ngroup
-    if(useghost) then
-      if(fullghost) then
-         call pbcfullghost()
-      else
-         call pbcghost()
-      endif
-    endif
     call update()
-    return
+    exit
   endif
 
   ! Dispmax criteria for update
   call inq_dispmax(ng,dispmax1,dispmax2)
 
   if (sqrt(dispmax1)+sqrt(dispmax2)>nb_dcut) then
-    if(useghost) then
-      if(fullghost) then
-         call pbcfullghost()
-      else
-         call pbcghost()
-      endif
-    endif
-    ! TODO: Individual calls to ng%lista()
-    ! need old_pos to be an array of ngroup
     call update()
-    return
+    exit
   endif
 enddo 
 
 end subroutine test_update
-
-#ifdef DIM3
-
-function cell_pbc(g,r,mic)
-! Perform PBC on cells. If cell should not be considered return .false.
-integer            :: r(3)
-class(cgroup),intent(in)  :: g
-logical,intent(in) :: mic
-logical            :: cell_pbc
-
-cell_pbc=.true.
-
-if (mic) then
-  ! May use pbc (it will further depends on atom%pbc)
-  r(:)=r(:)-1
-  r(:)= mod( r(:) + g%ncells(:), g%ncells(:) )
-  r(:)=r(:)+1
-else
-  ! Can not use PBC
-  if(useghost) then
-    if(any(r(:)<0)) cell_pbc=.false.
-    if(any(r(:)>g%ncells(:)+1)) cell_pbc=.false.
-  else
-    if(any(r(:)<1)) cell_pbc=.false.
-    if(any(r(:)>g%ncells(:))) cell_pbc=.false.
-  endif
-endif
-
-
-end function cell_pbc
-
-function vcell2icell(g,i,j,k,mic) result(uid)
-!Convert 3-index cell id into 1-index cell id.
-!The cell 1,1,1 is map to the cell 1, the 2,1,1 to 2...
-class(cgroup),intent(in)  :: g
-integer,intent(in) :: i,j,k
-integer            :: r(3)
-integer            :: uid
-logical,intent(in) :: mic
-
-r(1)=i-1
-r(2)=j-1
-r(3)=k-1
-
-if (mic) then
-  ! May use pbc (it will further depends on atom%pbc)
-  r(:) =  mod( r(:) + g%ncells(:), g%ncells(:) )
-else
-  ! Can not use PBC
-  if(any(r(:)<1)) then
-    uid=0
-    return
-  endif
-  if(any(r(:)>g%ncells(:))) then
-    uid=0
-    return
-  endif
-endif
-
-uid = 1 + dot_product(r,g%cellaux(:))
-
-! XXX: Not sure why this (I guess never happend).
-if (uid<0) uid=0
-
-end function vcell2icell
-
-function icell2vcell(g,ic) result(r)
-!Convert 1-index cell id into 3-index cell id.
-!ic shul be 1-based integer
-!The cell 1,1,1 is map to the cell 1, the 2,1,1 to 2...
-class(cgroup),intent(in)  :: g
-integer,intent(in) :: ic
-integer            :: r(3),c0
-
-c0=ic-1
-
-r(3)=int(c0/g%cellaux(3))
-
-r(1)=mod(c0,g%cellaux(3))
-r(2)=int(r(1)/g%cellaux(2))
-
-r(1)=mod(r(1),g%cellaux(2))
-
-r(:)=r(:)+1
-
-end function icell2vcell
-
-#endif
-
-
-! GHOSTS
-
-subroutine new_ghost(o2,r)
-class(atom),target,intent(in)  :: o2
-type(atom),pointer             :: o
-class(group),pointer           :: g
-integer                        :: j,i
-integer                        :: r(:)
-
-! Allocate new ghost
-allocate(o)
-call o%init()
-call ghost%attach(o)
-
-! Assign image properties
-o%ghost=>o2
-call atom_asign(o,o2)
-o%q=o2%q
-o%pbc(:)=.false.
-o%pos(:)=o2%pos(:)+r(:)*box(:)
-o%boxcr(:)=r(:)
-
-! Add ghost to the image ngroups
-do j=1,o2%ngr
-  g => o2%gr(j)%o
-  if(g%ghost) call g%attach(o)
-enddo
-
-end subroutine
-
-function islocal(r)
-! Return .true. if r is inside the box
-! It is equivalent to `isghost(r,0.)`
-real(dp),intent(in)  :: r(dm)
-logical              :: islocal
-integer              :: i
-
-islocal=.false.
-do i=1,dm
-  if(r(i)<0._dp) then
-    return
-  elseif (r(i)>=box(i)) then
-    return
-  endif
-enddo
-islocal=.true.
-
-end function islocal
-
-function isghost(r,rc)
-! Return .true. if r inside the box+rcut. So actually it says if some position
-! belong to a ghost region but also if is a local region
-real(dp),intent(in)  :: r(dm),rc
-logical              :: isghost
-integer              :: i
-
-isghost=.false.
-do i=1,dm
-  ! s=sign(1,r(i)-box2(i))
-  ! if (s*r(i)>rc+box*0.5_dp*(s+1)) return
-
-  if(r(i)<-rc) then
-    return
-  elseif (r(i)>rc+box(i)) then
-    return
-  endif
-enddo
-isghost=.true.
-
-end function isghost
-
-function isoldghost(r,rc)
-! Return .true. if r inside the box+rcut. So actually it says if some position
-! belong to a ghost region but also if is a local region
-real(dp),intent(in)  :: r(dm),rc
-logical              :: isoldghost
-integer              :: i
-
-isoldghost=.false.
-do i=1,dm
-  ! s=sign(1,r(i)-box2(i))
-  ! if (s*r(i)>rc+box*0.5_dp*(s+1)) return
-
-  if(r(i)<-rc) then
-    return
-  elseif (r(i)>rc+box_old(i)) then
-    return
-  endif
-enddo
-isoldghost=.true.
-
-end function isoldghost
-
-function replicaisghost(n,r,rc)
-! This expresion si general for any n(:) (neigh cells or not) and rc (bigger than
-! box or not)
-! This is the same that `call isghost(r+n*h,rc)`
-real(dp),intent(in)  :: r(dm),rc
-integer,intent(in)   :: n(dm)
-logical              :: replicaisghost
-integer              :: i,s
-
-replicaisghost=.false.
-do i=1,dm
-  s=sign(1,n(i))
-  if (s*r(i)>rc+box(i)*(0.5_dp*(s+1)-abs(n(i)))) return
-enddo
-replicaisghost=.true.
-
-end function replicaisghost
-
-subroutine pbcghost()
-! Update ghost positions in a serial pbc simulation for only certain cut ratios.
-! This should be call each time the neighbor list will be updated. This
-! routine assume that the local atoms moves "slowly" between different calls. In
-! other words,if there is a chance that local configurations used in two
-! consecutive calls to pbcghost are uncorrelated, it is safer to use
-! pbcfullghost.
-use gems_program_types, only: box, sys, one_box
-use gems_groups, only: atom_dclist
-real(dp)                   :: rcut,r(dm),rold(dm)
-type(atom), pointer        :: o, o2
-type(atom_dclist), pointer :: la
-integer                    :: i,j,m
-logical                    :: updatebcr
-
-! if(ghost%nat==0) return
-
-rcut=maxrcut+nb_dcut
-
-! Check ghost status
-updatebcr=.false.
-la => ghost%alist
-do i = 1,ghost%nat
-  la => la%next
-  o => la%o
-
-
-  ! Leaved box+rcut, not a ghost any more
-  if(.not.isghost(o%pos,rcut)) then
-    call ghost%detach_link(la)
-    if(o%try_dest()) deallocate(o)
-    cycle
-  endif
-
-  ! Ghost becomes local, swaps with its image.
-  if(islocal(o%pos)) then
-
-    updatebcr=.true.
-
-    ! Fold its local image inside the box
-    o2=>o%ghost
-    do j=1,dm
-      if(o2%pos(j)>=box(j)) then
-        o2%pos(j)=o2%pos(j)-box(j)
-        o2%pos_old(j)=o2%pos_old(j)-box(j)
-        o2%boxcr(j)=o2%boxcr(j)+1
-      elseif(o2%pos(j)<0.0_dp) then
-        o2%pos(j)=o2%pos(j)+box(j)
-        o2%pos_old(j)=o2%pos_old(j)+box(j)
-        o2%boxcr(j)=o2%boxcr(j)-1
-      endif
-    enddo
-
-    ! Pass the ghost atom to the opposite cell
-    o%pos(:)=o2%pos(:)-o%boxcr(:)*box(:)
-
-  endif
-
-enddo
-
-! FIXME: No hace falta recorrer 26 veces el sistema!!
-! Find new ghosts
-! !$OMP PARALLEL DO PRIVATE(m,i,j,la,o,k,o,g,r,rold)
-do m =1,26
-
-  la => sys%alist
-  do i = 1,sys%nat
-    la => la%next
-    o => la%o
-
-    ! Image position..
-    ! TODO: it would be easy to check proximity to the border?
-    r(:)=o%pos(:)+n1cells(m,:)*box(:)
-
-    ! if (.not.all(la%o%pbc(:)*n1cells(m,:))) cycle
-
-    if (isghost(r(:),rcut)) then
-
-      ! Check if this was a ghost before
-      rold(:)=o%pos_old(:)+n1cells(m,:)*box_old(:)
-      if (.not.isoldghost(rold(:),rcut)) then
-
-        ! !$OMP CRITICAL
-        call new_ghost(o,n1cells(m,:))
-        ! !$OMP END CRITICAL
-
-      endif
-    end if
-  enddo
-
-enddo
-! !$OMP END PARALLEL DO
-
-! Actualizar boxcr ya que si un local es plegado hacia adentro de la caja,
-! muchos fantasmas van a tener el o%boxcr(:) incorrecto. Abria que ver el
-! virial... FIXME
-la => ghost%alist
-do i = 1,ghost%nat
-  la => la%next
-  o => la%o
-  if (updatebcr) o%boxcr(:)=floor(o%pos(:)*one_box(:))
-  ! Save positions
-  ! o%pos_old(:)=o%pos(:)
-enddo
-
-end subroutine
-
-subroutine ghost_from_atom(a)
-! Create ghost images for an atom.
-use gems_program_types, only: box, sys, one_box
-use gems_groups, only: atom_dclist
-real(dp)                     :: rcut,r(dm)
-type(atom)                   :: a
-integer                      :: m
- 
-rcut=maxrcut+nb_dcut
-
-do m =1,26
-  r(:)=a%pos(:)+n1cells(m,:)*box(:)
-  if (isghost(r(:),rcut)) call new_ghost(a,n1cells(m,:))
-enddo
- 
-end subroutine ghost_from_atom
-     
-subroutine pbcghost_move()
-! Move ghost atoms to reflect the motion of their local images
-use gems_program_types, only: box, sys
-use gems_groups, only: atom_dclist
-type(atom_dclist), pointer :: la
-type(atom), pointer        :: o
-integer                    :: i
-
-la => ghost%alist
-do i = 1,ghost%nat
-  la => la%next
-  o  => la%o%ghost
-  la%o%pos(:)=o%pos(:)+box(:)*la%o%boxcr(:)
-enddo
-
-end subroutine
-
-
-! subroutine ghost_pbc
-!  use gems_program_types, only:box,atom_dclist,nlocal,nghost,aghost,alocal
-!  integer                 :: ii,i,j
-!  type ( atom_dclist ), pointer :: la,lb,lc
-!  type ( atom ), pointer :: o
-!
-!   la => aghost
-!   do ii = 1,nghost
-!     la => la%next
-!
-!     if(all(la%o%pos(:)>0.0_dp)) then
-!     if(all(la%o%pos(:)<box(:))) then
-!       j = la%o%tag
-!       i = la%o%id
-!       lb=>a(j)%o%link
-!
-!       ! Ajusto alist y aghost
-!       o=>la%o
-!       la%o=>lb%o
-!       lb%o=>o
-!
-!       ! ! Ajusto a
-!       ! a(i)%o=>a(j)%o
-!       ! a(j)%o=>o
-!       ! a(i)%id=i
-!       ! a(j)%id=j
-!
-!       ! Ajusto los links
-!       lc=>lb%o%link
-!       lb%o%link=>la%o%link
-!       la%o%link=>lc
-!
-!       ! With half list, changeing the id is require a full update
-!     endif
-!     endif
-!   enddo
-!
-! end subroutine
-
-subroutine pbcfullghost()
-! Update ghost positions in a serial pbc simulation for only certain cut ratios.
-! This should be call each time the neighbor list will be updated. I think this
-! routine is prefered over pbcghost when it can not be assume that the local
-! atoms moves "slowly" between different calls. In other words, if there is a
-! chance that local configurations used in two consecutive calls to pbcghost are
-! uncorrelated, it is safer to use pbcfullghost.
-use gems_program_types, only: box, do_pbc
-use gems_groups, only: atom_dclist
-real(dp)                     :: rcut,r(dm)
-type(atom),pointer           :: o
-integer                      :: i,m
-type(atom_dclist),pointer    :: la
-
-rcut=maxrcut+nb_dcut
-
-! Destroy all ghost atoms
-! FIXME: avoid this deallocate.
-call ghost%destroy_all()
-
-! Make local atoms pbc
-call do_pbc(sys)
-
-! Find new ghost atoms
-! !$OMP PARALLEL DO PRIVATE(m,i,j,la,o,k,o,g,r,rold)
-do m =1,26
-
-  la => sys%alist
-  do i = 1,sys%nat
-    la => la%next
-    o => la%o
-    ! if (.not.all(la%o%pbc(:)*n1cells(m,:))) cycle
-
-    r(:)=o%pos(:)+n1cells(m,:)*box(:)
-    if (isghost(r(:),rcut)) then
-
-      ! !$OMP CRITICAL
-      call new_ghost(o,n1cells(m,:))
-      ! !$OMP END CRITICAL
-
-    end if
-  enddo
-
-enddo
-! !$OMP END PARALLEL DO
-
-end subroutine
 
 ! Variables and Labels
 

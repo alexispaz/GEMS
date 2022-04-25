@@ -96,6 +96,7 @@ type,public,extends(ngroup) :: smatb
 
   contains
 
+  procedure :: init => smatb_construct
   procedure :: attach_atom => smatb_attach
 
   procedure :: interact => smatb_interact
@@ -105,10 +106,18 @@ end type
 
 contains
 
+subroutine smatb_construct(g)
+class(smatb),target        :: g
+call g%ngroup_construct()
+allocate(g%band(g%pad))
+allocate(g%eband(g%pad))
+end subroutine smatb_construct
+
 subroutine smatb_attach(g,a)
 class(smatb),target        :: g
 class(atom),target         :: a
 type(atom_dclist),pointer  :: la
+real(dp), allocatable      :: t_band(:), t_eband(:)
 integer                    :: n,k  
 
 ! Save current atom number
@@ -129,9 +138,7 @@ endif
 
 n=g%nz
   
-! XXX: Just using more memory to avoid this operations
-! n=0.5_dp*n*(n+1)
-
+! FIXME: Preserve
 if(allocated(g%prm)) then
   if(size(g%prm,1)<n) then
     deallocate(g%prm)
@@ -143,7 +150,6 @@ if(allocated(g%prm)) then
     deallocate(g%r2, g%r3)
   endif
 endif
-
 if(.not.allocated(g%prm)) then
   allocate(g%prm(n,n))
   g%prm(:,:)=.false.
@@ -165,17 +171,18 @@ if(.not.allocated(g%prm)) then
   allocate(g%r3(n,n))
 endif
                         
-! Reallocate if needed
+! Continue reallocations
 n=size(g%a)
-if(allocated(g%band)) then
-  if(n==size(g%band)) return
-  deallocate(g%band)
-  deallocate(g%eband)
+if(size(g%band)<n) then
+  allocate(t_band(n))
+  t_band(:size(g%band)) = g%band(:)
+  call move_alloc(to=g%band,from=t_band)
+ 
+  allocate(t_eband(n))
+  t_eband(:size(g%eband)) = g%eband(:)
+  call move_alloc(to=g%eband,from=t_eband)
 endif
   
-allocate(g%band(n))
-allocate(g%eband(n))
- 
 end subroutine
  
 subroutine smatb_set(g,i,j,a,eps,p,q,r0,rci,rce)
@@ -431,7 +438,7 @@ do l=1,g%b%nat
   la => la%next
 
   o1=>la%o
-  o2=>o1%ghost
+  o2=>o1%prime
   if(.not.associated(o2)) cycle
 
   i = o1%gid(g)
@@ -527,7 +534,7 @@ do ii = 1,g%ref%nat
     epot = epot + repul*lev_ui
 
 
-    if (associated(o2%ghost)) then
+    if (associated(o2%prime)) then
       if (o2%gid(g)>o1%gid(g)) then
 
         o2%force(1:dm) = o2%force(1:dm) + factor2(1:dm)

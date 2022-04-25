@@ -42,10 +42,10 @@ d0:={sqrt(0.5)}
 ^+ reply   0 1 0     5
 ^+ reply   0 0 1     5
 set element Ag
-box size 12 12 12
+box size 100 100 100
 
 > all
-set move 1 1 1 
+set move 50 50 50
 # fact:={2.89/$d0$}
 fact:={3.89/$d0$}
 set expand $fact$ $fact$ $fact$
@@ -59,9 +59,9 @@ outfile :f1 name Energy.$jobname$.dat
 outfile :f1 cols energy 1
 outfile :f1 each 20
  
-# outfile :f2 name Pos.$jobname$.xyz
-# outfile :f2 pos 1
-# outfile :f2 each 20
+outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 pos 1
+outfile :f2 each 20
 
 lbfgs
 

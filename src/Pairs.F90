@@ -225,7 +225,7 @@ do ii = 1,g%ref%nat
     factor2(1:dm) = f*vd(1:dm)/dr      ! (-dp/dr)*(-grad_1dr)
     o1%force(1:dm) = o1%force(1:dm) - factor2(1:dm) 
 
-    if (associated(o2%ghost)) then
+    if (associated(o2%prime)) then
       if (o2%gid(g)>o1%gid(g)) then
 
         o2%epot = o2%epot + p*0.5_dp
@@ -307,7 +307,7 @@ do ii = 1,g%ref%nat
       enddo
     endif
        
-    if (associated(o2%ghost)) then
+    if (associated(o2%prime)) then
       if (o2%gid(g)>o1%gid(g)) then
         ! Una sola vez por par para que se pueda calcular el virial
 
@@ -378,7 +378,6 @@ do ii = 1,g%ref%nat
   i = o1%gid(g)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
-
     j = g%list(i,l)
     o2 =>g%a(j)%o
 
@@ -418,8 +417,8 @@ do ii = 1,g%ref%nat
       enddo
     endif
     
-    if (associated(o2%ghost)) then
-      if (o2%ghost%gid(g)>o1%gid(g)) then
+    if (associated(o2%prime)) then
+      if (o2%prime%gid(g)>o1%gid(g)) then
         ! Una sola vez por par para que se pueda calcular el virial
 
         o2%epot = o2%epot + p*0.5_dp
@@ -507,7 +506,7 @@ do ii = 1,g%ref%nat
       enddo
     endif
     
-    if (associated(o2%ghost)) then
+    if (associated(o2%prime)) then
       if (o2%gid(g)>o1%gid(g)) then
 
         ! Una sola vez por par para que se pueda calcular el virial
@@ -885,7 +884,7 @@ do ii = 1,g%ref%nat
       enddo
     endif
           
-    if (associated(o2%ghost)) then
+    if (associated(o2%prime)) then
       if (o2%gid(g)>o1%gid(g)) then
 
         o2%epot = o2%epot + p*0.5_dp

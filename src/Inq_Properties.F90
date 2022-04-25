@@ -18,11 +18,6 @@
  
 module gems_inq_properties
 ! conjuntos de subrutinas inq_
-
-!------------------------------------------------------------------------------
-! vdistance : calculate the distance of 2 atoms
-!                                                                   subroutines  
-!------------------------------------------------------------------------------
 ! energy : calculate epot and ekin and the same for each sgrp(j)
 ! angular_energy : 
 ! angular_mechanic :
@@ -30,9 +25,8 @@ module gems_inq_properties
 ! pbc : efectuate the pbc
 ! disrad :
 
-use gems_program_types, only: dt,tbox,box,one_box,mic,vdistance
-use gems_neighbor, only: ghost
-use gems_groups, only: group,atom,atom_dclist
+use gems_program_types, only: dt,tbox,box,one_box,mic
+use gems_groups, only: group,atom,atom_dclist,vdistance
 use gems_constants,     only: sp,dp,kB_ui,ui_ev,pi,pio2,dm
 use gems_algebra
 use gems_input_parsing
@@ -56,8 +50,8 @@ save
 contains
 
              
-!                                                   element
-!----------------------------------------------------------
+! element
+!--------
   
 function inq_pure(alist)
   ! indica si el grupo es puro su elemento, sino devuelve 0
@@ -77,8 +71,8 @@ function inq_pure(alist)
 
 end function inq_pure
              
-!                                          atoms dinstances
-!----------------------------------------------------------
+! atoms dinstances
+!-----------------
 
 function inq_mayordistance(g1,g2) result(res)
 ! Busca la maxima distancia entre los atomos del grupo g1 y los del grupo g2
@@ -166,46 +160,8 @@ rd=dot_product(vd,vd)
 
 end function rdistance2
 
-function interatomic(g)
-!calculates the distance of firts neighbord distance
-class(group)                 :: g
-type(atom_dclist), pointer  :: la1,la2
-real(dp)                    :: idist,interatomic,first
-integer                     :: i,j 
-! numb = 0
-! first = 5.0_dp
-! dist= 0.0_dp
-! do i = g%first,g%last
-!   do j = g%first,g%last
-!     idist  = dabs(vdistance(atoms(i),atoms(j)), mic)
-!     if (idist.le.first) then
-!       dist = dist + idist
-!       numb = numb + 1
-!     endif
-!   enddo
-! enddo
-! interatomic = dist / numb
-
-first = 1.0e10_dp
-idist= 0.0_dp
-
-la1 => g%alist%next
-do i = 1,g%nat
-  la2 => la1%next
-  do j = 1,g%nat
-    la2 => la2%next
-    idist  = dabs(vdistance(la1%o,la2%o,mic))
-    if (idist<first) first = idist
-    la2 => la2%next
-  enddo
-  la1 => la1%next
-enddo
-
-interatomic = first
-
-end function 
-
-  ! De nuevo
+! De nuevo
+! --------
 
 subroutine bond_order_groups(g1,g2,r1,r2)
 ! Compute the bond order number of atoms in "g1" respect to atoms in group
@@ -268,8 +224,8 @@ enddo
 
 end subroutine bond_order_list
                 
-!                                              atoms angles
-!----------------------------------------------------------
+! atoms angles
+!-------------
 
 #ifdef DIM3
 function inq_dihedral(i,j,k,l) result(phi)
@@ -330,8 +286,8 @@ endif
 end function inq_dihedral
 #endif
 
-!                                                  energies
-!----------------------------------------------------------
+! energies
+!---------
 
 subroutine inq_pot_energy(g)
 class(group)               :: g
@@ -411,11 +367,12 @@ g%temp  = 2.0_dp * g%ekin / (kB_ui*(dm*g%nat))!-dm)) ! El -dm es cuando la energ
 g%b_temp=.true.
 end subroutine inq_temperature
 
-!                                                  pressure
-!----------------------------------------------------------
+! pressure
+!---------
 
 subroutine inq_virial(g)
 use gems_program_types, only:b_gvirial,virial
+use gems_groups, only: ghost
 class(group)              :: g
 type(atom_dclist),pointer :: la
 type(atom),pointer        :: o
@@ -546,8 +503,8 @@ g%b_pressure=.true.
 end subroutine inq_pressure
  
 
-!                                            center of mass
-!----------------------------------------------------------
+! center of mass
+!---------------
  
 subroutine inq_mass(g)
 class(group)         :: g
@@ -661,8 +618,8 @@ g%b_cm_vel=.true.
 end subroutine
 
 
-!                                                  geometry
-!---------------------------------------------------------- 
+! geometry
+!--------- 
   
 subroutine inq_cg(g)
 class(group)         :: g
@@ -743,8 +700,8 @@ do i = 1,nat
 enddo
 
 end subroutine get_boundingbox 
-!                                             Bond-Order             
-!-----------------------------------------------------------------
+! Bond-Order             
+! ----------
 
 subroutine inq_bondorder(g,r1,r2)
 class(group),intent(in)      :: g
@@ -783,8 +740,8 @@ do i = 1,g%nat
 end do
 
 end subroutine  
-!                                        angular properties
-!----------------------------------------------------------
+! angular properties
+! ------------------
 subroutine inq_covariance(g)
 class(group)                :: g
 type(atom_dclist),pointer  :: la
@@ -941,8 +898,8 @@ g%b_evib = .true.
 g%b_erot = .true.
 end subroutine
 
-!                                                 morfology
-!----------------------------------------------------------
+! morfology
+!----------
 
 subroutine inq_principal_geometric_axis(g,trns)
 !previus calcs needed: g%covar_gc
@@ -1116,7 +1073,7 @@ inq_disrad(2,:) = inq_disrad(2,:) / maxval(inq_disrad)
 end function
       
 function inq_pdisrad(p,g) result(pdis)
-use gems_program_types, only: atom_distancetopoint
+use gems_program_types, only: distance
 real(dp),intent(in)          :: p(dm)
 class(group),intent(in)       :: g
 real(dp)                     :: pdis(g%nat)
@@ -1127,7 +1084,7 @@ integer                      :: i
 la => g%alist
 do i = 1, g%nat
   la => la%next
-  vd = atom_distancetopoint(la%o,p)
+  vd = distance(la%o%pos,p,la%o%pbc)
   pdis(i)=sqrt(dot_product(vd,vd))
 enddo
 

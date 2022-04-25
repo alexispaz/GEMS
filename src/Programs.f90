@@ -45,12 +45,6 @@ logical,intent(in)      :: b_out
 character(*),intent(in) :: fname
 character(2)            :: sym
 character(200)          :: boxflag
-logical                 :: ghosted
-
-! CHECK: I think this require full ghost updates: motion jumps are arbitrary
-! Sudden atom movements require fullghost
-ghosted=fullghost
-fullghost=.true.
 
 u = find_io(30)
 open(u,action='read',file=fname)
@@ -82,8 +76,6 @@ do ns = 1,steps
   if (b_out) call write_out(1,dm_steps)
 
 enddo
-
-fullghost=ghosted
 
 close(u)
 

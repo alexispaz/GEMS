@@ -261,11 +261,20 @@ interface readb
 end interface
 
 public :: item, nitems, stdinlen,read_line, stream, reada,read_magnitud,read_energy, readu, readl,        &
-    readf, readi, getf, reread, input_options, readblock,     &
-    read_colour,                   &
+    readf, get, readi, getf, geti, reread, input_options, readblock,     &
+    read_colour, try_get,                 &
     parse_items, readb, readelement, readia
     public :: line,level,char,end,loc
 
+
+interface get
+  module procedure readf, readi
+endinterface
+ 
+interface try_get
+  module procedure try_readf, try_readi
+endinterface
+           
 
 !                                                                 block control
 !------------------------------------------------------------------------------
@@ -1170,26 +1179,25 @@ end select
 
 end subroutine readia
  
-impure elemental subroutine readf(a,factor)
-! Read the next item from the buffer as a real (real(dp)) number.
+impure elemental function getf() result(a)
+! Read the next item from the buffer as `real(dp)`.
 ! if the optional argument factor is present, the value read should be
 ! divided by it. (external value = factor*internal value)
-real(dp), intent(inout)        :: a
-real(dp), intent(in), optional :: factor
-character(:),allocatable       :: string
+use gems_strings, only: operator(.ich.)
+real(dp)                  :: a
+character(:),allocatable  :: string
 
 if (opts%clear) a=0._dp
 
+! Check end of items
 call werr('Expected float',item>=nitems)
 
+! Read number as string
 string=''
 call reada(string)
-
 if (string == "") return
+
 read (unit=string,fmt=*,err=99) a
-if (present(factor)) then
-  a=a*factor
-endif
 return
 
 99 a=0._dp
@@ -1197,38 +1205,35 @@ select case(opts%nerror)
 case(-1,0)
   call werr("error while reading real number",.true.)
 case(1)
-  call werr("error while reading real number. input is "//trim(string),.true.)
+  call werr("Expected float but got: "//string,.true.)
 case(2)
   opts%nerror=-1
 end select
 
-end subroutine readf
+end function getf
 
-subroutine readi(i)
-!  read an integer from the current record
-
-integer, intent(inout) :: i
-real(dp)               :: f
+impure elemental function geti() result(i)
+! Read the next item from the buffer as `integer`.
+use gems_strings, only: operator(.ich.)
+integer                   :: i
+real(dp)                  :: f
 character(:),allocatable  :: string
 
 if (opts%clear) i=0
 
-! !  if there are no more items on the line, i is unchanged
-! if (item >= nitems) return
+! Check end of items
 call werr('Expected integer',item>=nitems)
 
+! Read number as string
 string=''
 call reada(string)
-!  if the item is null, i is unchanged
 if (string == "") return
 
-!read (unit=string,fmt=*,err=99) i
-
-! Esto lo hago asi para poder usar notacion exponencial en los enteros
+! This way to read an integer allow for exponential notation like "1e10"
 read (unit=string,fmt=*,err=99) f
-write(msn,*) 'Numero entero muy grande, el maximo permitido es:',huge(i)
-call werr(msn,huge(i)<f)
+call werr('Integer beyond kind boundaries: +-'//.ich.huge(i),huge(i)<abs(f))
 i=int(f)
+call werr('Expected integer but got float.',abs(f-i)>epsilon(f))
 
 return
 
@@ -1237,13 +1242,13 @@ select case(opts%nerror)
 case(-1,0)
   call werr("error while reading integer number",.true.)
 case(1)
-  write(opts%or,"(2a)") "error while reading integer. input is ", trim(string)
+  call werr("Expected integer but got: "//string,.true.)
 case(2)
   opts%nerror=-1
 end select
 
-end subroutine readi
-
+end function geti
+     
 subroutine readu(m)
 character(:),allocatable  :: m
 
@@ -1263,7 +1268,7 @@ end subroutine readl
 ! Read if possible
 !-----------------
  
-impure elemental subroutine getf(a,factor)
+impure elemental subroutine try_readf(a,factor)
 ! Read the next item from the buffer as a real (real(dp)) number.
 ! if the optional argument factor is present, the value read should be
 ! divided by it. (external value = factor*internal value)
@@ -1284,8 +1289,26 @@ endif
 if(errf) a=b
 silent=.false.
  
-end subroutine getf
+end subroutine try_readf
+  
+impure elemental subroutine try_readi(i)
+! Read the next item from the buffer as a real (real(dp)) number.
+! if the optional argument factor is present, the value read should be
+! divided by it. (external value = factor*internal value)
+use gems_errors, only: silent, errf
+integer, intent(inout)         :: i
+integer                        :: j
+character(:),allocatable       :: string
 
+! Save default value
+j=i
+silent=.true.
+call readi(i) 
+if(errf) i=j
+silent=.false.
+ 
+end subroutine try_readi
+ 
 
 !-----------------------------------------------------------------------
 
@@ -1494,5 +1517,23 @@ end do
 
 end subroutine get_line
 
+! Wrappers
+! -------
+ 
+impure elemental subroutine readf(a,factor)
+! Wrap getf into subrroutine to create a generic interface
+real(dp), intent(inout)        :: a
+real(dp), intent(in), optional :: factor
+a=getf()
+if (present(factor)) a=a*factor
+end subroutine readf
+     
+impure elemental subroutine readi(i)
+! Wrap geti into subrroutine to create a generic interface
+use gems_strings, only: operator(.ich.)
+integer, intent(inout) :: i
+i=geti()
+end subroutine readi
+ 
 end module gems_input_parsing
 

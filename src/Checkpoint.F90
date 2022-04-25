@@ -19,8 +19,7 @@
 module gems_checkpoint
 use gems_errors
 use gems_program_types
-use gems_groups, only: atom_dclist, gindex_all_changed
-use gems_neighbor, only: fullghost
+use gems_groups, only: atom_dclist, gindex_all_changed, sys
 use gems_constants, only: dm, linewidth
 use gems_input_parsing
 use gems_random, only: write_chpseed, read_chpseed
@@ -87,7 +86,6 @@ integer,intent(out)       :: step,nsteps
 logical                   :: search_chp
 character(*),optional     :: fname      
 integer                   :: i,j,na
-logical                   :: ghosted
 type(atom_dclist),pointer :: la
 
 if(present(fname)) then
@@ -138,12 +136,7 @@ if(search_chp) then
 
   call gindex_all_changed()
    
-  ! CHECK: I think this require full ghost updates
-  ghosted=fullghost
-  fullghost=.true.
   call interact(.false.)
-  fullghost=ghosted
-          
 
 endif      
 
@@ -196,7 +189,6 @@ subroutine read_chp(step,nsteps,fname)
 integer,intent(out)    :: step,nsteps
 character(*),optional  :: fname  
 integer                :: i,j,na
-logical                :: ghosted
 type(atom_dclist),pointer :: la
 
 if(present(fname)) then
@@ -235,12 +227,7 @@ close(chpunit)
 
 call gindex_all_changed()
 
-
-! CHECK: I think this require full ghost updates
-ghosted=fullghost
-fullghost=.true.
 call interact(.false.)
-fullghost=ghosted
                     
 
 end subroutine read_chp

@@ -184,15 +184,11 @@ real(dp)                             :: w(dm*g%nat*(2*msave +1)+2*msave),f
 real(dp),dimension(dm*g%nat),target  :: auxp,auxv,auxf,auxa
 integer                              :: iprint,iflag,m,n
 logical,intent(in)                   :: b_out
-logical                              :: switched, ghosted
+logical                              :: switched
 
 ! Needed by get_fg
 gro=>g
 b_fgout=b_out
-
-! Sudden atom movements require fullghost
-ghosted=fullghost
-fullghost=.true.
 
 ! Cambio al modo de almacenamiento vectorial
 call group_switch_vectorial(g,switched)
@@ -233,9 +229,6 @@ endif
 
 ! Retomo el modo de almacenamiento anterior
 if(switched) call group_switch_objeto(g)
-
-! Retomo el modo ghost anterior
-fullghost=ghosted
 
 end subroutine lbfgs_minimizator
 
@@ -626,13 +619,8 @@ real(dp)              :: f, g(1) ! Function and gradient.
 real(dp)              :: stp     ! Estimate of a satisfactory.
 real(dp)              :: wa(1)   ! Work array.
 real(dp)              :: s(1)    ! Search direction
-logical               :: ghosted
 integer               :: nfun,i
       
-! Sudden atom movements require fullghost
-ghosted=fullghost
-fullghost=.true.
-     
 b_fgout=b_out
 minvol_tfix=tfix
 minvol_pfix=pfix
@@ -657,9 +645,6 @@ enddo
 
 call wwan('Iteration limit reached.',i==1001);
 
-! Retomo el modo ghost anterior
-fullghost=ghosted
-           
 end subroutine
 
 subroutine lb1(iprint,iter,nfun,gnorm,n,m,x,f,g,stp,finish)
@@ -1154,10 +1139,9 @@ if (b_fgout) call write_out(1,icall)
 end subroutine
  
 subroutine get_pistonfg(x,f,g)
-use gems_neighbor, only:useghost, ghost, fullghost
-use gems_groups, only:atom_dclist, gindex_pos_changed
+use gems_groups, only:atom_dclist, gindex_pos_changed, sys, ghost
 use gems_constants, only:kB_ui
-use gems_program_types, only:sys, tbox, box, box_setvars, box_vol
+use gems_program_types, only: tbox, box, box_setvars, box_vol
 real(dp),intent(in)        :: x(:)
 real(dp),intent(out)       :: g(:),f
 real(dp)                   :: fbox, kterm, vterm

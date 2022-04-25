@@ -17,28 +17,28 @@
 
 
 module gems_set_properties
- use gems_program_types, only: dt,sys
- use gems_groups, only: group,atom,atom_dclist
- use gems_groups, only: gindex_pos_changed, gindex_vel_changed, gindex_all_changed, gindex
- use gems_constants,only:dp,pi,dm,find_io
- use gems_algebra
- use gems_inq_properties
+use gems_program_types, only: dt
+use gems_groups, only: group,atom,atom_dclist,sys
+use gems_groups, only: gindex_pos_changed, gindex_vel_changed, gindex_all_changed, gindex
+use gems_constants,only:dp,pi,dm,find_io
+use gems_algebra
+use gems_inq_properties
 
-  implicit none
+implicit none
 
-  public
-  private :: group,atom,atom_dclist,sys   ! program_types
-  private :: dt,dm                        ! program_types
-  private :: dp,pi                        ! constants
+public
+private :: group,atom,atom_dclist,sys   ! program_types
+private :: dt,dm                        ! program_types
+private :: dp,pi                        ! constants
 
-  save
+save
 
-  real(dp)     :: dc,tc
+real(dp)     :: dc,tc
 
- contains
+contains
 
-!                                                 elementos
-!----------------------------------------------------------
+! Elements
+!---------
 
 subroutine set_z(g,z)
 class(group)               :: g
@@ -837,6 +837,6 @@ enddo
 call gindex_vel_changed()
 
 end subroutine set_cm_vel
-
+                  
 end module gems_set_properties
 

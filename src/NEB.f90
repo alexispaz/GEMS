@@ -64,11 +64,8 @@ type(group),intent(inout) :: g
 integer                   :: ns,i
 real(dp)                  :: delr,fprom
 real(dp)                  :: aux(g%nat*dm)
-logical                   :: switched, ghosted
+logical                   :: switched
 
-! Sudden atom movements require fullghost
-ghosted=fullghost
-fullghost=.true.
 
 ! Cambio al modo de almacenamiento vectorial
 call group_switch_vectorial(g,switched)
@@ -202,8 +199,6 @@ nebdim = 0
 nimg = 0
 
 if(switched) call group_switch_objeto(nebit)
-
-fullghost=ghosted
 
 deallocate(vneb,fneb) !Estado
 deallocate(eimg)      !Energia

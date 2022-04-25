@@ -182,6 +182,10 @@ type, public :: group
   ! XXX: Note that igroup might be a better resource
   procedure :: atom => group_atombyindex 
 
+  ! Basic inquires
+  ! --------------
+  procedure :: inq_insphere
+
 end type group
  
 ! An indexed group with atom pointers sorted in an array. A second index
@@ -247,6 +251,8 @@ public :: gindex_epot_changed, &
 public :: group_switch_vectorial
 public :: group_switch_objeto
  
+type(igroup),target,public  :: sys
+                                 
 ! Atom type
 ! =========
 
@@ -264,8 +270,11 @@ type, public :: atom
   ! The atom id for each igroup (regular groups has a 0)
   integer,allocatable    :: id(:)
 
-  ! If the aotm is a ghost, point to the real image
-  class(atom),pointer    :: ghost=>null()
+  ! If the atom is a ghost, prime point to the real image
+  type(atom),pointer     :: prime=>null()
+
+  ! If the atom is real, ghost(i) point to its ith ghost (if active).
+  type(atom_ap),allocatable :: ghost(:) ! Use allocatable since declaration comes later (F2008)
                          
   ! Element properties
   ! ------------------
@@ -372,9 +381,19 @@ public :: atom_ap
 interface atom_setelmnt
   module procedure atom_setelmnt_bysym,atom_setelmnt_byz
 end interface
-public :: atom_setelmnt,atom_asign
+public :: atom_setelmnt,atom_asign, vdistance
                    
- 
+! Ghosts
+! ======
+public :: ghost_from_atom, pbcghost_move, pbcghost
+public :: set_pbc, do_pbc
+   
+! Groups for selection
+type(group),target,public    :: ghost
+
+! Ghost atoms. No need index.
+logical,public              :: useghost=.false.
+    
 contains
       
 ! atom events
@@ -402,6 +421,9 @@ a%pos(:)=0._dp
 a%vel(:)=0._dp
 a%force(:)=0._dp
 call atom_setelmnt(a,119)
+
+  
+allocate(a%ghost(26))
 
 end subroutine atom_allocate
 
@@ -555,8 +577,8 @@ endif
  
 end function atom_id
                
-! others
-! -------
+! properties
+! ----------
 
 subroutine atom_setelmnt_byz(a,z)
 ! Establece las propiedades relacionadas al elemento en un atomo
@@ -588,7 +610,7 @@ call add_z(sym)
 
 call atom_setelmnt_byz(a,inq_z(sym))
 end subroutine
-
+      
 ! group events
 ! ============
                
@@ -912,6 +934,64 @@ at => la%o
 
 endfunction
 
+! Properties
+! ----------
+
+function vdistance(i,j,mic) result(vd)
+!calculates the distance of two atoms with or without minimum image convention
+use gems_program_types, only: box, one_box
+real(dp),dimension(dm)  :: vd
+type(atom),intent(in)   :: i,j
+logical,intent(in)      :: mic
+logical                 :: pbc(dm)
+integer                 :: l
+  
+! Distancia
+vd=i%pos-j%pos
+
+! Convencion de imagen minima
+if(.not.mic) return
+
+! Mas rapido usar idnint que un if
+pbc=i%pbc.or.j%pbc
+do l = 1,dm
+  if (pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
+enddo
+
+end function vdistance
+                 
+! Basic inquires
+! --------------
+
+function inq_insphere(g,ctr,rad2)  result(over)
+! Check whether the position of any atom of g lies within a spherical region in space.
+use gems_program_types, only: distance
+class(group),intent(in)     :: g
+real(dp), intent(in)        :: ctr(dm), rad2
+logical                     :: over
+type(atom_dclist), pointer  :: la
+real(dp)                    :: idist,interatomic,first
+integer                     :: i
+real(dp)                    :: vd(dm), rd
+
+over=.true.
+
+la => la%next
+do i = 1,g%nat
+  la => la%next
+  
+  vd(:) = distance(la%o%pos,ctr,la%o%pbc)
+  rd = dot_product(vd,vd)
+
+  if (rd<rad2) return
+   
+enddo
+
+over=.false.
+
+end function 
+          
+ 
 ! igroup events (indexed atoms)
 ! =============================
 
@@ -1044,8 +1124,183 @@ call wlog('Index of group '//.ich.g%id//' updated')
 
 end subroutine igroup_update_index
 
-! Index
-! -----
+! Ghosts
+! ======
+
+function new_ghost(o2,r) result(o)
+use gems_program_types, only: box
+class(atom),target,intent(in)  :: o2
+type(atom),pointer             :: o
+class(group),pointer           :: g
+integer                        :: j,i
+integer                        :: r(:)
+
+! Allocate new ghost
+allocate(o)
+call o%init()
+call ghost%attach(o)
+
+! Assign image properties
+o%prime=>o2
+call atom_asign(o,o2)
+o%q=o2%q
+o%pbc(:)=.false.
+o%pos(:)=o2%pos(:)+r(:)*box(:)
+o%boxcr(:)=r(:)
+
+! Add ghost to the image ngroups
+do j=1,o2%ngr
+  g => o2%gr(j)%o
+  if(g%ghost) call g%attach(o)
+enddo
+
+end function
+
+function isghost(r,rc)
+! Return .true. if r inside the box+rcut. So actually it says if some position
+! belong to a ghost region but also if is a local region
+use gems_program_types, only: box
+real(dp),intent(in)  :: r(dm),rc
+logical              :: isghost
+integer              :: i
+
+isghost=.false.
+do i=1,dm
+  ! s=sign(1,r(i)-box2(i))
+  ! if (s*r(i)>rc+box*0.5_dp*(s+1)) return
+
+  if(r(i)<-rc) then
+    return
+  elseif (r(i)>rc+box(i)) then
+    return
+  endif
+enddo
+isghost=.true.
+
+end function isghost
+
+subroutine ghost_from_atom(a,rcut)
+! Create ghost images for an atom.
+use gems_program_types, only: box, one_box, n1cells
+real(dp)                     :: r(dm)
+real(dp),intent(in)          :: rcut
+type(atom)                   :: a
+integer                      :: m
+ 
+do m =1,26
+  r(:)=a%pos(:)+n1cells(m,:)*box(:)
+  if (isghost(r(:),rcut)) a%ghost(m)%o => new_ghost(a,n1cells(m,:))
+enddo
+ 
+end subroutine ghost_from_atom
+     
+subroutine pbcghost_move()
+! Move ghost atoms to reflect the motion of their local images
+use gems_program_types, only: box
+type(atom_dclist), pointer :: la
+integer                    :: i
+
+la => ghost%alist
+do i = 1,ghost%nat
+  la => la%next
+  la%o%pos(:)=la%o%prime%pos(:)+box(:)*la%o%boxcr(:)
+enddo
+
+end subroutine
+
+subroutine pbcghost(rcut)
+! Create and destroy ghost for a pbc box.
+use gems_program_types, only: box, n1cells
+real(dp)                     :: r(dm)
+type(atom),pointer           :: o,og
+integer                      :: i,m
+type(atom_dclist),pointer    :: la
+real(dp),intent(in)          :: rcut
+
+! Make local atoms pbc
+call do_pbc(sys)
+
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  o => la%o
+
+  ! Loop trough box images
+  ! Note: seems to check proximity to the 6 faces can be fast?
+  do m = 1,26
+    og => la%o%ghost(m)%o
+
+    ! Check if ghost atoms is needed
+    r(:)=o%pos(:)+n1cells(m,:)*box(:)
+    if (isghost(r(:),rcut)) then
+
+      ! If ghost already exist, skip
+      if(associated(og)) cycle
+    
+      ! Add new ghost
+      og => new_ghost(o,n1cells(m,:))
+
+    else
+ 
+      ! If ghost exist, remove it
+      if(associated(og)) call og%dest()
+      og => null()
+         
+    end if
+
+    o%ghost(m)%o => og
+
+  enddo
+
+enddo
+
+
+end subroutine
+
+! PBC
+! ---
+
+subroutine set_pbc(g,pbc)
+class(group),intent(inout)  :: g
+class(atom_dclist),pointer  :: la
+logical,intent(in)         :: pbc(dm)
+integer                    :: i
+
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  la%o%pbc = pbc
+enddo
+
+end subroutine set_pbc
+ 
+subroutine do_pbc(g)
+use gems_program_types, only: box
+class(group),intent(inout)  :: g
+class(atom_dclist),pointer :: la
+integer                    :: i,k
+
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+
+  do k=1,dm
+    if (la%o%pbc(k)) then
+      if(la%o%pos(k)>=box(k)) then
+        la%o%pos(k)=la%o%pos(k)-box(k)
+        la%o%pos_old(k)=la%o%pos_old(k)-box(k)
+        la%o%boxcr(k)=la%o%boxcr(k)+1
+      elseif(la%o%pos(k)<0.0_dp) then
+        la%o%pos(k)=la%o%pos(k)+box(k)
+        la%o%pos_old(k)=la%o%pos_old(k)+box(k)
+        la%o%boxcr(k)=la%o%boxcr(k)-1
+      endif
+    endif
+  enddo
+enddo
+     
+end subroutine do_pbc
+                     
 
 ! Hyper vector Constructors
 ! =========================

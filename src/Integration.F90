@@ -281,51 +281,32 @@ call it%dest()
 end subroutine integrate_destructor
                              
 subroutine integration_stepa
-use gems_neighbor, only: useghost,pbcghost_move
+use gems_groups, only: pbcghost_move, useghost
 integer   :: i
 
 do i=1,its%size
   if(associated(its%o(i)%stepa)) call its%o(i)%stepa()
 enddo
+call gindex_all_changed()
 
 ! Debo computar de nuevo el volumen, por si hay cambios debido a algun/os
 ! piston/es
 if(boxed) call box_setvars()
-     
-if(useghost)then
-  call pbcghost_move
-else
-  ! Needed to avoid atoms outside box when doing neighboor list (on interact)
-  call do_pbc(sys)
-endif
-
-call gindex_all_changed()
   
 end subroutine
      
 subroutine integration_stepb
-use gems_neighbor, only: useghost,pbcghost_move
+use gems_groups, only: pbcghost_move, useghost
 use gems_bias, only: biason, bias
 integer   :: i
             
 do i=1,its%size
   if(associated(its%o(i)%stepb)) call its%o(i)%stepb()
 enddo
-    
-if(useghost)then
-  call pbcghost_move()
-else
-  ! Needed to avoid atoms outside box 
-  call do_pbc(sys)
-endif
-
 call gindex_all_changed()
-  
-! No creo que sea necesario
-! do i=1,size(gr)
-!   if(.not.gr(i)%agrouped) cycle
-!   call followthehead_b(gr(i))
-! enddo
+    
+! FIXME: Only Predictor-Corrector change the positions in the step b.  So...
+! it can move atom outside the box.
 
 ! Avance del tiempo
 if(voter) then
@@ -342,7 +323,7 @@ end subroutine
  
 subroutine integration_reversea
 use gems_constants, only: same_proc
-use gems_neighbor, only: pbcghost_move
+use gems_groups, only: pbcghost_move
 use, intrinsic :: iso_c_binding
 type(integrate),pointer :: it
 integer                 :: i
@@ -1433,7 +1414,8 @@ subroutine gcmc(g)
 ! For rigid spheres and considering a particular area between two xy planes.
 ! TODO: Generalize with a boltzman energy
 ! TODO: Check overlap with a reference group (for mixtures)
-use gems_neighbor, only: useghost,ghost_from_atom,ngindex,ngroup
+use gems_groups, only: ghost_from_atom, useghost
+use gems_neighbor, only: ngindex,ngroup,maxrcut
 use gems_random, only: ranu,rang
 use gems_constants, only: dm, kB_ui
 class(integrate)           :: g
@@ -1494,7 +1476,7 @@ adj: do i=1,nadj
       ! if(o%pos(3)>z2+rc) cycle
 
       ! Skip if overlapping
-      vd(:) = atom_distancetopoint(o,r)
+      vd(:) = distance(o%pos,r,o%pbc)
       dr = dot_product(vd,vd)
       if(dr<rc*rc) cycle adj
 
@@ -1525,7 +1507,7 @@ adj: do i=1,nadj
       enddo
 
       ! Create ghost images
-      if(useghost) call ghost_from_atom(o)
+      if(useghost) call ghost_from_atom(o,maxrcut)
              
       ! Free pointer
       o=>null()
@@ -1568,7 +1550,7 @@ adj: do i=1,nadj
 enddo adj
       
            
-endsubroutine
+end subroutine
 
  
 
