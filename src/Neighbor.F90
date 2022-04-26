@@ -26,7 +26,7 @@ use gems_errors
 implicit none
 
 public :: polvar_neighbor, polvar_ngroup
-
+                    
 ! Group with neighbors
 ! Forces are computed in group `ref` given group `b` (without newton reaction).
 ! ngroup gives a unique index to each atom in `ref` or `b`.
@@ -37,7 +37,7 @@ type, abstract, extends(igroup), public :: ngroup
 
   ! The group of possible neighbors. It might be sorted in cells.
   type(cgroup)  :: b
-
+                       
   ! rcut
   real(dp)               :: rcut=1.e10_dp,rcut2=1.e10_dp
 
@@ -153,7 +153,6 @@ g%b%ghost=.true.
 ! Allocate
 allocate(g%nn(g%pad))
 allocate(g%list(g%pad,g%mnb))
-
 end subroutine ngroup_construct
 
 subroutine ngroup_destroy(g)
@@ -201,10 +200,10 @@ if(size(g%nn)<n) then
   t_list(:size(g%list,1),:) = g%list(:,:)
   call move_alloc(to=g%list,from=t_list)
 endif   
- 
+
 ! Sort atom into neighbor list. 
-! This will only work if atom is already attached to `b` or `ref` before
-! enter to this procedure. For example:
+! NOTE: This will only work if atom is already attached to `b` or `ref`
+! before enter to this procedure. For example:
 !   call g%ref%attach(a) 
 !   call g%b%attach(a)  
 !   call g%attach(a)  ! at last
@@ -222,10 +221,10 @@ class(ngroup)          :: g
 class(atom),target     :: a
 integer                :: i
 
-! Remove atom from list
+! Remove atom's neighbor list if exists 
 if(g%listed) then
   i=a%gid(g)
-  call ngroup_unsort_atom(g,i)
+  g%nn(i)=0
 endif
 
 ! Detach atom
@@ -233,9 +232,6 @@ call g%ref%detach(a)
 call g%b%detach(a)
 call g%igroup_detach_atom(a)
  
-! FIXME: QUE PASA SI el inice de B fue actualizado
-! Poner que si b%no es tessellado, hay que actualizar lista.
-
 ! Clean null items
 if(g%update) then
   deallocate(g%nn,g%list)
@@ -243,49 +239,19 @@ if(g%update) then
   allocate(g%list(size(g%a),g%mnb))
   g%listed=.false.
 endif
-               
+
+! In case atom was in g%b, it would be very expensive to loop trough g%ref
+! and fix other atom list. Thus, flag atom id until recompute list.  Note
+! that if index was updated on detach, g%list is already false.  This also
+! protect the id for been reused during attach until recumpute list.
+if(g%listed) then
+  !if(a%gid(g%b)<1) return ! gid is expensive
+  g%a(i)%o=>g%limbo
+  g%nlimbo=g%nlimbo+1
+  g%b_limbo=.true.
+endif
+
 end subroutine ngroup_detach_atom
-
-subroutine ngroup_unsort_atom(g,i)
-class(ngroup),intent(inout)  :: g
-class(ngroup),pointer        :: ng
-type(atom),pointer           :: a,aj
-integer                      :: i,j,jj,ii,k
-real(dp)                     :: rd,vd(dm)
-type(atom_dclist),pointer    :: la
-    
-! Point to atom
-a => g%a(i)%o
-   
-! Set cero 
-! If atom ith is only in b, this is OK too
-g%nn(i)=0
-
-! Continue only if atom is in b.
-if(a%gid(g%b)<1) return
-
-! Remove it from list
-la => g%ref%alist
-do jj = 1,g%ref%nat
-  la => la%next
-  aj => la%o
-  j = aj%gid(g)
-                    
-  do ii = 1,g%nn(j)
-    if(g%list(j,ii)/=i) cycle
-
-    g%nn(j)=g%nn(j)-1
-    do k=ii,g%nn(j)
-      g%list(j,k)=g%list(j,k+1)
-    enddo
-    exit
-
-  enddo
-
-enddo
-
- 
-end subroutine ngroup_unsort_atom
 
 subroutine ngroup_sort_atom(g,i)
 ! Add atom `a` from ngroup `g` and fix neighbor list.
@@ -389,12 +355,8 @@ g%nn(:)=0
 rcut=(g%rcut+nb_dcut)
 rcut=rcut*rcut
 
-! TODO: Otra opcion para evaluar sería
-! !$OMP PARALLEL DO SCHEDULE(STATIC,5) PRIVATE(m,vd,rd)
-! do i = 1,g%na+g%nag-1
-! m = 0
-! do j = i+1,g%na+g%nag
-!   vd = g%at(j)%o%pos-g%at(i)%o%pos
+! Clean atoms in limbo
+call g%clean()
 
 !OMP: Creo varios threads
 !$OMP PARALLEL
@@ -503,6 +465,9 @@ g%nn(:)=0
 rcut=(g%rcut+nb_dcut)
 rcut=rcut*rcut
 
+! Clean atoms in limbo
+call g%clean
+   
 ! Sort in cells
 call g%b%sort()
 
@@ -626,7 +591,7 @@ end subroutine ngroup_cells_atom
 
 subroutine update()
 ! Update all neighbor lists
-use gems_groups, only: pbcghost, useghost
+! use gems_groups, only: pbcghost, useghost
 class(ngroup), pointer       :: g
 integer                      :: i
 type(atom_dclist),pointer    :: la
@@ -635,7 +600,7 @@ type(atom_dclist),pointer    :: la
 nupd_vlist = nupd_vlist +1
 
 ! Add/delete ghosts
-if(useghost) call pbcghost(maxrcut)
+! if(useghost) call pbcghost(maxrcut)
 la => sys%alist
 do i = 1,sys%nat
   la => la%next
@@ -686,7 +651,7 @@ end subroutine inq_dispmax
 
 subroutine test_update()
 ! Check if neighbor update is needed
-use gems_groups, only: pbcghost_move, useghost, do_pbc
+use gems_groups, only: pbchalfghost, useghost, do_pbc
 real(dp)                   :: dispmax1,dispmax2
 integer                    :: i
 type(atom_dclist),pointer  :: la
@@ -694,7 +659,8 @@ class(ngroup),pointer      :: ng
 
 if(useghost)then
   ! Update the ghost positions
-  call pbcghost_move
+  call pbchalfghost(maxrcut)
+  ! call pbcghost_move()
 else
   ! Needed to avoid atoms outside box when doing neighboor list (on interact)
   call do_pbc(sys)

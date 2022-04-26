@@ -204,6 +204,11 @@ do ii = 1,g%ref%nat
     j  = g%list(i,l)
     o2 =>g%a(j)%o
 
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
@@ -279,7 +284,12 @@ do ii = 1,g%ref%nat
 
     j  = g%list(i,l)
     o2 => g%a(j)%o
-
+         
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+               
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
@@ -381,6 +391,11 @@ do ii = 1,g%ref%nat
     j = g%list(i,l)
     o2 =>g%a(j)%o
 
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
@@ -478,6 +493,11 @@ do ii = 1,g%ref%nat
     j  = g%list(i,l)
     o2 =>g%a(j)%o
 
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
@@ -569,6 +589,11 @@ do ii = 1,g%ref%nat
     j  = g%list(i,l)
     o2 => g%a(j)%o
 
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
@@ -641,6 +666,11 @@ do ii = 1,g%ref%nat
     j  = g%list(i,l)
     oj => g%a(j)%o
 
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(oj,target=g%limbo)) cycle
+    endif
+
     vd = vdistance(oj,oi, mic)
 
     ! Skip this if the z distance is below the boundary
@@ -672,6 +702,11 @@ do ii = 1,g%ref%nat
     j  = g%list(i,l)
     oj => g%a(j)%o
         
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(oj,target=g%limbo)) cycle
+    endif
+
     vd = vdistance(oj,oi, mic)
 
     ! Skip this if the z distance is below the boundary
@@ -743,6 +778,11 @@ do ii = 1,g%ref%nat
   do l = 1, g%nn(i)  ! sobre los vecinos
     j  = g%list(i,l)
     o2 => g%a(j)%o
+
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
 
     vd = vdistance( o1, o2 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
@@ -853,6 +893,11 @@ do ii = 1,g%ref%nat
   do l = 1, g%nn(i)  ! sobre los vecinos
     j  = g%list(i,l)
     o2 => g%a(j)%o
+
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
 
     vd = vdistance( o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 

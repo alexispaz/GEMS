@@ -396,8 +396,16 @@ do ii = 1,g%ref%nat
 
     j  = g%list(i,l)
     o2 => g%a(j)%o
+     
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+ 
+    ! Get atom type
     z2 = g%z(o2%z)
 
+    ! Compute distance
     vd = vdistance( o2, o1, mic)
     dr =  sqrt(dot_product(vd,vd))
 
@@ -478,12 +486,19 @@ do ii = 1,g%ref%nat
   z1 = g%z(o1%z)
 
   do l = 1, g%nn(i)  ! sobre los vecinos
-
     j  = g%list(i,l)
     o2 => g%a(j)%o
+
+    ! Skip atoms in limbo
+    if(g%b_limbo) then
+      if(associated(o2,target=g%limbo)) cycle
+    endif
+
+    ! Get atom type
     z2 = g%z(o2%z)
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    ! Compute distance
+    vd = vdistance( o2, o1 , mic)
     dr =  sqrt(dot_product(vd,vd))
 
     factor=0.0_dp
@@ -567,6 +582,6 @@ enddo
 
 g%epot=epot
 
-end subroutine
+end subroutine smatb_interact
 
 end module gems_tb

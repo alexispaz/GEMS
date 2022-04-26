@@ -196,7 +196,12 @@ type, extends(group), public :: igroup
   type(atom_ap),allocatable :: a(:)
 
   ! Efective dimension of `a` (nat<amax<size(a)).
-  integer                 :: amax=0 
+  integer             :: amax=0 
+    
+  ! A dummy atom used as a flag to skip detached atoms. 
+  type(atom),pointer  :: limbo
+  logical             :: b_limbo=.false.
+  integer             :: nlimbo=0
 
   ! Update index if 10% of the index is null. 
   ! Set to 0 to avoid updates.
@@ -219,6 +224,7 @@ type, extends(group), public :: igroup
            
   procedure :: init => igroup_construct
   procedure :: dest => igroup_destroy
+  procedure :: clean => igroup_clean
 
   procedure :: attach_atom  => igroup_attach_atom
   procedure :: detach_atom  => igroup_detach_atom
@@ -385,7 +391,7 @@ public :: atom_setelmnt,atom_asign, vdistance
                    
 ! Ghosts
 ! ======
-public :: ghost_from_atom, pbcghost_move, pbcghost
+public :: ghost_from_atom, pbcghost_move, pbcghost, pbchalfghost
 public :: set_pbc, do_pbc
    
 ! Groups for selection
@@ -404,7 +410,6 @@ contains
 #include "cdlist_body.inc"
  
 subroutine atom_allocate(a)
-use gems_errors
 ! inicializo los punteros y allocateables que no
 ! se pueden inicializar en la declaración
 class(atom),intent(inout)    :: a
@@ -421,14 +426,56 @@ a%pos(:)=0._dp
 a%vel(:)=0._dp
 a%force(:)=0._dp
 call atom_setelmnt(a,119)
-
-  
-allocate(a%ghost(26))
-
 end subroutine atom_allocate
 
+subroutine atom_setpbc(a,pbc)
+! Set atom pbc and allocate ghosts  
+class(atom),target,intent(inout) :: a
+logical,intent(in)               :: pbc(dm)
+class(group),pointer             :: g
+type(atom),pointer               :: og
+integer                          :: i,j
+
+a%pbc(:)=pbc(:)
+
+! Already allocated, skip
+if(allocated(a%ghost)) then
+
+  ! Also deallocate if all false
+  if(.not.any(pbc)) then
+    do i=1,7  
+      og => a%ghost(i)%o
+      call og%dest()
+      deallocate(og)
+    enddo
+    deallocate(a%ghost)
+  endif  
+ 
+endif  
+
+if(.not.any(pbc)) return
+
+! Allocate ghost 
+! TODO: if count(pbc)<3 do not use 7
+allocate(a%ghost(7))
+do i=1,7  
+
+  allocate(a%ghost(i)%o)
+  og => a%ghost(i)%o
+
+  call og%init()
+  og%prime=>a
+  call atom_asign(og,a)
+  og%q=a%q
+  og%pbc(:)=.false.
+  
+enddo
+
+end subroutine atom_setpbc
+    
 subroutine atom_destroy(a)
 class(atom)         :: a
+type(atom),pointer  :: og
 integer             :: i
 
 ! Detach the atom from all the groups using a LIFO scheme. Since some
@@ -444,6 +491,18 @@ deallocate(a%pos)
 deallocate(a%vel)
 deallocate(a%force)
 deallocate(a%acel)
+
+a%prime => null()  
+if(.not.allocated(a%ghost)) return
+
+do i=1,7  
+  og=>a%ghost(i)%o
+  do while (og%ngr/=0)
+    call og%gr(og%ngr)%o%detach(og)
+  enddo
+  deallocate(a%ghost(i)%o)
+enddo
+deallocate(a%ghost)
    
 end subroutine atom_destroy
  
@@ -768,6 +827,14 @@ do i =1,g%nat
   return
 enddo
 
+! TODO: this might be handle in a higher level?
+! Also detach ghosts
+if(allocated(a%ghost)) then
+  do i=1,7  
+    call g%detach(a%ghost(i)%o)
+  enddo
+endif  
+ 
 end subroutine group_detach_atom
 
 subroutine group_detach_all(g)
@@ -999,14 +1066,35 @@ subroutine igroup_construct(g)
 class(igroup),target    :: g
 call group_construct(g)
 allocate(g%a(g%pad))
+allocate(g%limbo)  
 end subroutine igroup_construct
 
 subroutine igroup_destroy(g)
 class(igroup),target :: g
 call group_destroy(g)
 deallocate(g%a) 
+deallocate(g%limbo)  
 end subroutine igroup_destroy
 
+subroutine igroup_clean(g)
+class (igroup),target  :: g
+integer                :: i
+
+if(.not.g%b_limbo) return
+
+do i =1,g%amax
+  if(associated(g%a(i)%o,target=g%limbo)) then
+    g%a(i)%o=>null()
+  endif
+enddo
+
+g%nlimbo=0
+g%b_limbo=.false.
+
+! Update index might be done here.
+
+end subroutine igroup_clean
+                
 ! Include atoms
 ! -------------
 
@@ -1014,7 +1102,7 @@ subroutine igroup_attach_atom(g,a)
 class(igroup),target :: g
 class(atom),target   :: a
 type(atom_ap),allocatable  :: t_a(:)
-integer                    :: n
+integer                    :: n, m
 
 ! Save current atom number
 n=g%nat
@@ -1027,23 +1115,23 @@ if(n==g%nat) return
 
 ! Reallocate if needed
 n=size(g%a)
-if(n<g%nat) then
-  allocate(t_a(g%nat+g%pad))
+m=g%nat+g%nlimbo
+if(n<m) then
+  allocate(t_a(m+g%pad))
   t_a(1:n) = g%a(1:n)
   call move_alloc(to=g%a,from=t_a)
 endif
    
-! Find an index position
-if(g%amax<g%nat) then 
-  ! Append
-  g%amax=g%amax+1
-  n=g%amax
-  call werr('Index inconsistency while attaching',g%nat/=g%amax)
-else 
+if(g%amax>=g%nat+g%nlimbo) then 
   ! Find index of previous deattached atom
   do n=1,g%amax
     if(.not.associated(g%a(n)%o)) exit
   enddo
+  call werr('Index inconsistency',n>g%amax)
+else
+  ! Append
+  g%amax=g%amax+1
+  n=g%amax
 endif
  
 ! Set atom index
@@ -1056,7 +1144,7 @@ end subroutine igroup_attach_atom
 ! ------------
 
 subroutine igroup_detach_atom(g,a)
-! Remove soft atom (i.e. detach) from `alist` and `a`
+! Detach atom from `alist` and `a`
 class(igroup)              :: g
 class(atom),target         :: a
 integer                    :: i
@@ -1071,7 +1159,7 @@ g%a(i)%o=>null()
 ! Detach atom
 call group_detach_atom(g,a)
 
-! Update index if null count is above a fraction of array size.  
+! Update index if null count is above a fraction of the array size.  
 if ((g%amax-g%nat)>size(g%a)*g%aupd) then
   call igroup_update_index(g)
 else
@@ -1208,6 +1296,110 @@ enddo
 
 end subroutine
 
+subroutine pbchalfghost(rcut)
+! Create and destroy ghost for a pbc box.
+use gems_program_types, only: box, n1cells
+type(atom),pointer           :: o,og
+integer                      :: i,j,k
+type(atom_dclist),pointer    :: la
+real(dp),intent(in)          :: rcut
+integer                      :: reps(dm), pbc
+
+! Make local atoms pbc
+call do_pbc(sys)
+
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  o => la%o
+
+  ! Check pbc
+  pbc=count(o%pbc)
+
+  ! TODO: when rcut is grater than half box add more images
+  ! TODO: when rcut is less than half box, may have no sense to add/destroy
+  ! ghost atoms
+
+  ! Set ghost(1:3) at the box sides
+  if (pbc==0) cycle
+  do k=1,dm
+    if (o%pos(k)>.5*box(k)) then
+      reps(k)=-1
+    else
+      reps(k)=1
+    endif
+    og=>o%ghost(k)%o
+    og%boxcr(:)=0
+    og%boxcr(k)=reps(k)
+    og%pos(:)=o%pos(:)+box(:)*og%boxcr(:)
+    call ghost_switch(og,rcut)
+  enddo 
+      
+  ! Set ghosts(4:6) at the box edges
+  if (pbc==1) cycle
+  do j=1,dm-1
+    if (.not.o%pbc(j)) cycle
+    do k=j+1,dm
+      if(.not.o%pbc(k)) cycle
+      og=>o%ghost(j+k+1)%o
+      og%boxcr(:)=0
+      og%boxcr(j)=reps(j)
+      og%boxcr(k)=reps(k)
+      og%pos(:)=o%pos(:)+box(:)*og%boxcr(:)
+      call ghost_switch(og,rcut)
+    enddo 
+  enddo 
+  
+  ! Set ghosts(7) at the box korner
+  if (pbc==2) cycle
+  og=>o%ghost(7)%o
+  og%boxcr(:)=reps(:)
+  og%pos(:)=o%pos(:)+box(:)*og%boxcr(:)
+  call ghost_switch(og,rcut)
+
+enddo
+
+
+end subroutine
+     
+
+subroutine ghost_switch(og,rcut)
+use gems_program_types, only: box, n1cells
+type(atom),pointer      :: og, o
+class(group),pointer    :: g
+integer                 :: i
+real(dp)                :: rcut
+ 
+o=>og%prime
+
+! Check if ghost atoms is needed
+if (isghost(og%pos(:),rcut)) then
+
+  ! If ghost already activated, exit
+  if(og%ngr>0) return
+
+  ! Ensure ghosts are in the same groups than prime atom
+  ! FIXME: detach if ghost is in another group
+  do i=1,o%ngr
+    g => o%gr(i)%o
+    if(g%ghost) call g%attach(og)
+  enddo
+  call ghost%attach(og)
+            
+else
+
+  ! If ghost already deactivated, exit
+  if(og%ngr==0) return
+
+  do while (og%ngr/=0)
+    call og%gr(og%ngr)%o%detach(og)
+  enddo   
+
+end if
+
+end subroutine    
+                        
+
 subroutine pbcghost(rcut)
 ! Create and destroy ghost for a pbc box.
 use gems_program_types, only: box, n1cells
@@ -1269,7 +1461,7 @@ integer                    :: i
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  la%o%pbc = pbc
+  call atom_setpbc(la%o,pbc)
 enddo
 
 end subroutine set_pbc
@@ -1277,23 +1469,25 @@ end subroutine set_pbc
 subroutine do_pbc(g)
 use gems_program_types, only: box
 class(group),intent(inout)  :: g
-class(atom_dclist),pointer :: la
-integer                    :: i,k
+class(atom_dclist),pointer  :: la
+type(atom),pointer          :: o
+integer                     :: i,k
 
 la => g%alist
 do i = 1,g%nat
   la => la%next
+  o => la%o
 
   do k=1,dm
-    if (la%o%pbc(k)) then
-      if(la%o%pos(k)>=box(k)) then
-        la%o%pos(k)=la%o%pos(k)-box(k)
-        la%o%pos_old(k)=la%o%pos_old(k)-box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)+1
-      elseif(la%o%pos(k)<0.0_dp) then
-        la%o%pos(k)=la%o%pos(k)+box(k)
-        la%o%pos_old(k)=la%o%pos_old(k)+box(k)
-        la%o%boxcr(k)=la%o%boxcr(k)-1
+    if (o%pbc(k)) then
+      if(o%pos(k)>=box(k)) then
+        o%pos(k)=o%pos(k)-box(k)
+        o%pos_old(k)=o%pos_old(k)-box(k)
+        o%boxcr(k)=o%boxcr(k)+1
+      elseif(o%pos(k)<0.0_dp) then
+        o%pos(k)=o%pos(k)+box(k)
+        o%pos_old(k)=o%pos_old(k)+box(k)
+        o%boxcr(k)=o%boxcr(k)-1
       endif
     endif
   enddo

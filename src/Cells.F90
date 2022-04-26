@@ -290,6 +290,9 @@ ci(:)=int(a%pos(:)/g%cell(:))+1
 call werr('Particle out of tessellation',any(ci(:)<0))
 call werr('Particle out of tessellation',any(ci(:)>g%ncells(:)+1))
 
+! Silent mode return.
+if(errf) return 
+
 g%next(i) = g%head(ci(1),ci(2),ci(3))
 g%head(ci(1),ci(2),ci(3)) = i
 
