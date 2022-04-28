@@ -185,7 +185,12 @@ type, public :: group
   ! Basic inquires
   ! --------------
   procedure :: inq_insphere
+           
 
+  procedure :: write => group_write
+  generic :: write(formatted) => write
+  ! procedure :: write => group_write
+ 
 end type group
  
 ! An indexed group with atom pointers sorted in an array. A second index
@@ -229,7 +234,7 @@ type, extends(group), public :: igroup
   procedure :: attach_atom  => igroup_attach_atom
   procedure :: detach_atom  => igroup_detach_atom
   procedure :: update_index => igroup_update_index
-                                 
+                              
 end type igroup
 
 ! Array of Pointers to groups
@@ -724,7 +729,19 @@ call g%detach_all()
 deallocate(g%alist)  
 
 end subroutine group_destroy
+ 
+subroutine group_write(g, unit, iotype, v_list, iostat, iomsg)
+class(group),intent(in)   :: g
+integer,intent(in)         :: unit
+character(*),intent(in)    :: iotype
+integer,intent(in)         :: v_list(:)
+integer,intent(out)        :: iostat
+character(*),intent(inout) :: iomsg  
 
+write(unit,*) "PEPE"
+
+end subroutine
+ 
 ! Include atoms
 ! -------------
  

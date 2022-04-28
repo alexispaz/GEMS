@@ -322,7 +322,8 @@ subroutine ngroup_setlista(g)
 class(ngroup) :: g
 
 ! Update cells
-call g%b%tessellate()
+! FIXME:DSAFR: tessellate must be here
+! call g%b%tessellate()
 
 if(.not.g%autoswitch) return
 
@@ -469,7 +470,8 @@ rcut=rcut*rcut
 call g%clean
    
 ! Sort in cells
-call g%b%sort()
+! FIXME:DSAFR: sort must be here
+! call g%b%sort()
 
 !Bucle sobre los atomos de g
 la => g%ref%alist
@@ -564,6 +566,7 @@ do nabor=0,26
   j = g%b%head(nc(1),nc(2),nc(3))
   do while( j>0 )
     aj=>g%b%a(j)%o
+  if(.not.associated(aj)) print *, j
     k = aj%gid(g)
 
     ! Next here to allow cycle
@@ -665,7 +668,16 @@ else
   ! Needed to avoid atoms outside box when doing neighboor list (on interact)
   call do_pbc(sys)
 endif
-        
+
+! When detaching, cgroupsmust be sorted
+! FIXME:DSAFR: avoid sort here by avoiding
+! the need of a sorted b in cgroup_unsort_atom
+do i = 1, ngindex%size
+  ng => ngindex%o(i)%o
+  call ng%b%tessellate()
+  if(ng%b%tessellated) call ng%b%sort()
+enddo
+                
 do i = 1, ngindex%size
   ng => ngindex%o(i)%o
 

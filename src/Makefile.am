@@ -179,7 +179,7 @@ Pairs.o:      Algebra.o    Program_Types.o Neighbor.o Inq_Properties.o Set_Prope
 Fields.o:     Constants.o Algebra.o   Program_Types.o Neighbor.o   Output.o 
 TB.o:         Algebra.o Program_Types.o Neighbor.o Inq_Properties.o Set_Properties.o
 Graphs.o:     Constants.o Strings.o   Groups.o Input_Parsing.o     Neighbor.o 
-Calc.o:       Constants.o Strings.o   Groups.o Input_Parsing.o     Cells.o
+Calc.o:       Constants.o Strings.o   Groups.o Input_Parsing.o     Cells.o  
 ForceField.o: Constants.o Algebra.o   Input_Parsing.o Program_Types.o    Output.o
 BO.o:         Algebra.o    Program_Types.o Neighbor.o    Inq_Properties.o Set_Properties.o
 
@@ -193,10 +193,10 @@ Checkpoint.o:  Groups.o    Input_Parsing.o    Program_Types.o   Output.o   Integ
 NEB.o:         Constants.o Algebra.o Errors.o    Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o  Interaction.o Integration.o    
 
 MPI.o:        Constants.o Strings.o
-CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbor.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o Calc.o
+CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbor.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o Calc.o 
 Hyperdinamics.o: Bias.o Integration.o  Quasi_Newton.o  Programs.o  Set_Properties.o     Inq_Properties.o     Program_Types.o	  
 Metadynamics.o:  Interaction.o Integration.o  Programs.o   Inq_Properties.o     Program_Types.o	  
-Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbor.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o 
+Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbor.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o  
         
 if COMPILER_IS_IFORT
   

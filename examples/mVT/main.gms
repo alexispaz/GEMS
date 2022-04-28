@@ -63,6 +63,11 @@ outfile :f1 each 100
 # outfile :f2 name Pos.$jobname$.xyz
 # outfile :f2 pos 1
 # outfile :f2 each 100
+
+calc :x widom  20 30 1. 100
+outfile :f3 name Calc.$jobname$.dat
+outfile :f3 calc
+outfile :f3 each 100
  
 > all
 set tempgdist 300  

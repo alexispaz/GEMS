@@ -388,11 +388,19 @@ if prompt mVT; then
 
   rm -f Energy.main.dat
   time exe main.gms
+
+  echo "... gcmc "
   paste ref/Energy.main.dat Energy.main.dat \
     | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
            {a+=($1-$5)^2;b+=$1}
            END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
-            
+                 
+  echo "... widom "
+  paste ref/Calc.main.dat Calc.main.dat \
+    | awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+           {a+=($1-$2)^2;b+=$1}
+           END{if(abs(a/b)<1e-6){printf "'$pass'\n"}else{printf "'$fail'\n"}}'
+                 
   cd ..
 fi
            

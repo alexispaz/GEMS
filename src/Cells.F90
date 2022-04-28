@@ -170,7 +170,7 @@ if(g%update) then
 endif
  
 end subroutine cgroup_detach_atom
-
+                 
 ! Set properties
 ! ==============
 
@@ -303,6 +303,7 @@ subroutine cgroup_unsort_atom(g,i)
 class(cgroup),intent(inout)  :: g
 integer                      :: i,j,k,ci(dm)
 type(atom),pointer           :: a
+logical                      :: removed
 
 a => g%a(i)%o
   
@@ -323,8 +324,10 @@ if(any(ci(:)>g%ncells(:))) then
 endif
 
 ! Remove i from its cell
+removed=.false.
 if(g%head(ci(1),ci(2),ci(3))==i) then
   g%head(ci(1),ci(2),ci(3))=g%next(i)
+  removed=.true.
 else
 
   j = g%head(ci(1),ci(2),ci(3))
@@ -333,6 +336,7 @@ else
     k = g%next(j)
     if (k==i) then
       g%next(j)=g%next(i)
+      removed=.true.
       exit
     endif
     j = k
@@ -340,6 +344,7 @@ else
   enddo
 
 endif
+call werr('Unsort cgroup particle fail',.not.removed)
 
 end subroutine cgroup_unsort_atom
  

@@ -237,7 +237,7 @@ case('set')
 case('interact')
   call interacciones()
 case('calc') ! 
-  call calc_cli()
+  call calc_cli(gsel)
 case('getin') ! 
   call get_commands()
 case('group')
@@ -688,7 +688,7 @@ endif
 call ig%cli(ig)
 
 ! First time here, force pbcfullghost
-call update()  
+call test_update()  
        
 end subroutine interacciones
 
@@ -1828,6 +1828,7 @@ use gems_forcefield, only: write_ebend, write_estretch, write_etors
 use gems_interaction
 use gems_neb
 use gems_graphs
+use gems_calc, only: write_calc
 use gems_variables,only: polvar_link
 use gems_metadynamics, only: write_cvs,write_E_1D
 use gems_fields, only: write_halfsho
@@ -2055,6 +2056,7 @@ case default
   !xyz
   select case(w1)
   case('pos'        ); of%w => write_pos
+  case('calc'       ); of%w => write_calc    ; b1=.false.  
   case('graph'      ); of%w => write_graph
   case('free_en_1d' ); of%w => write_E_1D
   case('poscr'      ); of%w => write_poscr

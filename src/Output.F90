@@ -540,7 +540,7 @@ do i = 1,of_vop%size
   if(of%enable(j)) call of%w()
 
 enddo
-
+                
 endsubroutine
 
 subroutine write_out_int(j,n)
@@ -920,7 +920,7 @@ enddo
 if(of%flush) call flush(of%un)
 
 end subroutine
-
+             
 subroutine write_poscr(of)
 class(outfile)            :: of
 type(atom_dclist),pointer :: la

@@ -1520,7 +1520,7 @@ adj: do i=1,nadj
     ! Metropolis acceptance
     if(n/(v*act)>ranu()) then
                   
-      ! Sort particle
+      ! Choose a particle
       m=floor(ranu()*n)+1
       if(m>n) m=n
 
@@ -1536,7 +1536,7 @@ adj: do i=1,nadj
         m=m-1  
         if(m==0) exit
       enddo
-      call werr('Particle sorted does not exists',m>0)
+      call werr('Chosen particle does not exists',m>0)
               
       ! Remove particle
       n=n-1
