@@ -184,11 +184,10 @@ enddo
 end subroutine create_reply
 
 subroutine create_file(archivo,ext,gout,frame)
-use gems_elements,only:ncsym
 ! read atoms from file
 class(group),intent(inout)          :: gout
 integer                            :: i,j,u,io
-character(ncsym)                   :: sym
+character(10)                      :: sym
 character(3),intent(in)            :: ext
 character(*),intent(in)            :: archivo
 character(80)                      :: pdbword

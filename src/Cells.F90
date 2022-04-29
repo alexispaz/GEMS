@@ -79,11 +79,7 @@ type, extends(igroup), public :: cgroup
 
   procedure :: sort => cgroup_sort, cgroup_sort_atom
   procedure :: unsort => cgroup_unsort_atom
- 
-  ! Basic inquires
-  ! --------------
-  procedure :: inq_insphere
-               
+             
 end type
 
 
@@ -198,11 +194,10 @@ if(g%tessellated) then
   endif
 endif
 
-g%tessellated = .false.
-
 ! If not a box defined, do not use linked cells
 if(.not.boxed) then
   call wlog('NHB','Not using linked cells since box is not defined.',g%b_out)
+  g%b_out=.false.
   return
 endif
 !TODO: else...
@@ -218,6 +213,7 @@ endif
 ! If rcut not defined, do not use linked cells
 if(g%rcut==1.e10_dp) then
   call wlog('NHB','Not using linked cells since interaction does not have rcut.',g%b_out)
+  g%b_out=.false.
   return
 endif
 
@@ -230,10 +226,9 @@ if(all(g%ncells(:)<4)) then
     call wlog('NHB','Not using linked cells since it would involve less than 4 cells.')
     call wlog('NHB'); write(logunit,fmt="(a,f10.5)") ' -total cut radious: ', g%rcut
   endif
+  g%b_out=.false.
   return
 endif
-
-g%tessellated = .true.
 
 ! Cell size
 g%ncell = g%ncells(1)*g%ncells(2)*g%ncells(3)
@@ -257,6 +252,8 @@ if(g%b_out) then
   call wlog('NHB'); write(logunit,fmt="(a,"//cdm//"(i3,2x))") ' cell numbers: ', g%ncells(1:dm)
   g%b_out=.false.
 end if
+
+g%tessellated = .true.
 
 end subroutine cgroup_tessellate
 
@@ -435,59 +432,5 @@ r(:)=r(:)+1
 end function icell2vcell
 
 #endif
-
-! Basic inquires
-! ==============
-
-function inq_insphere(g,ctr,rad2)  result(over)
-! Check whether the position of any atom of g lies within a spherical region in space.
-use gems_program_types, only: distance
-class(cgroup),intent(in)    :: g
-real(dp), intent(in)        :: ctr(dm), rad2
-logical                     :: over
-type(atom_dclist), pointer  :: la
-type(atom), pointer         :: o
-real(dp)                    :: idist,interatomic,first
-integer                     :: i,j,k,nc(dm),nabor
-real(dp)                    :: vd(dm), rd, rc(dm)
-
-! If there is no tessellation, use parent procedure
-if(.not.g%tessellated) then
-  over=g%group%inq_insphere(ctr,rad2)
-  return
-endif
-
-! Get cell index
-rc(:)=int(ctr(:)/g%cell(:))+1
-
-! Check overlap
-over=.true.
-do nabor=0,26
-  nc(:)=map(:,nabor)+rc(:)
-
-  ! Check if cells should be considered and apply PBC
-  if(.not.cell_pbc(g,nc,mic)) cycle
-
-  !Bucle sobre los atomos de la celda vecina
-  j = g%head(nc(1),nc(2),nc(3))
-  do while( j>0 )
-    o=>g%a(j)%o
-    k = o%gid(g)
-
-    ! Next here to allow cycle
-    j = g%next(j)
-
-    vd(:) = distance(o%pos,ctr,o%pbc)
-    rd = dot_product(vd,vd)
-
-    if (rd<g%rcut2) return
-
-  enddo
-
-enddo
-          
-over=.false.
-
-end function 
 
 end module gems_cells

@@ -42,7 +42,6 @@ module gems_output
  use gems_tables
  use gems_input_parsing
  use gems_ddda
- use gems_elements, only: ncsym,csym
 
 implicit none
 
@@ -144,7 +143,6 @@ logical,public        :: chpmode=.false.
 
 integer              :: fstart=1,fend=1e8,fstep=1, npoints
 ! character(1)         :: tips
-character(ncsym)      :: symbol
 logical              :: read_error
 real(dp)             :: long
 integer              :: contador
@@ -638,7 +636,7 @@ la => g%alist
 do i = 1,g%nat
   la => la%next
   f(1:dm)=la%o%pos(1:dm)
-  write(u,'(a'//csym//',3(e13.5),2x,i2)') la%o%sym,f(:),la%o%molid
+  write(u,'(a,3(2x,e13.5),2x,i2)') la%o%sym,f(:),la%o%molid
 enddo
 close(u)
 
@@ -912,9 +910,9 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   !call group_inq_cmpos(of%g)
-  !write(un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
+  !write(un,'(a,2x,3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
   f(1:dm)=la%o%pos(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -937,7 +935,7 @@ do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%pos(1:dm)
   g(1:dm)=la%o%boxcr(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12),(3(2x,i0)))') la%o%sym,f(:),g(:)
+  write(of%un,'(a,2x,3(2x,e25.12),(3(2x,i0)))') la%o%sym,f(:),g(:)
 enddo
  
 if(of%flush) call flush(of%un)
@@ -963,7 +961,7 @@ do i=1,of%g%nat
     lb => lb%next
 
     rd=rdistance2(la%o,lb%o)
-    if(rd<100.0_dp) write(of%un,'(2(a'//csym//',1x),e25.12)')  la%o%sym,lb%o%sym,sqrt(rd)
+    if(rd<100.0_dp) write(of%un,'(2(a,1x),e25.12)')  la%o%sym,lb%o%sym,sqrt(rd)
 
   enddo
 enddo
@@ -988,7 +986,7 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%force(1:dm)*ui_kcm
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1011,7 +1009,7 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%vel(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1050,7 +1048,7 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%pos(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:),la%o%epot*ui_ev
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:),la%o%epot*ui_ev
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1066,7 +1064,7 @@ integer                     :: i
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',2x,e25.12)') la%o%sym,la%o%q
+  write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%q
 enddo                   
 write(of%un,*)
 
@@ -1087,7 +1085,7 @@ call inq_bondorder(of%g,r1,r2)
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',2x,e25.12)') la%o%sym,la%o%border
+  write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%border
 enddo                   
 write(of%un,*)
 
@@ -1113,7 +1111,7 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%vel_rot(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1138,7 +1136,7 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   f(1:dm)=la%o%vel_vib(1:dm)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,f(:)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)

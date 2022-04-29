@@ -814,7 +814,7 @@ subroutine read_prm(prmfile)
   type(boundgr_l),pointer   :: ln,lp
   type(input_options), target   :: iopts
   character(:),allocatable :: clase,w1,w2,w3,w4
-  character(ncsym)         :: zx(4)
+  character(10)            :: zx(4)
   real(dp)                 :: f1,f2
   integer                  :: ix(4),u,i1,i2,i
 

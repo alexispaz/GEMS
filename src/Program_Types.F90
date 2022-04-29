@@ -19,7 +19,7 @@
 module gems_program_types
 ! TODO: Module dedicated to BOX only
 use gems_constants,only:sp,dp,dm,find_io
-use gems_elements,only:elements,ncsym,element,inq_z
+use gems_elements,only:elements,element,inq_z
 
 implicit none
 save
@@ -79,7 +79,6 @@ contains
 ! ===
            
 subroutine box_setvars()
-use gems_input_parsing
 
 boxed=.true.
 

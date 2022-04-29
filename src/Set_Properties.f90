@@ -269,12 +269,11 @@ end subroutine set_scal_vel
 
 subroutine set_vel_from_file(g,archivo,frame)
 ! read atoms from file
-use gems_elements,only:ncsym
 integer                     :: i,j,u
 character(*),intent(in)     :: archivo
 class(group)                 :: g
 class(atom_dclist),pointer  :: la
-character(ncsym)            :: sym
+character(10),allocatable   :: sym
 integer,intent(in)          :: frame
 character(3)                :: ext
 
@@ -758,13 +757,12 @@ end subroutine set_cg_pos
 
 subroutine set_pos_from_file(g,archivo,frame)
 ! read atoms from file
-use gems_elements,only:ncsym
 integer                     :: i,j,u
 character(*),intent(in)     :: archivo
 class(group)                 :: g
 class(atom_dclist),pointer  :: la
 integer,intent(in)          :: frame
-character(ncsym)            :: sym
+character(10)               :: sym
 character(3)                :: ext
 
 i=len(trim(adjustl(archivo)))

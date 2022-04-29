@@ -1559,11 +1559,10 @@ end subroutine
 
 subroutine from_openfile_a(it)
 ! read atoms from file
-use gems_elements, only: ncsym
 class(integrate)             :: it
 integer                    :: i,j,io
 type(atom_dclist),pointer  :: la
-character(ncsym)           :: sym
+character(10)              :: sym
 real(dp)                   :: acel_dx,acel_dv
 
 acel_dv = dt*0.5_dp

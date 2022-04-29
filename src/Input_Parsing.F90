@@ -1112,7 +1112,7 @@ end select
 end subroutine readb_vector
  
 subroutine readelement(i)
-use gems_elements, only: inq_z, ncsym
+use gems_elements, only: inq_z
 ! Lee un elemento atomico desde su nombre o numero atomico (i.e. 'he' or 2 ) y
 ! devuelve su numero atomico.  basicamente es la readi pero no se enoja si no es
 ! un entero.

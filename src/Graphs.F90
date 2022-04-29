@@ -495,7 +495,6 @@ end subroutine graph_adj_block
 subroutine write_graph(of)
 use gems_output, only: outfile
 use gems_groups, only: atom_dclist, atom
-use gems_elements, only: csym
 class(outfile)       :: of
 type(atom),pointer   :: o
 type(atom_dclist),pointer :: la
@@ -510,7 +509,7 @@ la => gr%alist
 do i = 1,gr%nat
   la => la%next
   o => la%o
-  write(of%un,'(a'//csym//',3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),gr%label(i)
+  write(of%un,'(a,3(2x,e25.12),x,i0)') o%sym,(o%pos(j),j=1,dm),gr%label(i)
 enddo
 
 if(of%flush) call flush(of%un)

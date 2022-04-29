@@ -19,8 +19,7 @@
 module gems_groups
 use gems_errors, only:werr
 use gems_constants,only:sp,dp,dm,find_io
-use gems_elements,only:elements,ncsym,element,inq_z
-use gems_algebra,only:integer_v
+use gems_elements,only:elements,element,inq_z
 
 implicit none
 private
@@ -292,13 +291,13 @@ type, public :: atom
 
   ! Propiedades que defino afuera de e para que se mas rapidamente accedida
   ! (en general la 1/masa esta en los cuellos de botella de los algoritmos)
-  integer           :: z=119 ! The generic element
-  real(dp)          :: mass=1.0_dp,one_mass=1.0_dp,one_sqrt_mass=1.0_dp
-  real(dp)          :: q=0.0_dp  ! Carga
-  real(dp)          :: s=1.0_dp  ! sigma
-  real(dp)          :: e=0.0_dp  ! epsilon
-  character(ncsym)  :: sym
-  integer           :: sp=0      ! Hybridization
+  integer                  :: z=119 ! The generic element
+  real(dp)                 :: mass=1.0_dp,one_mass=1.0_dp,one_sqrt_mass=1.0_dp
+  real(dp)                 :: q=0.0_dp  ! Carga
+  real(dp)                 :: s=1.0_dp  ! sigma
+  real(dp)                 :: e=0.0_dp  ! epsilon
+  character(:),allocatable :: sym
+  integer                  :: sp=0      ! Hybridization
 
   ! Constrain. Si bconst=true el atomo tiene un constrain. Se colapsa la
   ! fuerza en direccion al vector vconst si lconst=T o se borra la componente
