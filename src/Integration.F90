@@ -1457,8 +1457,11 @@ adj: do i=1,nadj
   call werr('No more particles',.not.associated(ref))
 
   ! Creation attempt
- if (ranu()<0.5) then
-       
+  if (ranu()<0.5) then
+    
+    ! Metropolis acceptance
+    if(act*v/(n+1)<ranu()) cycle
+
     ! Random coordinates
     r(1)=ranu()*box(1)
     r(2)=ranu()*box(2)
@@ -1482,68 +1485,61 @@ adj: do i=1,nadj
 
     enddo
 
-    ! Metropolis acceptance
-    if(act*v/(n+1)>ranu()) then
-   
-      ! Add particle
-      n=n+1
+    ! Add particle
+    n=n+1
 
-      ! Initialize particle from template.
-      allocate(o)
-      call o%init()
-      call atom_asign(o,ref)
-      o%pos(:)=r(:)
-       
-      ! Give a velocity from maxwell-boltzman distribution
-      ! TODO: Remove CM of added particles.
-      do j = 1,dm
-        call rang(dr)
-        la%o%vel(j) = beta*dr
-      enddo
+    ! Initialize particle from template.
+    allocate(o)
+    call o%init()
+    call atom_asign(o,ref)
+    o%pos(:)=r(:)
+     
+    ! Give a velocity from maxwell-boltzman distribution
+    ! TODO: Remove CM of added particles.
+    do j = 1,dm
+      call rang(dr)
+      la%o%vel(j) = beta*dr
+    enddo
 
-      ! Add to the same groups of the template.
-      do j=1,ref%ngr
-        call ref%gr(j)%o%attach(o)
-      enddo
+    ! Add to the same groups of the template.
+    do j=1,ref%ngr
+      call ref%gr(j)%o%attach(o)
+    enddo
 
-      ! Create ghost images
-      if(useghost) call ghost_from_atom(o,maxrcut)
-             
-      ! Free pointer
-      o=>null()
+    ! Create ghost images
+    if(useghost) call ghost_from_atom(o,maxrcut)
            
-    endif
+    ! Free pointer
+    o=>null()
 
   ! Destruction attempt
   else 
             
     ! Metropolis acceptance
-    if(n/(v*act)>ranu()) then
-                  
-      ! Choose a particle
-      m=floor(ranu()*n)+1
-      if(m>n) m=n
+    if(n/(v*act)<ranu()) cycle
+                
+    ! Choose a particle
+    m=floor(ranu()*n)+1
+    if(m>n) m=n
 
-      la=>g%alist
-      do j=1,g%nat
-        la=>la%next
-        o => la%o
+    la=>g%alist
+    do j=1,g%nat
+      la=>la%next
+      o => la%o
 
-        ! Skip particles outside the control volume.
-        if(o%pos(3)<z1) cycle
-        if(o%pos(3)>z2) cycle
+      ! Skip particles outside the control volume.
+      if(o%pos(3)<z1) cycle
+      if(o%pos(3)>z2) cycle
 
-        m=m-1  
-        if(m==0) exit
-      enddo
-      call werr('Chosen particle does not exists',m>0)
-              
-      ! Remove particle
-      n=n-1
-      call o%dest()
-      deallocate(o)
-         
-    endif
+      m=m-1  
+      if(m==0) exit
+    enddo
+    call werr('Chosen particle does not exists',m>0)
+            
+    ! Remove particle
+    n=n-1
+    call o%dest()
+    deallocate(o)
            
   endif 
    
