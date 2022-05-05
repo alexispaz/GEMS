@@ -113,21 +113,20 @@ allocate(g%band(g%pad))
 allocate(g%eband(g%pad))
 end subroutine smatb_construct
 
-subroutine smatb_attach(g,a)
+subroutine smatb_attach(g,a,l_)
 class(smatb),target        :: g
 class(atom),target         :: a
 type(atom_dclist),pointer  :: la
 real(dp), allocatable      :: t_band(:), t_eband(:)
 integer                    :: n,k  
+integer,intent(out),optional :: l_
+integer                      :: l
 
-! Save current atom number
-n=g%nat
- 
 ! Attempt to attach
-call g%ngroup_attach_atom(a)
-
-! Return if atom was already in the group
-if(n==g%nat) return
+call g%ngroup_attach_atom(a,l)
+if(present(l_)) l_=l
+if(l==0) return
+                                
                                   
 ! Search new internal atom types
 k=a%z

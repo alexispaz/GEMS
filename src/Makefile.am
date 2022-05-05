@@ -159,7 +159,7 @@ Elements.o: Constants.o Strings.o Errors.o
 
 Input_Parsing.o: Constants.o Elements.o Algebra.o 
 Program_Types.o: Constants.o Errors.o Elements.o
-Groups.o:        Constants.o Elements.o Errors.o Program_Types.o
+Groups.o:        Constants.o Elements.o Errors.o Program_Types.o Algebra.o 
 Variables.o:     Constants.o Strings.o Errors.o Groups.o 
 Cells.o:         Constants.o Algebra.o Program_Types.o Variables.o
 Neighbor.o:      Constants.o Algebra.o Program_Types.o Variables.o Cells.o

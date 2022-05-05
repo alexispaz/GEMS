@@ -1419,7 +1419,7 @@ use gems_neighbor, only: ngindex,ngroup,maxrcut
 use gems_random, only: ranu,rang
 use gems_constants, only: dm, kB_ui
 class(integrate)           :: g
-class(ngroup),pointer      :: ng
+class(group),pointer       :: gp
 real(dp)                   :: z1,z2,act 
 real(dp)                   :: r(3), vd(3), dr, v, rc, temp, beta
 type(atom_dclist), pointer :: la
@@ -1503,7 +1503,8 @@ adj: do i=1,nadj
 
     ! Add to the same groups of the template.
     do j=1,ref%ngr
-      call ref%gr(j)%o%attach(o)
+      gp => ref%gro(j)
+      call gp%attach(o)
     enddo
 
     ! Create ghost images

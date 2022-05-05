@@ -274,12 +274,15 @@ type, public :: atom
   ! The number of the groups that holds the atom
   integer                :: ngr=0
               
-  ! Pointers to the groups that holds the atom
-  type(group_ap),allocatable :: gr(:)
+  ! IDs (i.e. index in `gindex) of the groups that contain the atom.
+  integer,allocatable    :: gr(:)
 
-  ! The atom id for each igroup (regular groups has a 0)
+  ! The atom ID for each igroup class it belongs (0 for regular groups)
   integer,allocatable    :: id(:)
-
+  
+  ! Ghost
+  ! -----
+       
   ! If the atom is a ghost, prime point to the real image
   type(atom),pointer     :: prime=>null()
 
@@ -369,6 +372,7 @@ type, public :: atom
   procedure :: delgr => atom_delgr
   procedure :: gid => atom_id
   procedure :: gri => atom_gri
+  procedure :: gro => atom_gro
   procedure :: try_dest => atom_destroy_attempt
 
 end type atom
@@ -478,16 +482,18 @@ enddo
 end subroutine atom_setpbc
     
 subroutine atom_destroy(a)
-class(atom)         :: a
-type(atom),pointer  :: og
-integer             :: i
+class(atom)           :: a
+type(atom),pointer    :: og
+class(group),pointer  :: g
+integer               :: i
 
 ! Detach the atom from all the groups using a LIFO scheme. Since some
 ! attach/deatach precedures may depend on other atom memberships, remeber
 ! to build these group dependencies considering the present LIFO
 ! destruction.
 do while (a%ngr/=0)
-  call a%gr(a%ngr)%o%detach(a)
+  g => a%gro(a%ngr)
+  call g%detach(a)
 enddo
 deallocate(a%gr,a%id)
  
@@ -502,7 +508,8 @@ if(.not.allocated(a%ghost)) return
 do i=1,7  
   og=>a%ghost(i)%o
   do while (og%ngr/=0)
-    call og%gr(og%ngr)%o%detach(og)
+    g => og%gro(og%ngr)
+    call g%detach(og)
   enddo
   deallocate(a%ghost(i)%o)
 enddo
@@ -561,68 +568,97 @@ end subroutine atom_asign
 ! group membership
 ! ----------------
  
-subroutine atom_addgr(a,g)
-! Register group uid into internal atom records  
-class(atom)                :: a
-class(group),target        :: g
-type(group_ap),allocatable :: t_gr(:)
-integer,allocatable        :: t_id(:)
-integer                    :: n  
+subroutine atom_addgr(a,g,l,found)
+! Register group ID into internal atom gr(:) array.
+! Return the index l where a%gr(l)=g%id.
+use gems_algebra, only: binleft
+class(atom)                  :: a
+class(group),target          :: g
+integer,intent(out)          :: l
+logical,intent(out)          :: found
+integer,allocatable          :: t_id(:),t_gr(:)
+integer                      :: n,i
+
+! Exit if group is already added
+call binleft(a%gr(:a%ngr),g%id,l,found)
+if(found) return
 
 n=a%ngr
-
-if(n<size(a%gr)) then
-  a%ngr=n+1 
-  a%gr(n+1)%o=>g
-  a%id(n+1)=0
-  return
+if(n==size(a%gr)) then
+  allocate(t_gr(n+5))
+  allocate(t_id(n+5))
+  t_id(1:n) = a%id(1:n)
+  t_gr(1:n) = a%gr(1:n)
+  call move_alloc(to=a%id,from=t_id)
+  call move_alloc(to=a%gr,from=t_gr)
+  a%id(n+1) = 0
+  a%gr(n+1) = g%id
 endif
 
-a%ngr=n+1
+! Append
+! r=a%ngr+1 
 
-allocate(t_gr(n+5))
-allocate(t_id(n+5))
-t_id(1:n) = a%id(1:n)
-t_gr(1:n) = a%gr(1:n)
-call move_alloc(to=a%id,from=t_id)
-call move_alloc(to=a%gr,from=t_gr)
-a%id(n+1) = 0
-a%gr(n+1)%o => g
- 
+! Sorted insertion
+l=l+1
+do i=a%ngr,l,-1
+  a%gr(i+1)=a%gr(i)
+  a%id(i+1)=a%id(i)
+enddo
+
+! Insert
+a%gr(l)=g%id
+a%id(l)=0
+a%ngr=a%ngr+1 
+
 end subroutine atom_addgr
 
-subroutine atom_delgr(a,g)
+subroutine atom_delgr(a,g,found)
 ! Unregister group from atom records
+use gems_algebra, only: binleft
 class(atom)         :: a
 class(group)        :: g
 integer             :: i,j
+logical,intent(out) :: found
 
-j=0
-do i=1,a%ngr
-  if (j/=0) then
-    a%gr(i-j)%o=>a%gr(i)%o
-    a%id(i-j)=a%id(i)
-  endif
-  if (a%gr(i)%o%id==g%id) j=j+1
+! j=findloc(a%gr(:a%ngr),g%id,1)
+call binleft(a%gr(:a%ngr),g%id,j,found)
+if(.not.found) return  
+
+a%ngr=a%ngr-1
+do i=j,a%ngr
+  a%gr(i)=a%gr(i+1)
+  a%id(i)=a%id(i+1)
 enddo
-a%ngr=a%ngr-j
- 
+
 end subroutine atom_delgr
  
 function atom_gri(a,g) result(i)
 ! Return  0 if atom do not belong to g
 !         i as the index of a%gr vector associated with g
+use gems_algebra, only: binleft
 class(atom)         :: a
 class(group),target :: g
-integer             :: i,id
+integer             :: i
+logical             :: found
 
-do i =1,a%ngr
-  if(associated(a%gr(i)%o,target=g)) return
-enddo  
-i=0
+! Exit if group is already added
+call binleft(a%gr(:a%ngr),g%id,i,found)
+if(.not.found) i=0
+                                
+! Linear search  
+! i=findloc(a%gr(1:a%ngr),g%id,1)
 
 end function atom_gri
  
+function atom_gro(a,i) result(g)
+class(atom)          :: a
+class(group),pointer :: g
+integer,intent(in)   :: i
+g=>null()
+call werr('Atom does not belong to that group',i>a%ngr)
+g=>gindex%o(a%gr(i))%o
+end function atom_gro
+  
 function atom_id(a,g) result(i)
 ! Return -1 if atom do not belong to this group (given by uid)
 !        0  if atom do not have an id for this group
@@ -744,21 +780,28 @@ end subroutine
 ! Include atoms
 ! -------------
  
-subroutine group_attach_atom(g,a)
-! Add a `soft atom`, i.e. a new link to atom a
-class(group),target   :: g
-class(atom),target    :: a
+subroutine group_attach_atom(g,a,l_)
+! Attach atom `a` to group `g`.
+! Optional: return index l where a%gr(l)=g%id. 
+class(group),target          :: g
+class(atom),target           :: a
+logical                      :: found
+integer,intent(out),optional :: l_
+integer                      :: l
 
-! Skip if `a` is already in `g`
-if(a%gri(g)/=0) return
-
+! Add group to atom or skip if is already there
+call a%addgr(g,l,found)
+if(found) then
+  if(present(l_)) l_=0
+  return
+else
+  if(present(l_)) l_=l
+endif
+ 
 ! Add atom to group `alist`
 call g%alist%add_before()
 call g%alist%prev%point(a)
 g%nat = g%nat + 1 ! numero de particulas
-
-! Add group id to atom `gr` 
-call a%addgr(g)
 
 ! propiedades basicas para modificar
 g%mass = g%mass + a % mass ! masa
@@ -800,14 +843,12 @@ class(group)               :: g
 class(atom), pointer       :: a
 type(atom_dclist), pointer :: la, prev
 integer                    :: n
+logical                    :: found
 
 ! Delete group from atom register
 a=>la%o
-n=a%ngr
-call a%delgr(g)
-
-! Return if atom was not in group  
-if(a%ngr==n) return  
+call a%delgr(g,found)
+if(.not.found) return  
                   
 ! Delete group id from atom `gr` list
 prev=>la%prev
@@ -1110,24 +1151,25 @@ g%b_limbo=.false.
 ! Update index might be done here.
 
 end subroutine igroup_clean
-                
+
 ! Include atoms
 ! -------------
 
-subroutine igroup_attach_atom(g,a)
-class(igroup),target :: g
-class(atom),target   :: a
-type(atom_ap),allocatable  :: t_a(:)
-integer                    :: n, m
-
-! Save current atom number
-n=g%nat
+subroutine igroup_attach_atom(g,a,l_)
+! Attach atom `a` to igroup `g`.
+! Optional: return l where a%gr(l) is the group ID and a%id(l) is the atom ID
+! in g.
+class(igroup),target         :: g
+class(atom),target           :: a
+type(atom_ap),allocatable    :: t_a(:)
+integer                      :: n, m
+integer,intent(out),optional :: l_
+integer                      :: l
 
 ! Attempt to attach
-call g%group_attach_atom(a)
-
-! Return if atom was already in the group
-if(n==g%nat) return
+call g%group_attach_atom(a,l)
+if(present(l_)) l_=l
+if(l==0) return
 
 ! Reallocate if needed
 n=size(g%a)
@@ -1152,7 +1194,8 @@ endif
  
 ! Set atom index
 g%a(n)%o=>a
-a%id(a%ngr)=n
+! a%id(a%gri(g))=n
+a%id(l)=n
 
 end subroutine igroup_attach_atom
            
@@ -1259,7 +1302,7 @@ o%boxcr(:)=r(:)
 
 ! Add ghost to the image ngroups
 do j=1,o2%ngr
-  g => o2%gr(j)%o
+  g => o2%gro(j)
   if(g%ghost) call g%attach(o)
 enddo
 
@@ -1402,7 +1445,7 @@ if (isghost(og%pos(:),rcut)) then
   ! Ensure ghosts are in the same groups than prime atom
   ! FIXME: detach if ghost is in another group
   do i=1,o%ngr
-    g => o%gr(i)%o
+    g => o%gro(i)
     if(g%ghost) call g%attach(og)
   enddo
   call ghost%attach(og)
@@ -1413,7 +1456,8 @@ else
   if(og%ngr==0) return
 
   do while (og%ngr/=0)
-    call og%gr(og%ngr)%o%detach(og)
+    g => og%gro(og%ngr)
+    call g%detach(og)
   enddo   
 
 end if

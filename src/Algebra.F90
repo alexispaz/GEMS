@@ -590,8 +590,8 @@ end function
 
   end function
 
-!                                         triangular matrix
-!----------------------------------------------------------
+! triangular matrix
+!------------------
 
    function st_wd_index(i,j,n)
    ! Indice de una matriz simetrica triangular con diagonal
@@ -618,8 +618,8 @@ end function
 
    end function
 
-!                                                deteminant
-!----------------------------------------------------------
+! deteminant
+!-----------
 
   function det_3x3(a)
     real(dp)                :: det_3x3
@@ -629,10 +629,8 @@ end function
     det_3x3=det_3x3 + a(1,3) *( a(2,1)*a(3,2) - a(3,1)*a(2,2) )
   end function
 
-
-
-!                                                      ax=b
-!----------------------------------------------------------
+! ax=b
+!-----
 
   function cramers_3x3(a,b)
     real(dp)                :: cramers_3x3(3),deta
@@ -645,12 +643,12 @@ end function
 
 ! Se puede usar gaussj del numerical recipes
 
-!                                        tridiagonal matrix
-!----------------------------------------------------------
+! tridiagonal matrix
+!-------------------
 
 
-!                                     lineal transformation
-!----------------------------------------------------------
+! lineal transformation
+!----------------------
 
   function ortogonal(v) result(vrot)
    ! Me da un vector ortogonal a v. Estilo Gram-Schmidt
@@ -742,7 +740,7 @@ end function
   end function rotmatrix_2x2
 
 ! Coordenadas polares
-!----------------------------------------------------------
+!--------------------
 
   subroutine xyz_polares(r)
    ! devuelve las coordenadas cartesianas dado las polares
@@ -762,8 +760,8 @@ end function
 
 
 
-!                        found eigenvalue ande eigenvectors
-!----------------------------------------------------------
+! found eigenvalue ande eigenvectors
+!-----------------------------------
 
 recursive subroutine qsortc(a)
   ! recursive fortran 95 quicksort routine
@@ -861,35 +859,80 @@ subroutine partition_integer(a, marker)
 end subroutine partition_integer
 
 
-!                                                     trash
-!----------------------------------------------------------
+! Arrays
+!=======
 
-!subroutine clusters_points()
-!nn = 0
-!zmax = 0.0_dp
-!zmin = 1.d8
-!xmax = 0.0_dp
-!xmin = 1.d8
-!ymax = 0.0_dp
-!ymin = 1.d8
-!red = 1.d8
-!xcent = 0.0_dp
-!ycent = 0.0_dp
-!zcent = 0.0_dp
-!
-!do i=1,natoms
-!  if (atoms(i)%pos(1).gt.xmax) xmax= atoms(i)%pos(1)
-!  if (atoms(i)%pos(1).lt.xmin) xmin = atoms(i)%pos(1)
-!  if (atoms(i)%pos(2).gt.ymax) ymax= atoms(i)%pos(2)
-!  if (atoms(i)%pos(2).lt.ymin) ymin = atoms(i)%pos(2)
-!  if (atoms(i)%pos(3).gt.zmax) zmax= atoms(i)%pos(3)
-!  if (atoms(i)%pos(3).lt.zmin) zmin = atoms(i)%pos(3)
-!  do j=i,natoms
-!    dist = distance(atoms(i),atoms(j))
-!    if (dist.lt.red.and.dist.ne.0.0_dp) red = dist
-!  enddo
-!enddo
-!
-!100 format(a2,2x,3(f20.12,2x))
-!end subroutine 
+! Binary search
+! -------------
+
+subroutine binleft(a,val,m,found)
+! Find the index m where a(m)<=val<a(m+1) using a binary search.
+! The function return true if a(m)=val and false otherwise.
+! a(:) must be sorted.
+integer,intent(in)  :: a(:),val
+integer             :: r,l,j
+integer,intent(out) :: m
+logical,intent(out) :: found
+
+! Left and right bounds
+l=lbound(a,1)-1
+r=ubound(a,1)+1
+
+! Shrink bounds
+do while (r>l+1)
+  m=(r+l)/2
+  j=a(m)
+  
+  if(val==j) then
+    found=.true.
+    return
+  endif
+
+  if(val>j) then
+    l=m
+  else
+    r=m
+  endif
+enddo  
+
+! Worst case
+if(r<=size(a)) then
+  if(a(r)==val) then
+    m=r
+    found=.true.
+    return
+  endif
+endif
+
+! Not found
+found=.false.
+m=l 
+
+end subroutine binleft
+  
+! Linear search
+! -------------
+  
+function linsearch(a,val) result(m)
+! Find the index m where a(m)==val using a linear search.
+! Return 0 if val is not found in a(:).
+! a(:) must be sorted.
+integer,intent(in)  :: a(:),val
+integer             :: m,r,l,j
+
+! Search
+do m=1,size(a)
+  j=a(m)
+  if(val>=j) exit
+enddo  
+
+! Check success
+if(val==j) return
+
+! Not found
+m=0
+end function linsearch
+ 
+
+ 
 end module gems_algebra

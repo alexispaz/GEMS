@@ -123,20 +123,18 @@ contains
 ! #define _CLASS type(cv)
 ! #include "vector_body.inc"
   
-subroutine cv_attach(g,a)
+subroutine cv_attach(g,a,l_)
 class(cv),target     :: g
 class(atom),target   :: a
 integer              :: n, m
-
-! Save current atom number
-n=g%nat
+integer,intent(out),optional :: l_
+integer                      :: l
 
 ! Attempt to attach
-call g%igroup_attach_atom(a)
-
-! Return if atom was already in the group
-if(n==g%nat) return
-                                 
+call g%igroup_attach_atom(a,l)
+if(present(l_)) l_=l
+if(l==0) return
+                                
 ! Reallocate if needed
 if(allocated(g%j)) then
   if(g%nat<size(g%j,2)) return
@@ -150,7 +148,7 @@ allocate(g%j(m,n,dm))
 allocate(g%t(m))
 allocate(g%tf(m))
 allocate(g%z(m)) 
-
+ 
 end subroutine cv_attach
             
 !   
