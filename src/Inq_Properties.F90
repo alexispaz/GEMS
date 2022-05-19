@@ -101,33 +101,6 @@ res=sqrt(res)
     
 end function inq_mayordistance
 
-subroutine inq_pos_v(g,v)
-! calcula las coordenadas referidas al punto v
-class(group)               :: g
-type(atom_dclist),pointer :: la
-integer                   :: i
-real(dp)                  :: v(dm)
-
-la => g%alist%next
-do i = 1,g%nat
-  la%o%pos_v = la%o%pos - v
-  la => la%next
-enddo
-end subroutine inq_pos_v
-
-subroutine inq_vel_v(g,v)
-! calcula las coordenadas referidas al punto v
-class(group)               :: g
-type(atom_dclist),pointer :: la
-real(dp)                  :: v(dm)
-integer                   :: i
-la => g%alist%next
-do i = 1,g%nat
-  la%o%vel_v = la%o%vel - v
-  la => la%next
-enddo
-end subroutine inq_vel_v
-
 function vrs(i,j) result(vd)
 !devuelve un versor que va del atomo i al j
 real(dp),dimension(dm)  :: vd
@@ -331,23 +304,23 @@ g%b_ekin=.true.
 end subroutine inq_abskin_energy
     
 subroutine inq_kin_energy(g)
-class(group)         :: g
-type(atom_dclist),pointer   :: la
-integer              :: i
+class(group)               :: g
+type(atom_dclist),pointer  :: la
+integer                    :: i
+real(dp)                   :: v(3)
 
 if(g%b_ekin) return
 
 g%ekin = 0.0_dp
 
-
 ! Prerequisitos
 call inq_cm_vel(g)
-call inq_vel_v(g,g%cm_vel)
 
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  g%ekin = g%ekin + dot_product(la%o%vel_v,la%o%vel_v)*la%o%mass
+  v(:)=la%o%vel(:)-g%cm_vel(:)
+  g%ekin = g%ekin + dot_product(v,v)*la%o%mass
 enddo
 
 g%ekin = g%ekin*0.5_dp
@@ -638,22 +611,7 @@ g%cg_pos = g%cg_pos/g%nat
 
 g%b_cg_pos=.true.
 end subroutine
-           
-subroutine inq_refers_cg(g)
-class(group)                 :: g
-type(atom_dclist),pointer   :: la
-integer                     :: i
-
-! Prerequisitos
-call inq_cg(g)
-
-la => g%alist%next
-do i = 1,g%nat
-  la%o%pos_v = la%o%pos - g%cg_pos
-  la => la%next
-enddo
-end subroutine inq_refers_cg
-           
+          
 subroutine inq_boundingbox(g)
 class(group)                 :: g
 
@@ -815,23 +773,26 @@ end subroutine
 
 subroutine inq_angular_mom(g)
 use gems_algebra, only:cross_product
-class(group)               :: g
+class(group)              :: g
 type(atom_dclist),pointer :: la
 integer                   :: i
+real(dp),dimension(3)     :: r,v
 
 if(g%b_ang_mom) return
 
 ! Prerequisitos
 call group_inq_cmpos(g)
 call inq_cm_vel(g)
-call inq_pos_v(g,g%cm_pos)
-call inq_vel_v(g,g%cm_vel)
 
 g%ang_mom = 0.0_dp
-la => g%alist%next
+la => g%alist
 do i = 1,g%nat
-  g%ang_mom = g%ang_mom + cross_product(la%o%pos_v,la%o%vel_v)*la%o%mass
   la => la%next
+
+  r(:) = la%o%pos(:)-g%cm_pos(:)
+  v(:) = la%o%vel(:)-g%cm_vel(:)
+
+  g%ang_mom = g%ang_mom + cross_product(r,v)*la%o%mass
 enddo
 
 g%b_ang_mom = .true.
@@ -867,7 +828,7 @@ subroutine inq_angular_energy(g)
 class(group)               :: g
 type(atom_dclist),pointer :: la
 integer                   :: i
-real(dp)                  :: aux(3)
+real(dp),dimension(3)     :: r,v,vrot,vvib
 
 if(g%b_evib.and.g%b_erot) return
 
@@ -875,22 +836,24 @@ if(g%b_evib.and.g%b_erot) return
 call inq_angular_vel(g)
 call group_inq_cmpos(g)
 call inq_cm_vel(g)
-call inq_pos_v(g,g%cm_pos)
-call inq_vel_v(g,g%cm_vel)
 
 g%erot = 0.0_dp
 g%evib = 0.0_dp
-la => g%alist%next
+
+la => g%alist
 do i = 1,g%nat
-  aux = cross_product(g%ang_vel,la%o%pos_v)
-  la%o%vel_rot = aux(1:dm)
-  la%o%vel_vib = la%o%vel_v-la%o%vel_rot
-  la%o%erot_ss = dot_product(la%o%vel_rot,la%o%vel_rot)*la%o%mass
-  la%o%evib_ss = dot_product(la%o%vel_vib,la%o%vel_vib)*la%o%mass
-  g%evib = g%evib + la%o%evib_ss
-  g%erot = g%erot + la%o%erot_ss
   la => la%next
+
+  r(:) = la%o%pos(:)-g%cm_pos(:)
+  v(:) = la%o%vel(:)-g%cm_vel(:)
+
+  vrot = cross_product(g%ang_vel,r)
+  vvib(:) = v(:)-vrot(:)
+
+  g%evib = g%evib + dot_product(vrot,vrot)*la%o%mass 
+  g%erot = g%erot + dot_product(vvib,vvib)*la%o%mass 
 enddo
+
 g%evib = g%evib*0.5_dp
 g%erot = g%erot*0.5_dp
 
@@ -1090,46 +1053,6 @@ enddo
 
 end function inq_pdisrad
 
-!                                              configuration
-!----------------------------------------------------------
-
-subroutine inq_max_change(g,nsteps,temp)
-class(group)         :: g
-integer,intent(in)  :: nsteps
-real(dp),intent(in) :: temp
-integer             :: i
-real(dp)            :: fact
-type(atom_dclist),pointer :: la
-
-! Esto tiene sentido en una simulación canonica
-! Sabiendo que para una particula:
-!   __     ____
-!   Ec=m_i*v**2/2=3kT/2
-!
-! Podemos escribir que
-!   _____
-!   dx**2=dm*k*T*dt**2/m
-!
-! El maximo lo encontramos si el atomo en cada paso de
-! dinamica es desplazada hacia la misma dirección:
-!   ____
-!   dx**2=dm*k*T*(dt*nsteps)**2/m
-!
-! Dado que la masa esta dividiendo esto es una propiedad intrinseca de cada
-! atomo y no del grupo (aunque depende de la temepratura de este)..... salvo
-! que el grupo sea de un elemento puro, con lo cual se puede definir un
-! desplaciamiento maximo en general.
-
-fact = dm*kB_ui*temp*dt*nsteps*dt*nsteps
-
-la => g%alist%next
-do i = 1,g%nat
-  la%o % maxdisp2 = fact*la%o%one_mass
-  la => la%next
-enddo
-
-end subroutine inq_max_change
-
 !                                                   select
 !----------------------------------------------------------
 
@@ -1142,21 +1065,23 @@ class(group),intent(in)     :: g
 real(dp)                   :: rd,rad,ctr(dm)
 type (atom_dclist),pointer :: la
 integer                    :: i
+real(dp),dimension(3)      :: r
 
 at=>null()
 
-call inq_pos_v(g,ctr)
-
 rad = 1.0e-8_dp
 
-la => g%alist%next
+la => g%alist
 do i = 1,g%nat
-  rd = dot_product(la%o % pos_v,la%o % pos_v)
-  if (rd > rad ) then
-    rad=rd
-    at=>la%o
-  endif
   la => la%next
+
+  r(:) = la%o%pos(:)-ctr(:)
+  rd = dot_product(r,r)
+
+  if (rd>rad) cycle
+
+  rad=rd
+  at=>la%o
 enddo
 
 end function inq_far

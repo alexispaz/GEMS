@@ -229,9 +229,6 @@ case('prng')
 ! otros comandos
 case('prueba')
   call write_state()
-case('constrain')
-  call readl(w1)
-  call constrain_commands(w1)
 case('set')
   call set_commands()
 case('interact')
@@ -926,37 +923,6 @@ call sys%attach(gsel)
 
 endsubroutine create_commands
 
-subroutine constrain_commands(w)
-integer                    :: i
-character(*)               :: w
-type (atom_dclist),pointer :: la
-logical                    :: lconst=.false.
-real(dp)                   :: aux
-
-
-selectcase(w)
-case('axis') 
-  lconst=.true.
-case('plane') 
-  lconst=.false.
-endselect
-
-call readf(fv)
-aux=dot_product(fv,fv) 
-fv=fv/sqrt(aux)
-
-la => gsel%alist
-do i = 1,gsel%nat
-  la=>la%next
-  if(.not.allocated(la%o%pconst)) allocate(la%o%pconst(dm))
-  la%o%pconst=la%o%pos
-  la%o%vconst=fv
-  la%o%bconst=.true.
-  la%o%lconst=lconst
-enddo 
-
-endsubroutine constrain_commands
-
 subroutine unselect_commands(g)
 class(group)               :: g
 type(group)                :: aux
@@ -1335,7 +1301,7 @@ i2=print_commands()
 if (i2>1) then
   do i =1, i2
 
-    w1=.ich.i
+    w1=str(i)
     vari=var//'['//w1//']'
     w1='_ans['//w1//']'
 
@@ -2063,7 +2029,6 @@ case default
   case('hd_fpp'     ); of%w => write_fpp     ; b1=.false.  
   case('vel'        ); of%w => write_vel
   case('vel_rot'    ); of%w => write_vel_rot
-  case('vel_vib'    ); of%w => write_vel_vib
   case('fce'        ); of%w => write_fce
   case('pes'        ); of%w => write_pes
   case('pose'       ); of%w => write_pose

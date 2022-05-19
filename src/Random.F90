@@ -143,22 +143,22 @@ subroutine lcg_init()
 end subroutine
                         
 function lcg_ranu()
-  real(dp)               :: lcg_ranu
-  integer, parameter     :: ia=16807,im=2147483647,iq=127773,ir=2836
-  real(dp), parameter    :: am=nearest(1.0,-1.0)/real(im,dp)
-  integer(k4b)           :: k
-  if (idum <= 0 .or. iy < 0) then
-    iy=ior(ieor(888889999,abs(idum)),1)
-    ix=ieor(777755555,abs(idum))
-    idum=abs(idum)+1
-  end if
-  ix=ieor(ix,ishft(ix,13))
-  ix=ieor(ix,ishft(ix,-17))
-  ix=ieor(ix,ishft(ix,5))
-  k=iy/iq
-  iy=ia*(iy-k*iq)-ir*k
-  if (iy < 0) iy=iy+im
-  lcg_ranu=am*ior(iand(im,ieor(ix,iy)),1)  
+real(dp)               :: lcg_ranu
+integer, parameter     :: ia=16807,im=2147483647,iq=127773,ir=2836
+real(dp), parameter    :: am=nearest(1.0,-1.0)/real(im,dp)
+integer(k4b)           :: k
+if (idum <= 0 .or. iy < 0) then
+  iy=ior(ieor(888889999,abs(idum)),1)
+  ix=ieor(777755555,abs(idum))
+  idum=abs(idum)+1
+end if
+ix=ieor(ix,ishft(ix,13))
+ix=ieor(ix,ishft(ix,-17))
+ix=ieor(ix,ishft(ix,5))
+k=iy/iq
+iy=ia*(iy-k*iq)-ir*k
+if (iy < 0) iy=iy+im
+lcg_ranu=am*ior(iand(im,ieor(ix,iy)),1)  
 end function
 
 subroutine lcg_init_ran(lseed)

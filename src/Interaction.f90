@@ -77,18 +77,6 @@ class(ngroup), pointer         :: g
 class(atom),pointer            :: ap
 type(atom_dclist),pointer :: la
   
-! hard constrain
-!do i = 1,natoms
-!  if (.not.a(i)%o%bconst) cycle
-!  rd=dot(a(i)%o%pos-a(i)%o%pconst,a(i)%o%vconst)
-!  if(rd<1.d-12) cycle
-!  if (a(i)%o%lconst) then
-!    a(i)%o%pos=a(i)%o%pconst+rd
-!  else
-!    a(i)%o%pos=a(i)%o%pos-rd
-!  endif 
-!enddo 
-          
 call test_update()
   
 bias = 0._dp
@@ -130,29 +118,6 @@ enddo
 if (b_out) call write_out(2,dm_steps)
 
 if(present(pot)) pot=tepot
-
-! Soft constrain
-la=>sys%alist
-do i = 1,sys%nat
-  la=>la%next
-  ap=>la%o
-  if (.not.ap%bconst) cycle
-  if (ap%lconst) then
-    aux=dot(ap%force,ap%vconst)
-    ap%force = ap%vconst*aux
-    aux=dot(ap%acel,ap%vconst)
-    ap%acel  = ap%vconst*aux
-    aux=dot(ap%vel,ap%vconst)
-    ap%vel   = ap%vconst*aux
-  else
-    aux=dot(ap%force,ap%vconst)
-    ap%force = ap%force-aux
-    aux=dot(ap%acel,ap%vconst)
-    ap%acel  = ap%acel-aux
-    aux=dot(ap%vel,ap%vconst)
-    ap%vel   = ap%vel-aux
-  endif
-enddo
 
 ! Agroup the forces in the head
 do i=1,ncvs

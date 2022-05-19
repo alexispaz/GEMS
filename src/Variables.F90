@@ -156,7 +156,7 @@ endif
 end subroutine polvar_ev_save
 
 ! subroutine polvar_write(p, unit, iotype, v_list, iostat, iomsg)
-! use gems_strings, only: operator(.ich.)
+! use gems_strings, only: str
 ! class(polvar),intent(in)   :: p
 ! integer,intent(in)         :: unit,v_list(:)
 ! integer,intent(out)        :: iostat
@@ -183,7 +183,7 @@ end subroutine polvar_ev_save
 ! end subroutine
 
 subroutine polvar_get(pv,w)
-use gems_strings, only: operator(.ich.)
+use gems_strings, only: str
 ! Set a polvar with the value given as a character
 type(polvar),pointer                  :: pv
 character(:),allocatable,intent(out)  :: w
@@ -193,10 +193,10 @@ call werr('Internal error',.not.associated(pv%val))
 
 select type(v=>pv%val)
 type is (integer)
-  w=.ich.v
+  w=str(v)
 type is (real(dp))
   ! Note that v can't be an array
-  w=.ich.v
+  w=str(v,'(f10.6)')
   w=trim(adjustl(w))  
 type is (character(*))
   w=v

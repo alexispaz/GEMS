@@ -65,40 +65,12 @@ integer                    :: i
 la => g%alist%next
 do i = 1,g%nat
   la%o%mass = f
-
-  if(la%o%mass==0._dp) then
-    la%o%one_mass = 0._dp
-    la%o%one_sqrt_mass = 0._dp
-  else
-    la%o%one_mass = 1.0_dp/la%o%mass
-    la%o%one_sqrt_mass = sqrt(la%o%one_mass)
-  endif
-
   la => la%next
 enddo
 
 call gindex_all_changed()
 
 end subroutine set_mass
-
-subroutine set_molid(g,id)
-class(group)               :: g
-class(atom_dclist),pointer :: la
-integer,intent(in)        :: id
-integer                   :: i
-
-la => g%alist%next
-do i = 1,g%nat
-  !if(la%o%molid/=0) then
-  !  werr 'un atomo en mas de una molecula?'
-  !endif
-  ! FIXME: Pero si aplico dos topoligas distintas a una molecula eso no es
-  ! cierto
-  la%o%molid=id
-  la%o%amolid=i
-  la => la%next
-enddo
-end subroutine set_molid
 
 subroutine set_sigma(g,s)
 class(group)                :: g
@@ -219,7 +191,7 @@ factor = kB_ui*newtemp!/(g%nat*dm)*(dm*g%nat)-drm)
 la => g%alist%next
 do i = 1,g%nat
   !take the sqrt of the average square velocity
-  vel_med = sqrt(factor* la%o%one_mass)
+  vel_med = sqrt(factor/la%o%mass)
   do j = 1,dm
     call rang(r1)
     la%o%vel(j) = vel_med*r1+g%cm_vel(j)
@@ -339,26 +311,26 @@ subroutine rotate_axis_ref(g,tita,p,v)
 ! [1,2]=z; [1,3]=y; etc..
 real(dp)   ,intent(in)     :: tita
 integer    ,intent(in)     :: p(2)
-class(group),intent(in)     :: g
-real(dp)                   :: c,s,aux(2),t,v(dm)
+class(group),intent(in)    :: g
+real(dp)                   :: c,s,t,v(dm)
+real(dp)                   :: r(dm)
 integer                    :: i
-class(atom_dclist),pointer  :: la
+class(atom_dclist),pointer :: la
 
 ! supongo tita en grados
-call inq_pos_v(g,v)
-
 t=tita*pi/180.0_dp
 
 c=cos(t)
 s=sin(t)
 
-la => g%alist%next
+la => g%alist
 do i = 1,g%nat
-  aux(1) = c*(la%o%pos_v(p(1))) + s*(la%o%pos_v(p(2)))
-  aux(2) = c*(la%o%pos_v(p(2))) - s*(la%o%pos_v(p(1)))
-  la%o%pos(p(1)) = aux(1)+v(p(1))
-  la%o%pos(p(2)) = aux(2)+v(p(2))
   la => la%next
+
+  r(:)=la%o%pos(:)-v(:)
+
+  la%o%pos(p(1)) = v(p(1)) + c*r(p(1)) + s*r(p(2)) 
+  la%o%pos(p(2)) = v(p(2)) + c*r(p(2)) - s*r(p(1)) 
 enddo
 
 call gindex_pos_changed()
@@ -385,25 +357,25 @@ end subroutine rotate_axis_ref
 
   end subroutine rotate_rodrigues
 
-  subroutine rotate(g,matrix,center)
-   ! rotacion usando una matriz dada y un centro
-   class(group),intent(in)     :: g
-   real(dp),intent(in)        :: center(dm)
-   real(dp)                   :: matrix(dm,dm)
-   integer                    :: i
-   class(atom_dclist),pointer  :: la
+subroutine rotate(g,matrix,ctr)
+! rotacion usando una matriz dada y un centro
+class(group),intent(in)     :: g
+real(dp),intent(in)         :: ctr(dm)
+real(dp)                    :: matrix(dm,dm)
+integer                     :: i
+real(dp)                    :: r(dm)
+class(atom_dclist),pointer  :: la
 
-    call inq_pos_v(g,center)
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  r(:)=la%o%pos(:)-ctr(:)
+  la%o%pos = matmul(matrix,r)+ctr
+enddo
 
-    la => g%alist
-    do i = 1,g%nat
-      la => la%next
-      la%o%pos = matmul(matrix,la%o%pos_v)+center
-    enddo
+call gindex_pos_changed()
 
-    call gindex_pos_changed()
-
-  end subroutine rotate
+end subroutine rotate
 
   subroutine givens_rotation(g,tita,p)
    real(dp)   ,intent(in)     :: tita
@@ -626,21 +598,18 @@ call expand(g,r,g%cm_pos)
 
 end subroutine
 
-subroutine expand(g,r,v)
-real(dp)                   :: v(dm),r(dm)
-class(group)                :: g
-class(atom_dclist),pointer  :: la
-integer                    :: i,j
+subroutine expand(g,fac,ctr)
+real(dp)                   :: fac(dm),ctr(dm)
+class(group)               :: g
+class(atom_dclist),pointer :: la
+integer                    :: i
+real(dp)                   :: r(dm)
 
-call inq_pos_v(g,v)
-
-la => g%alist%next
+la => g%alist
 do i = 1,g%nat
-  do j = 1,dm
-    la % o % pos_v(j) = la % o % pos_v(j) * r(j)
-  enddo
-  la%o%pos = la%o%pos_v + v
   la => la%next
+  r(:)=(la%o%pos(:)-ctr(:))
+  la%o%pos = r(:) * fac(:) + ctr(:)
 enddo
 
 call gindex_pos_changed()

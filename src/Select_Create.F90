@@ -40,7 +40,6 @@ public :: select_far
 public :: select_band
 public :: select_rectangle
 public :: select_element
-public :: select_molid
 public :: select_below
 public :: select_above
 public :: select_bond_order_range
@@ -448,14 +447,16 @@ class(group),intent(inout)  :: gout
 real(dp)                   :: rd,rad,ctr(dm)
 type (atom_dclist),pointer :: la
 integer                    :: i
-
-call inq_pos_v(gini,ctr)
+real(dp),dimension(3)      :: r
 
 rad = rad*rad
 
 la => gini%alist%next
 do i = 1,gini%nat
-  rd = dot_product(la%o % pos_v,la%o % pos_v)
+
+  r(:) = la%o%pos(:)-ctr(:)
+  rd = dot_product(r,r)
+
   if (rd < rad ) call gout%attach(la%o)
   la => la%next
 enddo
@@ -470,8 +471,7 @@ class(group),intent(inout)  :: gout
 real(dp)                   :: rd,rad,ctr(dm),axis(dm),aux(dm)
 type (atom_dclist),pointer :: la
 integer                    :: i
-
-call inq_pos_v(gini,ctr)
+real(dp),dimension(3)      :: r
 
 rd=sqrt(dot_product(axis,axis))
 axis=axis/rd
@@ -480,7 +480,10 @@ rad = rad*rad
 
 la => gini%alist%next
 do i = 1,gini%nat
-  aux = la%o%pos_v-dot_product(la%o % pos_v,axis)*axis
+
+  r(:) = la%o%pos(:)-ctr(:)
+
+  aux = r-dot_product(r,axis)*axis
   rd=dot_product(aux,aux)
   if (rd < rad ) call gout%attach(la%o)
   la => la%next
@@ -495,19 +498,22 @@ class(group),intent(inout)  :: gout
 real(dp)                   :: rd,rad,ctr(dm)
 type (atom_dclist),pointer :: la
 integer                    :: i,j=0
-
-call inq_pos_v(gini,ctr)
+real(dp),dimension(3)      :: r
 
 rad = 1.0e8_dp
 
-la => gini%alist%next
+la => gini%alist
 do i = 1,gini%nat
-  rd = dot_product(la%o % pos_v,la%o % pos_v)
-  if (rd < rad ) then
-    rad=rd
-    j=i
-  endif
   la => la%next
+
+  r(:) = la%o%pos(:)-ctr(:)
+  rd = dot_product(r,r)
+
+  if (rd>rad) cycle
+
+  rad=rd
+  j=i
+  
 enddo
 if (j == 0) return
 
@@ -595,22 +601,6 @@ do i = 1,gini%nat
 enddo
 
 end subroutine select_element
-
-subroutine select_molid(id,gini,gout)
-class(group),intent(in)     :: gini
-class(group),intent(inout)  :: gout
-type (atom_dclist),pointer :: la
-integer                    :: i,id
-
-la => gini%alist%next
-do i = 1,sys%nat
-  if (id == la%o%molid ) then
-    call gout%attach(la%o)
-  endif
-  la => la%next
-enddo
-
-end subroutine select_molid
 
 subroutine select_below(p1,p2,p3,gini,gout)
 ! Selecciona un semiplano despues de dividir el espacio con un plano.  

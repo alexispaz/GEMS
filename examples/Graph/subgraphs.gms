@@ -40,6 +40,9 @@ interact :gr 1 graph subgraphs 3.
 
 outfile :f1 name Graph.$jobname$.dat
 outfile :f1 graph 1
-
+ 
+outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 pos 1
+ 
 out state
 

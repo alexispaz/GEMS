@@ -272,7 +272,7 @@ do while( associated(ln%next) )
 
   call ln%o%w
 
-  fm='('//trim(.ich.ln%o%n)//'(x,e'//trim(prf)//'))'
+  fm='('//trim(str(ln%o%n))//'(x,e'//trim(prf)//'))'
 
   write(of%un,fmt=fm,advance='no') ln%o%f(:)
   ln%o%f(:)=0.0_dp
@@ -313,7 +313,7 @@ of%n=0
 ln => of%p
 do while( associated(ln%next) )
   ln => ln%next
-  fm='('//trim(.ich.ln%o%n)//'(x,e'//trim(prf)//'))'
+  fm='('//trim(str(ln%o%n))//'(x,e'//trim(prf)//'))'
 
   write(of%un,fmt=fm,advance='no') ln%o%f
   ln%o%f(:)=0.0_dp
@@ -636,7 +636,7 @@ la => g%alist
 do i = 1,g%nat
   la => la%next
   f(1:dm)=la%o%pos(1:dm)
-  write(u,'(a,3(2x,e13.5),2x,i2)') la%o%sym,f(:),la%o%molid
+  write(u,'(a,3(2x,e13.5),2x,i2)') la%o%sym,f(:)
 enddo
 close(u)
 
@@ -1096,36 +1096,9 @@ end subroutine
 subroutine write_vel_rot(of)
 use gems_program_types
 class(outfile)     :: of
-type(atom_dclist),pointer   :: la
-integer                     :: i
-real(dp)                    :: f(3)
-
-f(:)=0._dp 
- 
-call inq_angular_energy(of%g) 
-
-write(of%un,*) of%g%nat
-write(of%un,*) time
-
-la => of%g%alist
-do i=1,of%g%nat
-  la => la%next
-  f(1:dm)=la%o%vel_rot(1:dm)
-  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
-enddo
-
-if(of%flush) call flush(of%un)
-
-end subroutine
-
-subroutine write_vel_vib(of)
-use gems_program_types
-class(outfile)     :: of
-type(atom_dclist),pointer   :: la
-integer                     :: i
-real(dp)                    :: f(3)
-
-f(:)=0._dp 
+type(atom_dclist),pointer  :: la
+integer                    :: i
+real(dp),dimension(3)     :: r,v,vrot,vvib
 
 call inq_angular_energy(of%g) 
 
@@ -1135,8 +1108,14 @@ write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  f(1:dm)=la%o%vel_vib(1:dm)
-  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
+  
+  r(:) = la%o%pos(:)-of%g%cm_pos(:)
+  v(:) = la%o%vel(:)-of%g%cm_vel(:)
+
+  vrot = cross_product(of%g%ang_vel,r)
+  vvib(:) = v(:)-vrot(:)
+
+  write(of%un,'(a,2x,6(2x,e25.12))') la%o%sym,vrot,vvib
 enddo
 
 if(of%flush) call flush(of%un)

@@ -49,7 +49,7 @@ use gems_input_parsing, only:readl,getf,geti
 use gems_neighbor, only:ngroup
 use gems_constants, only:linewidth
 use gems_errors, only:werr, wstd
-use gems_strings, only: operator(.ich.)
+use gems_strings, only: str
 use gems_variables, only: polvars
 class(group),intent(in)           :: gsel
 class(group),pointer              :: g=>null()
@@ -64,7 +64,7 @@ if(label(1:1)==':') then
   call readl(key)
 else  
   key=label
-  label=':c'//.ich.(cindex%size+1)
+  label=':c'//str((cindex%size+1))
   call wstd('New calc label is '//label)
 endif
 
@@ -186,7 +186,7 @@ g%mu=n/v*g%nadj/m
 end subroutine widom_calc
   
 subroutine widom_write(g, unit, iotype, v_list, iostat, iomsg)
-use gems_strings, only: operator(.ich.)
+use gems_strings, only: str
 class(widom),intent(in)    :: g
 integer,intent(in)         :: unit,v_list(:)
 integer,intent(out)        :: iostat
@@ -200,7 +200,7 @@ select case(size(v_list))
 case(0) ! default
   wfmt = '(e25.12)'
 case(2)
-  wfmt = '(e'//.ich.v_list(1)//'.'//.ich.v_list(2)//')'
+  wfmt = '(e'//str(v_list(1))//'.'//str(v_list(2))//')'
 case default
   iostat = 1
   iomsg = 'wrong number of format descriptors'

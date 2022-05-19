@@ -392,11 +392,11 @@ do i = 1,it%nat
   la => la%next
   do k=1,dd
     call rang(r1)
-    la%o%acel(k) = la%o%force(k) * la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%vel(k) = la%o%vel(k) &
              + 0.5_dp*dt*la%o%acel(k)                    &
-             -0.5_dp*dt*pgama0*la%o%one_mass*la%o%vel(k) &
-             + la%o%one_mass*fac0*r1
+             -0.5_dp*dt*pgama0/la%o%mass*la%o%vel(k) &
+             + fac0*r1/la%o%mass
   enddo
 enddo
 
@@ -480,11 +480,11 @@ do i = 1,it%nat
   la => la%next
   do k=1,dd
     call rang(r1)
-    la%o%acel(k) = la%o%force(k) * la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%vel(k) = la%o%vel(k) &
              + 0.5_dp*dt*la%o%acel(k)                     &
-             - 0.5_dp*dt*pgama0*la%o%one_mass*la%o%vel(k) &
-             + la%o%one_mass*fac0*r1
+             - 0.5_dp*dt*pgama0/la%o%mass*la%o%vel(k) &
+             + fac0*r1/la%o%mass
   enddo          
 enddo
 
@@ -590,15 +590,15 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
+  b0=1._dp/(1._dp+facg0/la%o%mass)
       
   do k=1,dd
 
     ! Tiro el random number n+1
     call rang(r1)
-    la%o%pos_v(k) = la%o%one_mass*fac0*r1
+    la%o%pos_v(k) = fac0*r1/la%o%mass
                 
-    la%o%acel(k) = la%o%force(k)*la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%pos(k) = box(k)/box_old(k)*la%o%pos(k) &
              + 2._dp*box(k)/(box_old(k)+box(k))*b0*dt*( la%o%vel(k)+0.5_dp*dt*la%o%acel(k)+0.5_dp*la%o%pos_v(k) ) 
   enddo
@@ -644,14 +644,14 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
-  a0=(1._dp-facg0*la%o%one_mass)*b0
+  b0=1._dp/(1._dp+facg0/la%o%mass)
+  a0=(1._dp-facg0/la%o%mass)*b0
  
   do k = 1, dd
     la%o%vel(k) = a0*la%o%vel(k) &
-                + 0.5_dp*dt*(a0*la%o%acel(k)+la%o%one_mass*la%o%force(k))&
+                + 0.5_dp*dt*(a0*la%o%acel(k)+la%o%force(k)/la%o%mass)&
                 + b0*la%o%pos_v(k) 
-    la%o%acel(k) = la%o%force(k)*la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
   enddo          
 enddo
                
@@ -767,13 +767,13 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
+  b0=1._dp/(1._dp+facg0/la%o%mass)
       
   ! Tiro el random number n+1
   call rang(r1)
-  la%o%pos_v(dd) = la%o%one_mass*fac0*r1
+  la%o%pos_v(dd) = fac0*r1/la%o%mass
               
-  la%o%acel(dd) = la%o%force(dd)*la%o%one_mass
+  la%o%acel(dd) = la%o%force(dd)/la%o%mass
   la%o%pos(dd) = box(dd)/box_old*la%o%pos(dd) &
            + 2._dp*box(dd)/(box_old+box(dd))*b0*dt*( la%o%vel(dd)+0.5_dp*dt*la%o%acel(dd)+0.5_dp*la%o%pos_v(dd) ) 
 enddo
@@ -821,13 +821,13 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
-  a0=(1._dp-facg0*la%o%one_mass)*b0
+  b0=1._dp/(1._dp+facg0/la%o%mass)
+  a0=(1._dp-facg0/la%o%mass)*b0
  
   la%o%vel(dd) = a0*la%o%vel(dd) &
-              + 0.5_dp*dt*(a0*la%o%acel(dd)+la%o%one_mass*la%o%force(dd))&
+              + 0.5_dp*dt*(a0*la%o%acel(dd)+la%o%force(dd)/la%o%mass)&
               + b0*la%o%pos_v(dd) 
-  la%o%acel(dd) = la%o%force(dd)*la%o%one_mass
+  la%o%acel(dd) = la%o%force(dd)/la%o%mass
  
 enddo
                
@@ -874,7 +874,7 @@ do i = 1,it%nat
 
     call rang(r1)
     posold = la%o%pos(j)
-    la%o%pos(j) = posold + la%o%one_mass*fac1*la%o%force(j) + la%o%one_sqrt_mass*r1*fac2
+    la%o%pos(j) = posold + fac1*la%o%force(j)/la%o%mass + r1*fac2/sqrt(la%o%mass)
 
     ! Me parece que esta velocidad esta mal definida,
     ! ya que depende de gamma, y por ende la temperatura....
@@ -977,7 +977,7 @@ do i = 1,it%nat
   ! Realizo la parte estocastica con las varianzas adecuadas
   ! ranr la almaceno en a%pos_v y ranv en a%pos_v, esto es porque
   ! quiero mantener la correlacion entre las dos
-  f_lan = skt*la%o%one_sqrt_mass
+  f_lan = skt/sqrt(la%o%mass)
   do j = 1, dd
     call rang(r1,r2)
     la%o%pos_v(j) = f_lan*sdr*r1
@@ -1011,8 +1011,8 @@ cc2=it%p%o(3)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%vel (1:dd) = cc0*la%o%vel(1:dd) + (cc1-cc2)*la%o%acel(1:dd) + cc2*la%o%force(1:dd)* la%o%one_mass + la%o%vel_v(1:dd)
-  la%o%acel(1:dd) = la%o%force(1:dd)* la%o%one_mass
+  la%o%vel (1:dd) = cc0*la%o%vel(1:dd) + (cc1-cc2)*la%o%acel(1:dd) + cc2*la%o%force(1:dd)/la%o%mass + la%o%vel_v(1:dd)
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
 enddo
 
 end subroutine
@@ -1050,7 +1050,7 @@ do i = 1,it%nat
   ! Realizo la parte estocastica con las varianzas adecuadas
   ! ranr la almaceno en a%pos_v y ranv en a%pos_v, esto es porque
   ! quiero mantener la correlacion entre las dos
-  f_lan = skt*la%o%one_sqrt_mass
+  f_lan = skt/sqrt(la%o%mass)
   call rang(r1,r2)
   la%o%pos_v(x) = f_lan*sdr*r1
   la%o%vel_v(x) = f_lan*sdv*(crv1*r1+crv2*r2)
@@ -1085,8 +1085,8 @@ x=it%i%o(1)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%vel (x) = cc0*la%o%vel(x) + (cc1-cc2)*la%o%acel(x) + cc2*la%o%force(x)* la%o%one_mass + la%o%vel_v(x)
-  la%o%acel(x) = la%o%force(x)* la%o%one_mass
+  la%o%vel (x) = cc0*la%o%vel(x) + (cc1-cc2)*la%o%acel(x) + cc2*la%o%force(x)/la%o%mass + la%o%vel_v(x)
+  la%o%acel(x) = la%o%force(x)/la%o%mass
 enddo
 
 end subroutine
@@ -1146,7 +1146,7 @@ la => it%alist
 do  i = 1, it%nat
   la => la%next
   ! Ojo al sacar la siguiente linea (depende el neb de ella)
-  la%o%acel(1:dd) = la%o%force(1:dd) * la%o%one_mass
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
   la%o%pos (1:dd) = la%o%pos(1:dd) + dt*la%o%vel(1:dd) + acel_dx*la%o%acel(1:dd)
   la%o%vel (1:dd) = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd) 
 enddo
@@ -1164,7 +1164,7 @@ acel_dv = dt*0.5_dp
 la => it%alist
 do  i = 1, it%nat 
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd)*la%o%one_mass 
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass 
   la%o%vel(1:dd)  = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd)
 enddo
 
@@ -1231,7 +1231,7 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
 
-  half_mass = dt2_2*la%o % one_mass
+  half_mass = dt2_2/la%o%mass
 
   !set the corrector factor
   p(1:dd)=half_mass*la%o%force(1:dd)- la%o%acel(1:dd)
@@ -1372,7 +1372,7 @@ do i=1,it%nat
   if(r>nudt)cycle
 
   !Particulas que colisionan
-  vel_med = factor*la%o%one_sqrt_mass
+  vel_med = factor/sqrt(la%o%mass)
   do j = 1, dm
     call rang(r)
     la%o%vel(j) = vel_med*r
@@ -1453,7 +1453,7 @@ enddo
 adj: do i=1,nadj
 
   ref => g%alist%next%o
-  beta = sqrt(kB_ui*temp*ref%one_mass)
+  beta = sqrt(kB_ui*temp/ref%mass)
   call werr('No more particles',.not.associated(ref))
 
   ! Creation attempt
@@ -1578,7 +1578,7 @@ read(fleu,*)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd) * la%o%one_mass
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
   read(fleu,*) sym, la%o%pos
   la%o%vel (1:dd) = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd) 
 enddo
@@ -1596,7 +1596,7 @@ acel_dv = dt*0.5_dp
 la => it%alist
 do  i = 1,it%nat
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd)*la%o%one_mass 
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass 
   la%o%vel(1:dd)  = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd)
 enddo
 

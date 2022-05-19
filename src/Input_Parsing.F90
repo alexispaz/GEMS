@@ -561,14 +561,14 @@ case('repeat')
   repfin=max(i1,i2)
   if(i1>i2) then
     reverse=.true.
-    aux=trim(int2char(repfin))
+    aux=trim(str(repfin))
     call polvars%hard('ci',aux)
     call polvars%hard('i',repfin)
   else
     reverse=.false.
-    aux=trim(int2char(repfin))
+    aux=trim(str(repfin))
     call polvars%hard('ci',aux)
-    aux=trim(int2char(repini))
+    aux=trim(str(repini))
     call polvars%hard('i',aux)
   endif
   if(item<nitems) call readi(repstep)
@@ -1154,7 +1154,7 @@ impure elemental function getf() result(a)
 ! Read the next item from the buffer as `real(dp)`.
 ! if the optional argument factor is present, the value read should be
 ! divided by it. (external value = factor*internal value)
-use gems_strings, only: operator(.ich.)
+use gems_strings, only: str
 real(dp)                  :: a
 character(:),allocatable  :: string
 
@@ -1185,7 +1185,7 @@ end function getf
 
 impure elemental function geti() result(i)
 ! Read the next item from the buffer as `integer`.
-use gems_strings, only: operator(.ich.)
+use gems_strings, only: str
 integer                   :: i
 real(dp)                  :: f
 character(:),allocatable  :: string
@@ -1202,7 +1202,7 @@ if (string == "") return
 
 ! This way to read an integer allow for exponential notation like "1e10"
 read (unit=string,fmt=*,err=99) f
-call werr('Integer beyond kind boundaries: +-'//.ich.huge(i),huge(i)<abs(f))
+call werr('Integer beyond kind boundaries: +-'//str(huge(i)),huge(i)<abs(f))
 i=int(f)
 call werr('Expected integer but got float.',abs(f-i)>epsilon(f))
 
@@ -1499,7 +1499,6 @@ end subroutine readf
      
 impure elemental subroutine readi(i)
 ! Wrap geti into subrroutine to create a generic interface
-use gems_strings, only: operator(.ich.)
 integer, intent(inout) :: i
 i=geti()
 end subroutine readi
