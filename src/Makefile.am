@@ -156,13 +156,14 @@ Strings.o:  Constants.o
 Algebra.o:  Constants.o $(random_obj)
 Errors.o:   Constants.o Strings.o
 Elements.o: Constants.o Strings.o Errors.o
+Variables.o:     Constants.o Strings.o Errors.o
 
-Input_Parsing.o: Constants.o Elements.o Algebra.o 
+Input_Parsing.o: Constants.o Elements.o Algebra.o Variables.o
 Program_Types.o: Constants.o Errors.o Elements.o
 Groups.o:        Constants.o Elements.o Errors.o Program_Types.o Algebra.o 
-Variables.o:     Constants.o Strings.o Errors.o Groups.o 
-Cells.o:         Constants.o Algebra.o Program_Types.o Variables.o
-Neighbor.o:      Constants.o Algebra.o Program_Types.o Variables.o Cells.o
+
+Cells.o:         Constants.o Algebra.o Program_Types.o Variables.o    Groups.o
+Neighbor.o:      Constants.o Algebra.o Program_Types.o Variables.o    Cells.o
 
 DDDA.o:   Errors.o   Program_Types.o 
 Tables.o: Input_Parsing.o   Program_Types.o DDDA.o

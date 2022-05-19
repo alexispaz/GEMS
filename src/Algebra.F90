@@ -918,7 +918,7 @@ function linsearch(a,val) result(m)
 ! Return 0 if val is not found in a(:).
 ! a(:) must be sorted.
 integer,intent(in)  :: a(:),val
-integer             :: m,r,l,j
+integer             :: m,j
 
 ! Search
 do m=1,size(a)

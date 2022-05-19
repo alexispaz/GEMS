@@ -107,7 +107,6 @@ class(cgroup),target  :: g
 class(atom),target    :: a
 integer               :: i
 integer,allocatable   :: t_next(:)
-integer               :: aux1(dm)
 integer,intent(out),optional :: l_
 integer                      :: l
 
@@ -147,9 +146,7 @@ subroutine cgroup_detach_atom(g,a)
 ! Detach atom `a` from cgroup `g`
 class(cgroup)         :: g
 class(atom),target    :: a
-class(atom),pointer   :: aj
 integer               :: i
-integer               :: rc(3)
 
 ! Attempt to remove atom from cells
 if(g%tessellated) then
@@ -263,8 +260,7 @@ subroutine cgroup_sort(g)
 ! Sort g atoms into the g cells.
 ! TODO: Flag when sorting is needed, if not skip.
 class(cgroup),intent(inout)  :: g
-integer                      :: i,aux1(dm)
-type(atom),pointer           :: a
+integer                      :: i
 
 g%head(:,:,:) = 0
 do i = 1,g%amax

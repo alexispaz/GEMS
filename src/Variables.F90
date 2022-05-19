@@ -38,8 +38,8 @@ use gems_constants, only: dp,linewidth
 use gems_strings, only: chset_var,chset_l
 private
 
-public    :: polvars, polvar_expand, polvar_link, polvar_hard, polvar_find, polvar_save
-public    :: polvar_integrate, polvar_readonly
+public    :: polvar_expand, polvar_save
+public    :: polvar_integrate
  
 type, public   :: polvar
   character(linewidth)  :: var
@@ -49,11 +49,22 @@ type, public   :: polvar
   contains
 end type
  
+! May be linked list is better?
 #define _NODE polvar_v
 #define _TYPE type(polvar)
 #include "vector_header.inc"
 
-type(polvar_v)    :: polvars
+type, extends(polvar_v)  :: polvar_ev
+  contains
+  procedure   :: find => polvar_ev_find
+  procedure   :: get => polvar_ev_return
+  procedure   :: link => polvar_ev_link
+  procedure   :: hard => polvar_ev_hard
+  procedure   :: expand => polvar_ev_expand
+  procedure   :: save => polvar_ev_save
+end type
+
+type(polvar_ev), public    :: polvars
 
 contains
 
@@ -63,83 +74,113 @@ contains
 #include "vector_body.inc"
         
               
-subroutine polvar_link(var,val)
-! Asociate the variable with a target
+subroutine polvar_ev_link(pv,var,val,readonly)
+! Link `var` in `pv` with target `val`
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
 class(*),target          :: val
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
+logical,optional         :: readonly
 
-pv=>polvar_return(var)
+p=>pv%get(var)
       
 ! Need to deallocate to avoid memory leak
-if(associated(pv%val)) then
-  if(pv%hard) deallocate(pv%val)
+if(associated(p%val)) then
+  if(p%hard) deallocate(p%val)
 endif 
        
-pv%val=>val
-pv%hard=.false.
+p%val=>val
+p%hard=.false.
 
-end subroutine  
- 
-subroutine polvar_readonly(var)
-character(*),intent(in)  :: var 
-type(polvar),pointer     :: pv
-pv=>polvar_find(var)
-if(.not.associated(pv)) return
-pv%readonly=.true.
-end subroutine  
+! This is really needed?
+if(present(readonly)) p%readonly=readonly
 
-subroutine polvar_hard(var,val)
+end subroutine polvar_ev_link 
+
+subroutine polvar_ev_hard(pv,var,val)
 ! Set a value hard
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
 class(*)                 :: val
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
 
-pv=>polvar_return(var)
+p=>pv%get(var)
 
 ! Need to deallocate to allow below allocation 
-if(associated(pv%val)) then
-  if(pv%hard) deallocate(pv%val)
+if(associated(p%val)) then
+  if(p%hard) deallocate(p%val)
 endif 
 
 ! This allocates and copy the value  
-allocate(pv%val,source=val)
-pv%hard=.true.
+allocate(p%val,source=val)
+p%hard=.true.
 
-end subroutine  
+end subroutine polvar_ev_hard 
 
-function polvar_expand(var) result(w)
+function polvar_ev_expand(pv,var) result(w)
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
 character(:),allocatable :: w
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
 
-pv=>polvar_find(var)
+p=>pv%find(var)
 
-if(.not.associated(pv)) then
+if(.not.associated(p)) then
   w='NODEF'
   return
 endif 
 
-call polvar_get(pv,w)
+call polvar_get(p,w)
+! allocate(character(100)::w)
+! write(w,'(DT)') p
+! w=trim(w)
 
-end function
+end function polvar_ev_expand
 
-subroutine polvar_save(var,w)
+subroutine polvar_ev_save(pv,var,w)
 ! If the variable is already there, save the value
 ! If not, create one hard and make it string.
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
 character(*),intent(in)  :: w
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
 
-pv=>polvar_return(var)
-if(associated(pv%val)) then
-  call werr('This variable is read only',pv%readonly)
-  call polvar_set(pv,w)
+p=>pv%get(var)
+if(associated(p%val)) then
+  call werr('This variable is read only',p%readonly)
+  call polvar_set(p,w)
 else 
-  call polvar_hard(var,w)
+  call pv%hard(var,w)
 endif 
        
-end subroutine  
+end subroutine polvar_ev_save
+
+! subroutine polvar_write(p, unit, iotype, v_list, iostat, iomsg)
+! use gems_strings, only: operator(.ich.)
+! class(polvar),intent(in)   :: p
+! integer,intent(in)         :: unit,v_list(:)
+! integer,intent(out)        :: iostat
+! character(*),intent(in)    :: iotype
+! character(*),intent(inout) :: iomsg  
+! character(:),allocatable   :: wfmt
+!    
+! call werr('Internal error',.not.associated(p%val))
+!
+! select type(v=>p%val)
+! type is (integer)
+!   wfmt = '(i0)'
+!   write(unit,wfmt,iostat=iostat,iomsg=iomsg)  v
+! type is (real(dp))
+!   wfmt = '(e25.12)'
+!   write(unit,wfmt,iostat=iostat,iomsg=iomsg)  v
+! type is (character(*))
+!   wfmt = '(a)'
+!   write(unit,wfmt,iostat=iostat,iomsg=iomsg)  v
+! class default
+!   call werr('I do not know how to write this',.true.)
+! end select
+!
+! end subroutine
 
 subroutine polvar_get(pv,w)
 use gems_strings, only: operator(.ich.)
@@ -186,65 +227,43 @@ class default
 end select
       
 end subroutine
-       
-function polvar_group(var) result(g)
-use gems_groups, only:group
+ 
+function polvar_ev_find(pv,var) result(p)
+! Find variable `var` in polvar `pv` structure
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
-type(polvar),pointer     :: pv
-type(group),pointer      :: g
-
-call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
-
-g=>null()
-if(.not.associated(pv)) return
-
-call werr('Variable not linked',pv%hard)
-   
-! Print
-select type(v=>pv%val)
-type is (group)
-  g=>v
-class default
-  call werr('I dont know how to return that',.true.)
-end select
-
-end function
-      
-function polvar_find(var) result(pv)
-! Find a variable
-character(*),intent(in)  :: var
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
 integer                  :: i
   
 ! Search for an existing variable  
-do i = 1,polvars%size
-  pv => polvars%o(i)
-  if (trim(pv%var) == trim(var)) return
+do i = 1,pv%size
+  p => pv%o(i)
+  if (trim(p%var) == trim(var)) return
 enddo
-pv=>null()
+p=>null()
 
-end function polvar_find
+end function polvar_ev_find
  
-function polvar_return(var) result(pv)
-! Find or create
+function polvar_ev_return(pv,var) result(p)
+! Find or create polvar associated with `var` in `pv` structure
+class(polvar_ev)         :: pv
 character(*),intent(in)  :: var
-type(polvar),pointer     :: pv
+type(polvar),pointer     :: p
   
-! call werr('Variable names should not start with a number',verify(var(1:1),chset_l)/=0)
-call werr('Bad character in varaible name',verify(var,chset_var)/=0)
+! TODO: Move this to the general variable scope
+call werr('Bad character in variable name',verify(var,chset_var)/=0)
 
 ! Search for an existing variable  
-pv=>polvar_find(var)
+p=>pv%find(var)
  
-if(associated(pv)) return
+if(associated(p)) return
 
-call polvars%append()
-pv=> polvars%o(polvars%size)
-pv%var=adjustl(trim(var))
+call pv%append()
+p=> pv%o(pv%size)
+p%var=adjustl(trim(var))
 
 
-end function polvar_return
+end function polvar_ev_return
 !   
 ! function polvar_delete(var) result(pv)
 ! ! Find or create

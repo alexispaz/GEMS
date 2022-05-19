@@ -50,14 +50,11 @@ use gems_neighbor, only:ngroup
 use gems_constants, only:linewidth
 use gems_errors, only:werr, wstd
 use gems_strings, only: operator(.ich.)
-use gems_variables, only: polvar_expand, polvar_hard
+use gems_variables, only: polvars
 class(group),intent(in)           :: gsel
 class(group),pointer              :: g=>null()
-real(dp)                          :: rc
 character(:),allocatable          :: cid,key,label
 integer                           :: id
-integer                           :: inpi(5)
-real(dp)                          :: inpf(5)
         
 ! Read object label if given
 call readl(label)
@@ -72,7 +69,7 @@ else
 endif
 
 ! Find object id if exist
-cid=polvar_expand(label)
+cid=polvars%expand(label)
 
 ! Create object if does not exist
 if(cid=='NODEF') then
@@ -94,7 +91,7 @@ if(cid=='NODEF') then
   cindex%o(id)%o=>g
 
   ! Save the new label
-  call polvar_hard(label,id)
+  call polvars%hard(label,id)
 
 else
 
@@ -128,10 +125,8 @@ class(widom)               :: g
 real(dp)                   :: r(dm), dr
 type(atom),pointer         :: o
 integer                    :: n,m
-integer                    :: i,ii,j,ic,k
-integer                    :: nabor
-real(dp)                   :: rd,vd(dm),v
-integer                    :: rc(dm),nc(dm)
+integer                    :: i,j
+real(dp)                   :: vd(dm),v
 type(atom_dclist),pointer  :: la
   
 g%mu=3.14_dp
@@ -197,11 +192,8 @@ integer,intent(in)         :: unit,v_list(:)
 integer,intent(out)        :: iostat
 character(*),intent(in)    :: iotype
 character(*),intent(inout) :: iomsg  
-character(:),allocatable   :: wfmt
 
-type(atom),pointer        :: o
-type(atom_dclist),pointer :: la
-integer                   :: i,j
+character(:),allocatable   :: wfmt
 
 ! Format descriptor
 select case(size(v_list))

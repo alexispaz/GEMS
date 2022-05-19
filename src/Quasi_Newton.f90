@@ -394,7 +394,7 @@ real(dp)   :: f                ! Function F at X
 real(dp)   :: g(n)             ! Gradient G at X
 real(dp)   :: scache(n)
 real(dp)   :: diag(n) ! Diagonal matrix Hk0 provided by the user at each iteration (only when diagco=true)
-logical    :: diagco  ! If true, routine will return back (IFLAG=2) to get diag(:) matrix.
+!logical    :: diagco  ! If true, routine will return back (IFLAG=2) to get diag(:) matrix.
 
 integer    :: iprint  !  Control output. <0: off, 0: first and last iteration, > 0: every iprint iterations
 
@@ -742,7 +742,7 @@ subroutine mcsrch(n,x,f,g,s,stp,ftol,xtol,maxfev,nfev,wa,get_fg)
 !A slight modification of the subroutine CSRCH, ARGONNE NATIONAL LABORATORY.
 !MINPACK PROJECT. JUNE 1983 JORGE J. MORE', DAVID J. THUENTE
 
-use gems_errors, only: wwan, wstats, sstats
+use gems_errors, only: wwan, wstats
 integer,intent(in)    :: n,      & ! Number of variables
                          maxfev    ! Max number of calls to fcn allowed by the end of an iteration.
 
@@ -1139,7 +1139,7 @@ if (b_fgout) call write_out(1,icall)
 end subroutine
  
 subroutine get_pistonfg(x,f,g)
-use gems_groups, only:atom_dclist, gindex_pos_changed, sys, ghost
+use gems_groups, only:atom_dclist, gindex_pos_changed, sys
 use gems_constants, only:kB_ui
 use gems_program_types, only: tbox, box, box_setvars, box_vol
 real(dp),intent(in)        :: x(:)

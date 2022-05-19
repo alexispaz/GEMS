@@ -108,7 +108,7 @@ use gems_checkpoint, only:b_ckp, chpeach, write_chp
 use gems_input_parsing, only: load_blk, bloques, execute_block
  
 integer,intent(in)    :: steps
-integer               :: ns,i
+integer               :: ns
 logical,intent(in)    :: b_out,b_time
 
 ! Timing

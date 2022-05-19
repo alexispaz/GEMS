@@ -425,10 +425,9 @@ subroutine ngroup_verlet_atom(g,i)
 ! Search neighbors for atom i.
 class(ngroup),intent(inout)  :: g
 type(atom),pointer           :: ai,aj
-integer                      :: i,ii,j,m
+integer                      :: i,j,m
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
-type(atom_dclist),pointer    :: la
 
 g%nn(i)=0
 ai => g%a(i)%o
@@ -465,7 +464,7 @@ subroutine ngroup_cells(g)
 ! Build neighbors verlet list over linked cells.
 class(ngroup),intent(inout)  :: g
 type(atom), pointer          :: ai, aj
-integer                      :: i,ii,j,ic,k
+integer                      :: i,ii,j,k
 integer                      :: nabor
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
@@ -550,12 +549,11 @@ subroutine ngroup_cells_atom(g,i)
 ! Search neighbors for atom i. Asume b is already sorted in cells.
 class(ngroup),intent(inout)  :: g
 type(atom), pointer          :: ai, aj
-integer                      :: i,ii,j,ic,k
+integer                      :: i,j,k
 integer                      :: nabor
 real(dp)                     :: rd,vd(dm)
 real(dp)                     :: rcut
 integer                      :: rc(dm),nc(dm)
-type(atom_dclist),pointer    :: la
   
 ! Set ceros
 g%nn(i)=0
@@ -670,7 +668,6 @@ subroutine test_update()
 use gems_groups, only: pbchalfghost, useghost, do_pbc
 real(dp)                   :: dispmax1,dispmax2
 integer                    :: i
-type(atom_dclist),pointer  :: la
 class(ngroup),pointer      :: ng
 
 if(useghost)then
@@ -716,14 +713,14 @@ end subroutine test_update
 ! Variables and Labels
 
 function polvar_ngroup(var) result(g)
-use gems_variables, only: polvar, polvar_find
+use gems_variables, only: polvar, polvars
 use gems_errors, only: werr
 character(*),intent(in)      :: var
 type(polvar),pointer         :: pv
 class(ngroup),pointer    :: g
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
+pv=>polvars%find(var)
 
 g=>null()
 if(.not.associated(pv)) return
@@ -741,8 +738,8 @@ end select
 end function
 
 subroutine polvar_neighbor()
-use gems_variables, only: polvar_link
-call polvar_link('nb_dcut',nb_dcut)
+use gems_variables, only: polvars
+call polvars%link('nb_dcut',nb_dcut)
 end subroutine
 
 end module

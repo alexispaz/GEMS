@@ -181,11 +181,6 @@ type, public :: group
   ! XXX: Note that igroup might be a better resource
   procedure :: atom => group_atombyindex 
 
-  ! Basic inquires
-  ! --------------
-  procedure :: inq_insphere
-           
-
   procedure :: write => group_write
   generic :: write(formatted) => write
   ! procedure :: write => group_write
@@ -440,9 +435,8 @@ subroutine atom_setpbc(a,pbc)
 ! Set atom pbc and allocate ghosts  
 class(atom),target,intent(inout) :: a
 logical,intent(in)               :: pbc(dm)
-class(group),pointer             :: g
 type(atom),pointer               :: og
-integer                          :: i,j
+integer                          :: i
 
 a%pbc(:)=pbc(:)
 
@@ -766,15 +760,36 @@ deallocate(g%alist)
 end subroutine group_destroy
  
 subroutine group_write(g, unit, iotype, v_list, iostat, iomsg)
+use gems_strings, only: operator(.ich.)
 class(group),intent(in)   :: g
 integer,intent(in)         :: unit
 character(*),intent(in)    :: iotype
 integer,intent(in)         :: v_list(:)
 integer,intent(out)        :: iostat
 character(*),intent(inout) :: iomsg  
-
-write(unit,*) "PEPE"
-
+character(:),allocatable   :: wfmt
+ 
+! Format descriptor
+select case(size(v_list))
+case(0) ! default
+  wfmt = '(i0)'
+case(2)
+  wfmt = '(i'//.ich.v_list(1)//')'
+case default
+  iostat = 1
+  iomsg = 'wrong number of format descriptors'
+  return
+end select
+           
+iostat=0
+select case(iotype)
+case('DT','DTnat')
+  write(unit,wfmt,iostat=iostat,iomsg=iomsg)  g%nat
+case default
+  iostat = 1
+  iomsg = 'unexpected iotype'
+end select
+ 
 end subroutine
  
 ! Include atoms
@@ -842,7 +857,6 @@ subroutine group_detach_link(g,la)
 class(group)               :: g
 class(atom), pointer       :: a
 type(atom_dclist), pointer :: la, prev
-integer                    :: n
 logical                    :: found
 
 ! Delete group from atom register
@@ -927,7 +941,6 @@ end subroutine group_all_destroy_attempt
 subroutine group_all_destroy(g)
 ! Destroy all atoms from group
 class(group)               :: g
-type(atom_dclist), pointer :: la
 type(atom), pointer        :: a
 
 do while(g%nat/=0)
@@ -1083,38 +1096,7 @@ do l = 1,dm
 enddo
 
 end function vdistance
-                 
-! Basic inquires
-! --------------
-
-function inq_insphere(g,ctr,rad2)  result(over)
-! Check whether the position of any atom of g lies within a spherical region in space.
-use gems_program_types, only: distance
-class(group),intent(in)     :: g
-real(dp), intent(in)        :: ctr(dm), rad2
-logical                     :: over
-type(atom_dclist), pointer  :: la
-real(dp)                    :: idist,interatomic,first
-integer                     :: i
-real(dp)                    :: vd(dm), rd
-
-over=.true.
-
-la => la%next
-do i = 1,g%nat
-  la => la%next
-  
-  vd(:) = distance(la%o%pos,ctr,la%o%pbc)
-  rd = dot_product(vd,vd)
-
-  if (rd<rad2) return
-   
-enddo
-
-over=.false.
-
-end function 
-          
+         
  
 ! igroup events (indexed atoms)
 ! =============================
@@ -1284,7 +1266,7 @@ use gems_program_types, only: box
 class(atom),target,intent(in)  :: o2
 type(atom),pointer             :: o
 class(group),pointer           :: g
-integer                        :: j,i
+integer                        :: j
 integer                        :: r(:)
 
 ! Allocate new ghost
@@ -1333,7 +1315,7 @@ end function isghost
 
 subroutine ghost_from_atom(a,rcut)
 ! Create ghost images for an atom.
-use gems_program_types, only: box, one_box, n1cells
+use gems_program_types, only: box, n1cells
 real(dp)                     :: r(dm)
 real(dp),intent(in)          :: rcut
 type(atom)                   :: a
@@ -1428,7 +1410,6 @@ end subroutine
      
 
 subroutine ghost_switch(og,rcut)
-use gems_program_types, only: box, n1cells
 type(atom),pointer      :: og, o
 class(group),pointer    :: g
 integer                 :: i

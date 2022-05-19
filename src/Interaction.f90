@@ -174,7 +174,7 @@ enddo
 end subroutine
 
 function polvar_interact(var) result(g)
-use gems_variables, only: polvar, polvar_find
+use gems_variables, only: polvar, polvars
 use gems_errors, only: werr
 character(*),intent(in)    :: var
 type(polvar),pointer       :: pv
@@ -182,7 +182,7 @@ class(ngroup),pointer  :: g
 
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
+pv=>polvars%find(var)
 
 g=>null()
 if(.not.associated(pv)) return

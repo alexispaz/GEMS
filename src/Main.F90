@@ -37,7 +37,7 @@ use gems_fields
 use gems_elements
 use gems_output, only: chpmode
 use gems_mpi, only: mpi_pc
-use gems_variables, only:polvar_hard, polvars, polvar_link, polvar_expand, polvar_save, polvar_hard, polvar_readonly
+use gems_variables, only: polvars
 
 #ifdef HAVE_MPI
 use gems_mpi, only: gems_mpi_init, mpi_tpc, ch_mpi_pc
@@ -235,32 +235,32 @@ call polvar_neighbor()
 
 ! $jobname$
 ioprefix=trim(adjustl(ioprefix))
-call polvar_hard('jobname',ioprefix)
+call polvars%hard('jobname',ioprefix)
 
 ! $i$
-call polvar_hard('i',0)
+call polvars%hard('i',0)
 ! write(var_value%o(var_value%size),fmt='(i0)') 0
    
 ! $ci$ TESTME Puede que cambie el indice de las demas al meterlo aca
-call polvar_hard('ci','0')
+call polvars%hard('ci','0')
 ! write(var_value%o(var_value%size),fmt='(i0)') 0
 
-call polvar_link('boxx',box(1))
-call polvar_link('boxy',box(2))
-call polvar_link('boxz',box(3))
-call polvar_link('time',time)
-call polvar_link('step',dm_steps)
-call polvar_link('dt',dt)
+call polvars%link('boxx',box(1))
+call polvars%link('boxy',box(2))
+call polvars%link('boxz',box(3))
+call polvars%link('time',time)
+call polvars%link('step',dm_steps)
+call polvars%link('dt',dt)
 
-call polvar_link('pi',pi);call polvar_readonly('pi');
+call polvars%link('pi',pi,readonly=.true.);
 
 #ifdef HAVE_MPI
 
 ! $pc$
-call polvar_link('pc',mpi_pc)
+call polvars%link('pc',mpi_pc)
 
 ! $tpc$
-call polvar_link('tpc',mpi_tpc)
+call polvars%link('tpc',mpi_tpc)
 ! write(arg,fmt='(i0)') mpi_tpc
 ! call var_name%append('tpc',trim(arg))
 
@@ -269,12 +269,6 @@ call polvar_link('tpc',mpi_tpc)
 !ALLOW EXECUTION BLOQUES INSIDE PROGRAMS
 exec => execute_command
               
-!ALLOW VARIABLES AND LABELS INSIDE INPUT PARSING
-! Variables that are set on execution will be hard and character. I only care about characters, since for parsing expansion that is
-! enough.
-var_save => polvar_save
-var_set => polvar_hard
-var_expand => polvar_expand
 
 ! Groups
 ! ------

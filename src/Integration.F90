@@ -281,7 +281,7 @@ call it%dest()
 end subroutine integrate_destructor
                              
 subroutine integration_stepa
-use gems_groups, only: pbcghost_move, useghost
+use gems_groups, only: pbcghost_move
 integer   :: i
 
 do i=1,its%size
@@ -296,7 +296,7 @@ if(boxed) call box_setvars()
 end subroutine
      
 subroutine integration_stepb
-use gems_groups, only: pbcghost_move, useghost
+use gems_groups, only: pbcghost_move
 use gems_bias, only: biason, bias
 integer   :: i
             
@@ -1415,7 +1415,7 @@ subroutine gcmc(g)
 ! TODO: Generalize with a boltzman energy
 ! TODO: Check overlap with a reference group (for mixtures)
 use gems_groups, only: ghost_from_atom, useghost
-use gems_neighbor, only: ngindex,ngroup,maxrcut
+use gems_neighbor, only: ngroup,maxrcut
 use gems_random, only: ranu,rang
 use gems_constants, only: dm, kB_ui
 class(integrate)           :: g
@@ -1676,7 +1676,7 @@ end subroutine read_chppiston
 ! Variables and Labels
 
 function polvar_integrate(var) result(g)
-use gems_variables, only: polvar, polvar_find
+use gems_variables, only: polvar, polvars
 use gems_errors, only: werr
 character(*),intent(in)  :: var
 type(polvar),pointer     :: pv
@@ -1684,7 +1684,7 @@ type(integrate),pointer      :: g
 
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
+pv=>polvars%find(var)
 
 g=>null()
 if(.not.associated(pv)) return

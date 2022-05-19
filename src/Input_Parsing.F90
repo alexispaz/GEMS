@@ -48,6 +48,7 @@ module gems_input_parsing
 use gems_constants
 use gems_algebra, only: xyz_polares
 use gems_strings, only: locase, upcase
+use gems_variables, only: polvars
 use gems_errors
 
 implicit none
@@ -69,38 +70,8 @@ interface
   character(*)  :: com 
   end subroutine
 end interface
-     
-! The same to allow Input_Parsing to use variables and labels
-! (Variables module depends on all the other modules, because it handle labels to types declared in them).
-procedure(iface_varsave),pointer   :: var_save
-interface
-  subroutine iface_varsave(var,w)
-  character(*),intent(in)  :: var
-  character(*),intent(in)  :: w
-  end subroutine
-end interface
-
-procedure(iface_varset),pointer   :: var_set
-interface
-  subroutine iface_varset(var,val)
-  character(*),intent(in)  :: var
-  class(*)                 :: val
-  end subroutine
-end interface
-       
-! The same to allow Input_Parsing to use variables and labels
-! (Variables module depends on all the other modules, because it handle labels to types declared in them).
-procedure(iface_vare),pointer   :: var_expand
-interface
-  function iface_vare(var)
-  import linewidth
-  character(*),intent(in)  :: var
-  character(:),allocatable :: iface_vare
-  end function
-end interface
-   
-
-public :: execute_block, exec, var_set, var_save, var_expand
+  
+public :: execute_block, exec
 
 type input_options
 
@@ -432,7 +403,7 @@ lines: do
  
     aux=trim(adjustl(char(:l-1)))
     aux2=parse_expand(trim(adjustl(char(l+2:))))
-    call var_save(aux,aux2)
+    call polvars%save(aux,aux2)
     cycle lines
   else 
     l=index(char,'=')
@@ -444,7 +415,7 @@ lines: do
             
       aux=trim(adjustl(char(:l-1)))
       aux2=trim(adjustl(char(l+1:)))
-      call var_save(aux,aux2)
+      call polvars%save(aux,aux2)
       cycle lines
     endif
   endif
@@ -591,14 +562,14 @@ case('repeat')
   if(i1>i2) then
     reverse=.true.
     aux=trim(int2char(repfin))
-    call var_set('ci',aux)
-    call var_set('i',repfin)
+    call polvars%hard('ci',aux)
+    call polvars%hard('i',repfin)
   else
     reverse=.false.
     aux=trim(int2char(repfin))
-    call var_set('ci',aux)
+    call polvars%hard('ci',aux)
     aux=trim(int2char(repini))
-    call var_set('i',aux)
+    call polvars%hard('i',aux)
   endif
   if(item<nitems) call readi(repstep)
  
@@ -701,7 +672,7 @@ function parse_vars(string) result(ans)
     if(ans(i:j)=="rnd") then
       write(med,fmt='(e13.6)') ranu()
     else
-      med=var_expand(ans(i:j))
+      med=polvars%expand(ans(i:j))
     endif
     med=adjustl(med)
  
@@ -1276,7 +1247,6 @@ use gems_errors, only: silent, errf
 real(dp), intent(inout)        :: a
 real(dp)                       :: b
 real(dp), intent(in), optional :: factor
-character(:),allocatable       :: string
 
 ! Save default value
 b=a
@@ -1298,7 +1268,6 @@ impure elemental subroutine try_readi(i)
 use gems_errors, only: silent, errf
 integer, intent(inout)         :: i
 integer                        :: j
-character(:),allocatable       :: string
 
 ! Save default value
 j=i
@@ -1418,16 +1387,16 @@ use gems_strings
     if(reverse) then
       i=repfin-(j-repini)
       aux=trim(int2char0(i,repfin))
-      call var_set('ci',aux)
-      call var_set('i',i)
+      call polvars%hard('ci',aux)
+      call polvars%hard('i',i)
     else
       aux=trim(int2char0(j,repfin))
-      call var_set('ci',aux)
-      call var_set('i', j)
+      call polvars%hard('ci',aux)
+      call polvars%hard('i', j)
     endif 
   
     if (repfin-repini>0) then
-      call wstd(); write(logunit,*)  '>>> iterando: $i$=' // trim(adjustl(var_expand('ci')))
+      call wstd(); write(logunit,*)  '>>> iterando: $i$=' // trim(adjustl(polvars%expand('ci')))
     endif
  
     do i = 2,bloque%size
@@ -1440,12 +1409,12 @@ use gems_strings
       ! Parsing asignaciones de variables
       l=index(w,":=")
       if(l/=0) then
-        call var_save(trim(adjustl(w(:l-1))),parse_expand(trim(adjustl(w(l+2:)))))
+        call polvars%save(trim(adjustl(w(:l-1))),parse_expand(trim(adjustl(w(l+2:)))))
         cycle
       else 
         l=index(w,"=")
         if(l/=0) then
-          call var_save(trim(adjustl(w(:l-1))),trim(adjustl(w(l+1:))))
+          call polvars%save(trim(adjustl(w(:l-1))),trim(adjustl(w(l+1:))))
           cycle
         endif
       endif

@@ -73,7 +73,6 @@ use gems_constants, only:linewidth
 use gems_errors, only:werr
 class(ngroup),intent(inout)  :: g
 real(dp)                     :: rc
-character(len=linewidth)     :: w1
 integer                      :: i
 
 i=g%amax
@@ -523,7 +522,6 @@ use gems_groups, only: group
 class(graph),intent(inout) :: g
 type(group),intent(in)     :: gini
 type(group),intent(inout)  :: gout
-real(dp)                   :: rd,rad,ctr(dm)
 type (atom),pointer        :: at
 integer                    :: i
 logical, allocatable       :: lmask(:)

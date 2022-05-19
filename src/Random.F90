@@ -145,7 +145,7 @@ end subroutine
 function lcg_ranu()
   real(dp)               :: lcg_ranu
   integer, parameter     :: ia=16807,im=2147483647,iq=127773,ir=2836
-  real(dp), parameter    :: am=nearest(1.0,-1.0)/im
+  real(dp), parameter    :: am=nearest(1.0,-1.0)/real(im,dp)
   integer(k4b)           :: k
   if (idum <= 0 .or. iy < 0) then
     iy=ior(ieor(888889999,abs(idum)),1)

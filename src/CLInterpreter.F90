@@ -42,7 +42,7 @@ use gems_neb
 
 use gems_random
 use gems_algebra
-use gems_variables, only:polvar_expand
+use gems_variables, only:polvars
 
 ! FIXME:
 use gems_metadynamics, only:  gmeta
@@ -253,7 +253,7 @@ case('print')
   do i1 =1, i2
     write(wfix,'(a,i0,a)') '_ans[',i1,']'
     w1=trim(wfix)
-    w2=polvar_expand(w1)
+    w2=polvars%expand(w1)
     call wprt(w2)
   enddo
 case('time')
@@ -632,9 +632,9 @@ end select
 endsubroutine execute_command
 
 subroutine interacciones
-use gems_neighbor,only: ngroup,ngindex, maxrcut
+use gems_neighbor,only: ngroup,ngindex
 use gems_interaction,only: polvar_interact, interact_new
-use gems_variables,only: polvar_link
+use gems_variables,only: polvars
 class(ngroup),pointer  :: ig
 character(:),allocatable   :: label
 
@@ -679,7 +679,7 @@ if (.not.associated(ig)) then
   if(i2/=i1) call ig%attach(gr(i2))
  
   ! Create new label
-  call polvar_link(label,ig)
+  call polvars%link(label,ig)
   call wstd('The interaction label is '//label)
 
 endif
@@ -721,7 +721,7 @@ endsubroutine help
 
 subroutine evolve_commands
 use gems_integration,only: polvar_integrate
-use gems_variables,only: polvar_link
+use gems_variables,only: polvars
 use gems_integration,only: integrate_cli, integrate
 type(integrate),pointer   :: it
 
@@ -745,12 +745,12 @@ if (.not.associated(it)) then
   ! Create new label
   if(w1(1:1)==':') then
     ! Using label defined by user
-    call polvar_link(trim(w1),it)
+    call polvars%link(trim(w1),it)
     call readl(w1)
   else
     ! Using label defined by default
     write(w2,'(a,i0)') ':',its%size
-    call polvar_link(trim(w2),it)
+    call polvars%link(trim(w2),it)
     call wstd('The algorithm label is '//trim(w2))
   endif
 
@@ -1318,7 +1318,7 @@ endsubroutine set_commands
 
 subroutine get_commands
 use gems_random
-use gems_variables,only:polvar_hard, polvar_expand
+use gems_variables,only:polvars
 integer                    :: i
 character(:),allocatable   :: var, vari
 
@@ -1339,17 +1339,17 @@ if (i2>1) then
     vari=var//'['//w1//']'
     w1='_ans['//w1//']'
 
-    w2=polvar_expand(w1)
-    call polvar_hard(vari,w2)
+    w2=polvars%expand(w1)
+    call polvars%hard(vari,w2)
     call wstd(vari//' = '//w2)
    
   enddo 
   return
 endif
 
-w2=polvar_expand('_ans[1]')
+w2=polvars%expand('_ans[1]')
 
-call polvar_hard(var,w2)
+call polvars%hard(var,w2)
 call wstd(var//' = '//w2)
 
 endsubroutine get_commands
@@ -1407,7 +1407,7 @@ end subroutine log_commands
 function print_commands() result(ans)
 use gems_random
 use gems_tables, only: etable
-use gems_variables,only:polvar_hard
+use gems_variables,only:polvars
 integer                   :: ans
 type(atom_dclist),pointer :: la
 integer                   :: i
@@ -1444,23 +1444,23 @@ case('std')
 ! Estos case es para cuando el resultado se puede guardar en ans
 
 case('dm_steps')
-  call polvar_hard('_ans[1]',dm_steps)
+  call polvars%hard('_ans[1]',dm_steps)
 case('selnat') 
-  call polvar_hard('_ans[1]',gsel%nat)
+  call polvars%hard('_ans[1]',gsel%nat)
 case('temp') 
   call inq_temperature(gsel)
-  call polvar_hard('_ans[1]',gsel%temp)
+  call polvars%hard('_ans[1]',gsel%temp)
 case('cm_vel')
   call inq_cm_vel(gsel)
-  call polvar_hard('_ans[1]',gsel%cm_vel(1))
-  call polvar_hard('_ans[2]',gsel%cm_vel(2))
-  call polvar_hard('_ans[3]',gsel%cm_vel(3))
+  call polvars%hard('_ans[1]',gsel%cm_vel(1))
+  call polvars%hard('_ans[2]',gsel%cm_vel(2))
+  call polvars%hard('_ans[3]',gsel%cm_vel(3))
   ans=3
 case('cm_pos')
   call group_inq_cmpos(gsel)
-  call polvar_hard('_ans[1]',gsel%cm_pos(1))
-  call polvar_hard('_ans[2]',gsel%cm_pos(2))
-  call polvar_hard('_ans[3]',gsel%cm_pos(3))
+  call polvars%hard('_ans[1]',gsel%cm_pos(1))
+  call polvars%hard('_ans[2]',gsel%cm_pos(2))
+  call polvars%hard('_ans[3]',gsel%cm_pos(3))
   ans=3
 case('cm_diff2','cm_diff')
   call readi(i1) ! The second group
@@ -1478,25 +1478,25 @@ case('cm_diff2','cm_diff')
     fv = gsel%cm_pos-gr(i1)%cm_pos
   endif
   if(w1=='cm_diff2') then
-    call polvar_hard('_ans[1]',dot_product(fv,fv))
+    call polvars%hard('_ans[1]',dot_product(fv,fv))
   else
-    call polvar_hard('_ans[1]',sqrt(dot_product(fv,fv)))
+    call polvars%hard('_ans[1]',sqrt(dot_product(fv,fv)))
   endif
 case('rg_pos')
   call group_inq_rg(gsel)
-  call polvar_hard('_ans[1]',gsel%rg_pos)
+  call polvars%hard('_ans[1]',gsel%rg_pos)
 case('minpos') 
   call inq_boundingbox(gsel)
-  call polvar_hard('_ans[1]',gsel%minpos(1))
-  call polvar_hard('_ans[2]',gsel%minpos(2))
-  call polvar_hard('_ans[3]',gsel%minpos(3))
+  call polvars%hard('_ans[1]',gsel%minpos(1))
+  call polvars%hard('_ans[2]',gsel%minpos(2))
+  call polvars%hard('_ans[3]',gsel%minpos(3))
   ans=3
 case('maxpos') 
   call inq_boundingbox(gsel) 
-  call polvar_hard('_ans[1]',gsel%maxpos(1))
-  call polvar_hard('_ans[2]',gsel%maxpos(2))
+  call polvars%hard('_ans[1]',gsel%maxpos(1))
+  call polvars%hard('_ans[2]',gsel%maxpos(2))
   ans=3
-  call polvar_hard('_ans[3]',gsel%maxpos(3))
+  call polvars%hard('_ans[3]',gsel%maxpos(3))
 ! FIXME: Atoms id are not clear to use.
 ! TODO: Use insted select_atom from Select_Create
 ! case('norm') 
@@ -1507,9 +1507,9 @@ case('maxpos')
 !   fv=cross_product(vdistance(sys%a(i1)%o,sys%a(i2)%o,mic),vdistance(sys%a(i3)%o,sys%a(i2)%o,mic))
 !   f1=dot_product(fv,fv)
 !   fv=fv/sqrt(f1)
-!   call polvar_hard('_ans[1]',fv(1))
-!   call polvar_hard('_ans[2]',fv(2))
-!   call polvar_hard('_ans[3]',fv(3))
+!   call polvars%hard('_ans[1]',fv(1))
+!   call polvars%hard('_ans[2]',fv(2))
+!   call polvars%hard('_ans[3]',fv(3))
 !   ans=3
 ! case('axis') 
 !   call readi(i1)
@@ -1517,9 +1517,9 @@ case('maxpos')
 !   fv=vdistance(sys%a(i1)%o,sys%a(i2)%o, mic)
 !   f1=dot_product(fv,fv)
 !   fv=fv/sqrt(f1)
-!   call polvar_hard('_ans[1]',fv(1))
-!   call polvar_hard('_ans[2]',fv(2))
-!   call polvar_hard('_ans[3]',fv(3))
+!   call polvars%hard('_ans[1]',fv(1))
+!   call polvars%hard('_ans[2]',fv(2))
+!   call polvars%hard('_ans[3]',fv(3))
 !   ans=3
 case('ptriaxial') 
   write(ans,fmt='(e15.8)') inq_triaxial_param(gsel)
@@ -1539,9 +1539,9 @@ case('mayordist')
     else
       fv(:)=inq_mayordistance(gsel,gr(i1))
     endif
-    call polvar_hard('_ans[1]',fv(1))
-    call polvar_hard('_ans[2]',fv(2))
-    call polvar_hard('_ans[3]',fv(3))
+    call polvars%hard('_ans[1]',fv(1))
+    call polvars%hard('_ans[2]',fv(2))
+    call polvars%hard('_ans[3]',fv(3))
     ans=3
 
   end if
@@ -1569,7 +1569,7 @@ case('border')
     endif
 
   end if
-  call polvar_hard('_ans[1]',gsel%alist%next%o%border)
+  call polvars%hard('_ans[1]',gsel%alist%next%o%border)
 case('index') 
   call werr('Only one atom must be in the selection',gsel%nat/=1)
   call readi(i1) ! The group 
@@ -1577,38 +1577,38 @@ case('index')
   do i = 1,gr(i1)%nat
     la => la%next
     if (.not.associated(la%o,target=gsel%alist%next%o)) cycle
-    call polvar_hard('_ans[1]',i)
+    call polvars%hard('_ans[1]',i)
     exit
   enddo 
 
 case('rang')
   call rang(f1)
-  call polvar_hard('_ans[1]',f1)
+  call polvars%hard('_ans[1]',f1)
 case('ranu')
   f1=ranu()
-  call polvar_hard('_ans[1]',f1)
+  call polvars%hard('_ans[1]',f1)
 case('max')
   call readf(f1)
   call readf(f2)
   write(ans,fmt='(e15.8)') max(f1,f2)
-  call polvar_hard('_ans[1]',max(f1,f2))
+  call polvars%hard('_ans[1]',max(f1,f2))
 case('min')
   call readf(f1)
   call readf(f2)
-  call polvar_hard('_ans[1]',min(f1,f2))
+  call polvars%hard('_ans[1]',min(f1,f2))
 case('int')
   call readf(f1)
-  call polvar_hard('_ans[1]',int(f1))
+  call polvars%hard('_ans[1]',int(f1))
 case('floor')
   call readf(f1)
-  call polvar_hard('_ans[1]',floor(f1)) 
+  call polvars%hard('_ans[1]',floor(f1)) 
 case('ceil','ceiling')
   call readf(f1)
-  call polvar_hard('_ans[1]',ceiling(f1))   
+  call polvars%hard('_ans[1]',ceiling(f1))   
 case("box") 
-  call polvar_hard('_ans[1]',box(1))
-  call polvar_hard('_ans[2]',box(2))
-  call polvar_hard('_ans[3]',box(3))
+  call polvars%hard('_ans[1]',box(1))
+  call polvars%hard('_ans[2]',box(2))
+  call polvars%hard('_ans[3]',box(3))
   ans=3
 
 
@@ -1623,7 +1623,7 @@ case("box")
 !
 case default
   w1=trim(w1)
-  call polvar_hard('_ans[1]',w1)
+  call polvars%hard('_ans[1]',w1)
 endselect 
 
 
@@ -1829,7 +1829,7 @@ use gems_interaction
 use gems_neb
 use gems_graphs
 use gems_calc, only: write_calc
-use gems_variables,only: polvar_link
+use gems_variables,only: polvars
 use gems_metadynamics, only: write_cvs,write_E_1D
 use gems_fields, only: write_halfsho
 class(outfile),pointer   :: of
@@ -1860,7 +1860,7 @@ if (.not.associated(of)) then
   of_vop%o(of_vop%size)%o=>of
 
   ! Create new label
-  call polvar_link(label,of)
+  call polvars%link(label,of)
   call wstd('The outfile label is '//label)
 
 endif
