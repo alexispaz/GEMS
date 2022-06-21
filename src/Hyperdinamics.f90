@@ -236,7 +236,7 @@ do i=1,nsteps
       over_lowc=.false.
       over_highc=.false.
       maxbias=0._dp
-      write(uhd,*)
+      write(uhd,'(a)')
     endif    
      
   else ! Vengo de DM
@@ -257,7 +257,7 @@ do i=1,nsteps
       !bias_highc = 1e10
 
       ! Put a blank line to plot with discontinuities
-      write(udm,*)
+      write(udm,'(a)')
 
       ! Hago la HD de inicializacion
       write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,igb%e*ui_ev,igb%alpha,prob,&
@@ -663,8 +663,8 @@ med=dvp%med()
 call dvp%var(m,plato)
 
 ! Separador de bloque (Enable `plot "file" i 3` in gnuplot)
-write(of%un,*)
-write(of%un,*)
+write(of%un,'(a)')
+write(of%un,'(a)')
 
 !Tiene que ser -1... nos e porque anda mejor el -2
 !El cero tambien cuenta

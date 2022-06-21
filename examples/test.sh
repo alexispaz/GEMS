@@ -48,6 +48,54 @@ function exe(){
  
 pass='PASS'
 fail='FAIL'
+          
+function odif(){
+# Compare last value within a certain tolerance
+
+	ec=""
+	for i in ${@:2}; do
+		awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+	    (NR==FNR){for(i=1;i<=NF;i++){a[i,NR]=$i};next} 
+			END{for(i=1;i<=NF;i++){if(abs($i-a[i,FNR])>'$1'){exit 1}}}' $i ref/$i
+		(( ec = ec || $? ))
+  done
+
+	[ $ec -eq 0 ]	&& echo -e $line$pass || echo -e $line$fail
+}
+         
+
+		
+     
+function tdif(){
+# Compare within a certain tolerance
+
+	ec=""
+	for i in ${@:2}; do
+    # https://stackoverflow.com/a/61406365
+		awk 'function trunc(x){return sprintf("'$1'", x)}
+	    (NR==FNR){for(i=1;i<=NF;i++){a[i,NR]=$i};next} 
+			{for(i=1;i<=NF;i++){if(trunc($i)!=trunc(a[i,FNR])){exit 1}}}' $i ref/$i
+		(( ec = ec || $? ))
+  done
+
+	[ $ec -eq 0 ]	&& echo -e $line$pass || echo -e $line$fail
+}
+          
+     
+function sdif(){
+# Compare within a certain tolerance
+
+	ec=""
+	for i in ${@:2}; do
+		awk 'function abs(x){return (((x < 0.0) ? -x : x) + 0.0)}
+	    (NR==FNR){for(i=1;i<=NF;i++){a[i,NR]=$i};next} 
+			{for(i=1;i<=NF;i++){if(abs($i-a[i,FNR])>'$1'){exit 1}}}' $i ref/$i
+		(( ec = ec || $? ))
+  done
+
+	[ $ec -eq 0 ]	&& echo -e $line$pass || echo -e $line$fail
+}
+          
 
 function dif(){
   # valgrind --leak-check=yes --track-origins=yes ../../src/gems $1 &>> test.log
@@ -114,7 +162,7 @@ if prompt configs; then
   dif  graphito.xyz       
   
   exe tetrahedron_fcc tetrahedron_fcc.gms
-  dif  tetrahedron_fcc.xyz
+  sdif '1e-7' tetrahedron_fcc.xyz
 
   cd ..
 fi
@@ -157,7 +205,7 @@ if prompt WTMD; then
   cd WTMD
   rm -f E_libre.dat
   exe lj_WTMD_1D lj_WTMD_1D.gms
-  dif E_libre.dat
+  sdif '1e-7' E_libre.dat
   cd ..
 fi         
         
@@ -166,7 +214,7 @@ if prompt SMA-TB; then
 
   rm -f Energy.md.dat
   exe md md.gms
-  dif Energy.md.dat 
+  sdif '1e-7' Energy.md.dat 
            
   # echo "... potential with linked cells "
   # Me pasa que dependiendo si compilo con OpenMP, aveces el lbfgs me hace un
@@ -189,11 +237,11 @@ if prompt SMA-TB; then
            
   rm -f Energy.cvs.dat
   exe cvs cvs.gms
-  dif Energy.cvs.dat
+  sdif '1e-7' Energy.cvs.dat
 
   rm -f Energy.cvx.dat
   exe cvx cvx.gms
-  dif Energy.cvx.dat
+  sdif '1e-7' Energy.cvx.dat
 
   cd ..
 fi
@@ -202,7 +250,7 @@ if prompt optimize; then
   cd optimize
   rm -f Energy.lbfgs.dat 
   exe lbfgs lbfgs.gms
-  dif Energy.lbfgs.dat
+  odif '1d-7' Energy.lbfgs.dat
  
   rm -f Energy.minvol.dat 
   exe minvol minvol.gms
@@ -245,7 +293,7 @@ if prompt NVE; then
 	for i in $list; do
 		rm -f Energy.$i.dat
 		exe $i $i.gms
-		dif Energy.$i.dat
+		sdif '1e-5' Energy.$i.dat
 	done
 
   cd ..
@@ -293,7 +341,7 @@ if prompt mVT; then
 
   rm -f Energy.main.dat
   exe "gcmc" main.gms
-	dif Energy.main.dat Calc.main.dat 
+	sdif '1e-7' Energy.main.dat Calc.main.dat 
 
   cd ..
 fi
@@ -303,7 +351,7 @@ if prompt DDDA; then
 
   rm -f Eddda.md.dat Eprom.md.dat FP_Eddda.md.dat
   exe md md.gms
-	dif Eddda.md.dat Eprom.md.dat FP_Eddda.md.dat
+	sdif '1e-7' Eddda.md.dat Eprom.md.dat FP_Eddda.md.dat
  
   cd ..
 fi
@@ -320,24 +368,27 @@ fi
                
 if prompt hyperdynamics; then
   cd hyperdynamics
-  rm -f Energy.lpe.dat
            
-	list="compress compress_below lpe"
+	list="compress compress_below"
 	for i in $list; do
 		rm -f Energy.$i.dat
 		exe $i $i.gms
-		dif Energy.$i.dat
+		sdif '1e-7' Energy.$i.dat
 	done
              
+	rm -f Energy.lpe.dat
+	exe lpe lpe.gms
+	sdif '1e-2' Energy.lpe.dat
+
   cd ..
 fi
                  
 if prompt NEB; then
   cd NEB
            
-	rm -f Energy.meb.dat
+	rm -f Energy.neb.dat
 	exe neb neb.gms
-	dif Energy.neb.dat.NebF
+	tdif '%.3e' Energy.neb.dat.NebF
 
   cd ..
 fi
@@ -347,5 +398,6 @@ fi
 echo ""
 end=`date +%s.%N`
 # echo "Total time of the test script $SECONDS"
-echo "Total time of the test script $(echo "$end - $start" | bc -l)"
+command -V bc &> /dev/null && { echo "Total time of the test script $(echo "$end - $start" | bc -l)"; exit; }
+command -V perl &> /dev/null && { echo "Total time of the test script $(perl -E "say $end-$start")"; exit; }
 

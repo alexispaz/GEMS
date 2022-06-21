@@ -106,7 +106,7 @@ function vrs(i,j) result(vd)
 real(dp),dimension(dm)  :: vd
 type(atom),intent(in)   :: i,j
 
-vd = vdistance(i,j, mic)
+call vdistance(vd,i,j, mic)
 vd = vd/sqrt(dot_product(vd,vd))
 
 end function vrs
@@ -117,7 +117,7 @@ real(dp)                 :: rd
 real(dp),dimension(dm)   :: vd
 type(atom),intent(in)   :: i,j
 
-vd=vdistance(i,j, mic)
+call vdistance(vd,i,j, mic)
 rd=sqrt(dot_product(vd,vd))
 
 end function rdistance
@@ -128,7 +128,7 @@ real(dp)                 :: rd
 real(dp),dimension(dm)   :: vd
 type(atom),intent(in)   :: i,j
 
-vd=vdistance(i,j, mic)
+call vdistance(vd,i,j, mic)
 rd=dot_product(vd,vd)
 
 end function rdistance2
@@ -159,7 +159,7 @@ do i = 1,g1%nat
 
     if(associated(lb%o,target=la%o)) cycle
 
-    vd = vdistance(lb%o,la%o, mic)
+    call vdistance(vd,lb%o,la%o, mic)
     rd = sqrt(dot_product(vd,vd))
     la%o%border=la%o%border+bond_order(rd,r1,r2)
   enddo
@@ -187,7 +187,7 @@ do while(.not.associated(la,target=a))
 
     if(associated(lb%o,target=la%o)) cycle
 
-    vd = vdistance(lb%o,la%o, mic)
+    call vdistance(vd,lb%o,la%o, mic)
     rd = sqrt(dot_product(vd,vd))
     la%o%border = la%o%border+bond_order(rd,r1,r2)
     lb => lb%next
@@ -211,9 +211,9 @@ type(atom),intent(in)   :: i,j,k,l
 integer                 :: m
 logical                 :: pbc(3)
 
-da=vdistance(j,i, mic)
-db=vdistance(k,j, mic)
-dc=vdistance(l,k, mic)
+call vdistance(da,j,i, mic)
+call vdistance(db,k,j, mic)
+call vdistance(dc,l,k, mic)
 
 ! Producto cruz b con c
 vbxc=cross_product(db,dc)
@@ -687,7 +687,7 @@ do i = 1,g%nat
 
     if(associated(lb%o,target=la%o)) cycle
 
-    vd = vdistance(lb%o,la%o, mic)
+    call vdistance(vd,lb%o,la%o, mic)
     rd = sqrt(dot_product(vd,vd))
     aux=aux+bond_order(rd,r1,r2)
 
@@ -1011,7 +1011,7 @@ do i = 1, g%nat - 1
 
   lb => la%next
   do j = i+1, g%nat
-    vd = vdistance(la%o,lb%o, mic)
+    call vdistance(vd,la%o,lb%o, mic)
     rd = dot_product(vd,vd)
     if (rd.lt.long2) then
       dist = int(rd/dr2)+1

@@ -150,7 +150,7 @@ subroutine charm_stretching(bg)
     j => ln%o%a(2)%o
 
     ! Distancias
-    vd = vdistance(i,j, mic)
+    call vdistance(vd,i,j, mic)
     d  = dsqrt(dot_product(vd,vd))
 
     difr=d-de
@@ -205,11 +205,11 @@ subroutine charm_bending(bg)
     k => ln%o%a(3)%o
 
     ! Distancia ij
-    a = vdistance(i,j, mic)
+    call vdistance(a,i,j, mic)
     am =  dsqrt(dot_product(a,a))
 
     ! Distancia jk
-    b = vdistance(k,j, mic)
+    call vdistance(b,k,j, mic)
     bm =  dsqrt(dot_product(b,b))
 
     ! Angulo
@@ -338,9 +338,9 @@ do m = 1,bg%n
   l => ln%o%a(4)%o
 
   ! Distancias y nomenclatura siguiendo Blondel, A., & Karplus, M. (1996).
-  f=vdistance(i,j, mic)
-  g=vdistance(j,k, mic)
-  h=vdistance(k,l, mic)  ! With a minus
+  call vdistance(f,i,j, mic)
+  call vdistance(g,j,k, mic)
+  call vdistance(h,k,l, mic)  ! With a minus
 
   ! Productos cruz.
   a=cross_product(f,g)
@@ -540,9 +540,9 @@ do m = 1,bg%n
   l => ln%o%a(4)%o
 
   ! Distancias y nomenclatura
-  a=vdistance(j,i, mic)
-  b=vdistance(k,j, mic)
-  c=vdistance(l,k, mic)
+  call vdistance(a,j,i, mic)
+  call vdistance(b,k,j, mic)
+  call vdistance(c,l,k, mic)
 
   ! Producto cruz b con c
   bxc=cross_product(b,c)

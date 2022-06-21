@@ -583,7 +583,7 @@ m = 1e9_dp
 do i = 1,g%nat-1
   lb => la%next
   do j = i+1,g%nat
-    vd = vdistance(la%o,lb%o, mic)
+    call vdistance(vd,la%o,lb%o, mic)
     rd = dot_product(vd,vd)
     if (rd<m) m = rd
     lb => lb%next

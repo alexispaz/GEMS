@@ -1038,17 +1038,17 @@ endfunction
 ! Properties
 ! ----------
 
-function vdistance(i,j,mic) result(vd)
+subroutine vdistance(vd,i,j,mic)
 !calculates the distance of two atoms with or without minimum image convention
 use gems_program_types, only: box, one_box
-real(dp),dimension(dm)  :: vd
+real(dp),intent(out)    :: vd(dm)
 type(atom),intent(in)   :: i,j
 logical,intent(in)      :: mic
 logical                 :: pbc(dm)
 integer                 :: l
   
 ! Distancia
-vd=i%pos-j%pos
+vd(:)=i%pos(:)-j%pos(:)
 
 ! Convencion de imagen minima
 if(.not.mic) return
@@ -1059,7 +1059,7 @@ do l = 1,dm
   if (pbc(l)) vd(l)=vd(l)-box(l)*idnint(vd(l)*one_box(l))
 enddo
 
-end function vdistance
+end subroutine vdistance
          
  
 ! igroup events (indexed atoms)

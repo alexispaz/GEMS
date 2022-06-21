@@ -278,7 +278,7 @@ do while( associated(ln%next) )
   ln%o%f(:)=0.0_dp
 enddo
 
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -319,7 +319,7 @@ do while( associated(ln%next) )
   ln%o%f(:)=0.0_dp
 enddo
 
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -358,7 +358,7 @@ do while( associated(ln%next) )
     write(of%un,fmt='(e25.12,1x)',advance='no') op%d(l)%med()
   enddo 
 enddo
-write(of%un,*)  
+write(of%un,'(a)')
      
 
 ! loop between window blocks
@@ -393,14 +393,14 @@ do j =1,ln%o%d(1)%size-2
       write(of%und,fmt='(2(e25.12,2x))',advance='no')  err,errerr
     enddo
 
-    write(of%und,*)
+    write(of%und,'(a)')
  
   enddo 
 enddo
 
 ! Separador de bloque (Enable `plot "file" i 3` in gnuplot)
-write(of%und,*)
-write(of%und,*)
+write(of%und,'(a)')
+write(of%und,'(a)')
 
 if(of%flush) then
   call flush(of%un)
@@ -631,7 +631,7 @@ u = find_io(30)
 
 open(u, file=trim(adjustl(archivo)),position='rewind')
 write(u,*) g%nat
-write(u,*)
+write(u,'(a)')
 la => g%alist
 do i = 1,g%nat
   la => la%next
@@ -1066,7 +1066,7 @@ do i=1,of%g%nat
   la => la%next
   write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%q
 enddo                   
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -1087,7 +1087,7 @@ do i=1,of%g%nat
   la => la%next
   write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%border
 enddo                   
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 

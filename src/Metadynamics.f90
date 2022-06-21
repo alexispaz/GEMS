@@ -1224,10 +1224,10 @@ subroutine write_E_1D(of)
 
   fact=(-(temp_md+dT_WT)/(dT_WT))*0.01
    do i=1, potbinCV1
-   write(of%un,*) interpolation_x(i),fact*pot_int_y(i)
+   write(of%un,'(e25.12,x,e25.12)') interpolation_x(i),fact*pot_int_y(i)
    enddo
    
-   write(of%un,*) 
+   write(of%un,'(a)')
 
   if(of%flush) call flush(of%un)
 

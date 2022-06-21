@@ -404,7 +404,7 @@ do ii = 1,g%ref%nat
     z2 = g%z(o2%z)
 
     ! Compute distance
-    vd = vdistance( o2, o1, mic)
+    call vdistance(vd, o2, o1, mic)
     dr =  sqrt(dot_product(vd,vd))
 
     if(dr>g%rce(z1,z2)) cycle
@@ -496,7 +496,7 @@ do ii = 1,g%ref%nat
     z2 = g%z(o2%z)
 
     ! Compute distance
-    vd = vdistance( o2, o1 , mic)
+    call vdistance(vd, o2, o1 , mic)
     dr =  sqrt(dot_product(vd,vd))
 
     factor=0.0_dp

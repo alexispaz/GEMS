@@ -138,7 +138,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  i = o1%gid(g) ! FIXME: Rise an internal ifort error.
+  ! i = o1%gid(g) ! FIXME: Rise an internal ifort error.
 
   ! g%adj(i,i)=1
   do l = 1, g%nn(i)  ! sobre los vecinos
@@ -151,7 +151,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -219,7 +219,7 @@ main: do
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -537,7 +537,7 @@ allocate(lmask(g%ngraphs))
 lmask(:)=.false.
 do i = 1,g%nat
   at=>g%a(i)%o
-  if(at%gri(gini)/=-1) lmask(g%label(i))=.true. ! FIXME: Rise an internal ifort error.
+  ! if(at%gri(gini)/=-1) lmask(g%label(i))=.true. ! FIXME: Rise an internal ifort error.
 enddo
  
 ! Search the igaph again and peek atoms by its labels.

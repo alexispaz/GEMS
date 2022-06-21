@@ -209,7 +209,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -290,7 +290,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
                
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -396,7 +396,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -498,7 +498,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
 
@@ -594,7 +594,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -671,7 +671,7 @@ do ii = 1,g%ref%nat
       if(associated(oj,target=g%limbo)) cycle
     endif
 
-    vd = vdistance(oj,oi, mic)
+    call vdistance(vd,oj,oi, mic)
 
     ! Skip this if the z distance is below the boundary
     if(vd(3)<g%rs) cycle
@@ -707,7 +707,7 @@ do ii = 1,g%ref%nat
       if(associated(oj,target=g%limbo)) cycle
     endif
 
-    vd = vdistance(oj,oi, mic)
+    call vdistance(vd,oj,oi, mic)
 
     ! Skip this if the z distance is below the boundary
     if(vd(3)<g%rs) cycle
@@ -784,7 +784,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o1, o2 , mic) ! respetar el orden
+    call vdistance(vd, o1, o2 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle
@@ -899,7 +899,7 @@ do ii = 1,g%ref%nat
       if(associated(o2,target=g%limbo)) cycle
     endif
 
-    vd = vdistance( o2, o1 , mic) ! respetar el orden
+    call vdistance(vd, o2, o1 , mic) ! respetar el orden
     dr = dot_product(vd,vd) 
 
     if(dr>g%rcut2) cycle

@@ -90,7 +90,9 @@ use gems_calc, only: calc_cli
 
                               
 character(*)  :: com
-type(group)   :: gaux
+! type(group)   :: gaux ! NOTE: Rise an internal ifort error.
+class(group),pointer   :: gaux
+allocate(gaux)
 
 select case(com)
 case('license')

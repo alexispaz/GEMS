@@ -299,7 +299,7 @@ if(a%gid(g%b)>0) then
     ! Skip autointeraction
     if(associated(aj,target=a)) cycle
                       
-    vd = vdistance(a,aj,mic)
+    call vdistance(vd,a,aj,mic)
     rd = dot_product(vd,vd)
 
     if (rd>rcut) cycle
@@ -399,7 +399,7 @@ do ii = 1,g%ref%nat
     ! Skip autointeraction
     if(associated(aj,target=ai)) cycle
 
-    vd = vdistance(ai,aj,mic)
+    call vdistance(vd,ai,aj,mic)
     rd = dot_product(vd,vd)
 
     if (rd>rcut) cycle
@@ -446,7 +446,7 @@ do j = 1, g%b%amax
   ! Skip autointeraction
   if(associated(aj,target=ai)) cycle
 
-  vd = vdistance(ai,aj,mic)
+  call vdistance(vd,ai,aj,mic)
   rd = dot_product(vd,vd)
 
   if (rd>rcut) cycle
@@ -522,7 +522,7 @@ do ii = 1,g%ref%nat
       ! Skip autointeraction
       if(associated(aj,target=ai)) cycle
 
-      vd = vdistance(aj,ai,mic) ! respetar el orden
+      call vdistance(vd,aj,ai,mic) ! respetar el orden
       rd =  dot_product(vd,vd)
 
       if (rd<rcut) then
@@ -586,7 +586,7 @@ do nabor=0,26
     ! Skip autointeraction
     if(associated(aj,target=ai)) cycle
 
-    vd = vdistance(aj,ai,mic) ! respetar el orden
+    call vdistance(vd,aj,ai,mic) ! respetar el orden
     rd =  dot_product(vd,vd)
 
     if (rd<rcut) then
