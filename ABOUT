@@ -27,6 +27,11 @@ Copyright: 2020, S. Alexis Paz <alexis.paz@gmail.com>
            2005, Anthony J. Stone (http://www-stone.ch.cam.ac.uk/programs.html)
            2016, IanH (https://stackoverflow.com/users/1234550/ianh)
 License: GPL-3+, CC-BY-SA-3.0
+  
+Files: src/Constants.F90
+Copyright: 2020, S. Alexis Paz <alexis.paz@gmail.com>
+           2018, Seve Lionel (https://stackoverflow.com/users/2643582/steve-lionel)
+License: GPL-3+, CC-BY-SA-3.0
             
 Files: *.m4
 Copyright: 2008, Steven G. Johnson <stevenj@alum.mit.edu>

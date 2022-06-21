@@ -152,6 +152,8 @@ use gems_errors, only: werr, wref
 use gems_input_parsing, only: readf, readl, readb
 use gems_constants, only: atm_ui, linewidth
 use gems_bias, only: biason
+use gems_constants, only: same_proc
+use, intrinsic :: iso_c_binding
 class(integrate),target  :: it
 character(*), intent(in) :: w
 character(:),allocatable :: w1
@@ -164,7 +166,7 @@ case ('voter')
   ! This is not an integration algotihm...  this just set the time to be the voter time or the regular time..  But it has to follow
   ! the temperature of an algorithm with constant T.  Thus, this should be aplied to an iteration type that allows to get a
   ! temperature
-  call werr('A constant temperature algorithm is needed',.not.associated(it%stepa,target=ermak_a))
+  call werr('A constant temperature algorithm is needed',.not.same_proc(c_funloc(it%stepa),c_funloc(ermak_a)))
   call wwan('Hyperdinamics without a bias?',.not.biason)
   call readb(b1)
   voter=b1

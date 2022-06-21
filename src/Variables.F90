@@ -38,9 +38,6 @@ use gems_constants, only: dp,linewidth
 use gems_strings, only: chset_var,chset_l
 private
 
-public    :: polvar_expand, polvar_save
-public    :: polvar_integrate
- 
 type, public   :: polvar
   character(linewidth)  :: var
   class(*),pointer      :: val=>null()

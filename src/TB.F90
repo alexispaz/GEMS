@@ -116,7 +116,6 @@ end subroutine smatb_construct
 subroutine smatb_attach(g,a,l_)
 class(smatb),target        :: g
 class(atom),target         :: a
-type(atom_dclist),pointer  :: la
 real(dp), allocatable      :: t_band(:), t_eband(:)
 integer                    :: n,k  
 integer,intent(out),optional :: l_
@@ -463,7 +462,7 @@ end subroutine smatb_preinteraction
  
 subroutine smatb_interact(g)
 class(smatb),intent(inout)  :: g
-real(dp)                    :: dr,vd(dm),r0,aux1,aux2,lev_ui,repul
+real(dp)                    :: dr,vd(dm),r0,aux2,lev_ui,repul
 real(dp)                    :: drm,drm2,drm3,drm4,drm5,factor,factor2(dm),epot
 integer                     :: z1,z2
 integer                     :: i,ii,j,l,n

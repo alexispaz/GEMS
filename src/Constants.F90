@@ -14,7 +14,14 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
+!
+! ---
+! 
+! This file incorporates work derived from the following codes:
+!
+! Code posted on stackoverflow <https://stackoverflow.com/a/48977783/1342186>
+! by Seve Lionel <https://stackoverflow.com/users/2643582/steve-lionel> 
+! used under CC BY-SA 3.0.
  
 module gems_constants
 
@@ -137,13 +144,13 @@ real(dp),parameter  :: eV_kcm = 23.06035, kcm_eV=1._dp/eV_kcm,      &
                        ui_kcm = ui_eV*eV_kcm, kcm_ui=1._dp/ui_kcm
 
 ! Unidades atomicas 
-real(dp),parameter  :: bohr_ang = 0.5291772108_dp,                  & !
-                       ang_bohr = 1._dp/bohr_ang,                   & !
+real(dp),parameter  :: bohr_ui = 0.5291772108_dp,                  & !
+                       ui_bohr = 1._dp/bohr_ui,                   & !
                        hartree_ev = 27.211383411_dp,                & !
                        ev_hartree = 1.0_dp/hartree_ev,              & !
                        hartree_ui = hartree_ev*ev_ui,               & !
                        ui_hartree = 1.0_dp/hartree_ui,              & !
-                       hartreebohr_eVang=hartree_ev/bohr_ang,       & !
+                       hartreebohr_eVang=hartree_ev/bohr_ui,        & !
                        eVang_hartreebohr=1._dp/hartreebohr_eVang,   & !0.0194469064593167_dp
                        hartreebohr_ui=hartreebohr_eVang*ev_ui,      & !
                        ui_hartreebohr=1._dp/hartreebohr_ui
@@ -295,8 +302,24 @@ end function find_io
 
 
 function same_proc (a,b)
-! Associated(procedure_pointer,procedure_target) do not work, this is a
-! solution given in https://stackoverflow.com/a/48977783/1342186
+! Checksd procedure pointer-target association. Useful for intel compiler.
+! 
+! Derived from https://stackoverflow.com/a/48977783/1342186
+! code by Seve Lionel <https://stackoverflow.com/users/2643582/steve-lionel> 
+! used under CC BY-SA 3.0. 
+!
+! Relevant comments in https://stackoverflow.com/a/48977783/1342186:
+!
+! > This solution works with gfortran 7.3. @SteveLionel: Why
+! > associated(a%bc,boundaryA) does not work with intel compiler? It works with
+! > gfortran 7.3 but it does not work with intel 18.0.2. Should we expect this
+! > to work in future versions?.- alexis May 4, 2018 at 20:11
+!
+! > @alexis , that's a very good question. I'm uncertain why I didn't suggest
+! > that earlier. It ought to work, according to the standard. I am retired
+! > from Intel so I can't predict when it might get fixed, but I will report it
+! > to Intel. – Steve Lionel May 5, 2018 at 22:44
+
 use, intrinsic :: iso_c_binding
 logical same_proc
 type(c_funptr), intent(in) :: a,b
