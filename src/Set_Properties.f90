@@ -149,13 +149,12 @@ subroutine set_add_cmvel(g,f)
 class(group)                :: g
 class(atom_dclist),pointer  :: la
 real(dp),intent(in)         :: f(dm)
-integer                     :: j
+integer                     :: i
 
-call group_inq_cmpos(sys)
-la => g%alist%next
-do j =1, g%nat
-  la%o%vel = la%o%vel + f
+la => g%alist
+do i =1,g%nat
   la => la%next
+  la%o%vel(:) = la%o%vel(:) + f(:)
 enddo
 
 call gindex_vel_changed()
@@ -164,14 +163,15 @@ end subroutine set_add_cmvel
 subroutine set_gdist(g,newtemp)
 use gems_random, only:rang
 use gems_constants
-real(dp)            :: factor,newtemp,vel_med,f(dm)
-real(dp)            :: r1
-class(group)        :: g
-class(atom_dclist),pointer   :: la
-integer              :: i,j
+real(dp)                   :: factor,newtemp,vel_med,f(dm)
+real(dp)                   :: r1
+class(group)               :: g
+class(atom_dclist),pointer :: la
+real(dp)                   :: cmv(3)
+integer                    :: i,j
 
 ! Esto se usa para sacar la traslacion del CM
-call inq_cm_vel(g)
+call inq_cmvel(cmv,g)
 
 ! Sacando la traslacion del CM, los grados de libertad son (dm*g%nat-dm), entocnes:
 !   Ec=(dm*n-dm)/2*k*T
@@ -194,7 +194,7 @@ do i = 1,g%nat
   vel_med = sqrt(factor/la%o%mass)
   do j = 1,dm
     call rang(r1)
-    la%o%vel(j) = vel_med*r1+g%cm_vel(j)
+    la%o%vel(j) = vel_med*r1+cmv(j)
   enddo
   la => la%next
 enddo
@@ -205,26 +205,31 @@ call gindex_vel_changed()
 call set_scal_vel(g,newtemp)
 
 ! Para compenzar desplazamiento del centro de masa
-call inq_cm_vel(g)
-f=-g%cm_vel
-call set_add_cmvel(g,f)
+call inq_cmvel(cmv,g)
+call set_add_cmvel(g,-cmv)
 
 end subroutine set_gdist
 
-subroutine set_scal_vel(g,newtemp)
-class(group)               :: g
-real(dp)                   :: factor,newtemp
-class(atom_dclist),pointer :: la
-integer                    :: i
+subroutine set_scal_vel(g,newtemp,soft_)
+class(group)                 :: g
+real(dp),intent(in)          :: newtemp
+real(dp),optional,intent(in) :: soft_
+real(dp)                     :: factor,temp
+class(atom_dclist),pointer   :: la
+integer                      :: i
 
-call inq_temperature(g)
+temp=inq_temperature(g)
 
-if (g%temp==0._dp) then
+if (temp==0._dp) then
   call wwan('Not scale factor, actual temp is cero',newtemp/=0._dp)
   return
 endif
 
-factor=sqrt(newtemp/g%temp)
+if (present(soft_)) then
+  factor=newtemp/temp**soft_
+else
+  factor=sqrt(newtemp/temp)
+endif
 
 la => g%alist
 do i = 1,g%nat
@@ -233,9 +238,6 @@ do i = 1,g%nat
 enddo
 
 call gindex_vel_changed()
-
-g%temp = g%temp*(factor**2)
-g%b_temp=.true.
 
 end subroutine set_scal_vel
 
@@ -489,20 +491,22 @@ end subroutine rotate
 
   end subroutine align_tutor
 
-  subroutine bialign(g1,g2)
-   ! orienta un grupo en funcion de los ejes principales de otro. Util para
-   ! orientar sistemas esfericos como un octahedro truncado
-   class(group),intent(inout)  :: g1,g2
-   real(dp)                   :: aux3(3,3)
+subroutine bialign(g1,g2)
+! orienta un grupo en funcion de los ejes principales de otro. Util para
+! orientar sistemas esfericos como un octahedro truncado
+class(group),intent(inout)  :: g1,g2
+real(dp)                    :: aux3(3,3)
+real(dp)                    :: cmr(3)
 
-    call inq_principal_geometric_axis(g2,aux3)
-    if(dabs(inq_triaxial_param(g2))<1.0e-8_dp) then
-       call wwan('Ajustado por una esfera: No se puede orientar')
-      return
-    endif
-    call rotate(g1,aux3,g1%cm_pos)
+call inq_principal_geometric_axis(g2,aux3)
+if(dabs(inq_triaxial_param(g2))<1.0e-8_dp) then
+   call wwan('Ajustado por una esfera: No se puede orientar')
+  return
+endif
+call inq_cmpos(cmr,g1)
+call rotate(g1,aux3,cmr)
 
-  end subroutine bialign
+end subroutine bialign
 
   subroutine bialignxy_mass(g1,g2)
    ! orienta un grupo en funcion de los ejes principales de otro. Util para
@@ -573,10 +577,11 @@ end subroutine rotate
 
 subroutine minterdist(g,rm)
 ! Normaliza las distancias interatomicas con la minima
-real(dp)                   :: rm,r(dm),vd(dm),rd,m
+real(dp)                    :: rm,r(dm),vd(dm),rd,m
 class(group)                :: g
 class(atom_dclist),pointer  :: la,lb
-integer                    :: i,j
+integer                     :: i,j
+real(dp)                    :: cmr(3)
 
 la => g%alist%next
 m = 1e9_dp
@@ -593,8 +598,8 @@ enddo
 
 r(:)=rm/sqrt(m)
 
-call group_inq_cmpos(g)
-call expand(g,r,g%cm_pos)
+call inq_cmpos(cmr,g)
+call expand(g,r,cmr)
 
 end subroutine
 
@@ -672,17 +677,18 @@ end subroutine set_minpos
 
 subroutine set_cm_pos(g,v)
 real(dp)                    :: v(dm)
-class(group)                 :: g
-class(atom_dclist),pointer   :: la
+class(group)                :: g
+class(atom_dclist),pointer  :: la
 integer                     :: i
+real(dp)                    :: cmr(3)
 
-call group_inq_cmpos(g)
+call inq_cmpos(cmr,g)
 
-v = v - g % cm_pos
-la => g%alist%next
+v(:) = v(:) - cmr(:)
+la => g%alist
 do i = 1,g%nat
-  la % o % pos = la % o % pos + v
   la => la%next
+  la%o%pos(:) = la%o%pos(:) + v(:)
 enddo
 
 call gindex_pos_changed()
@@ -788,17 +794,18 @@ end subroutine set_clean_acel
 
 subroutine set_cm_vel(g,v)
 real(dp)                    :: v(dm)
-class(group)                 :: g
-class(atom_dclist),pointer   :: la
+class(group)                :: g
+class(atom_dclist),pointer  :: la
 integer                     :: i
+real(dp)                    :: cmv(3)
 
-call inq_cm_vel(g)
+call inq_cmvel(cmv,g)
 
-v = v - g % cm_vel
-la => g%alist%next
+cmv(:) = v(:) - cmv(:)
+la => g%alist
 do i = 1,g%nat
-  la % o % vel = la % o % vel + v
   la => la%next
+  la%o%vel = la%o%vel + cmv(:)
 enddo
 
 call gindex_vel_changed()

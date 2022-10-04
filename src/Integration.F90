@@ -1286,6 +1286,7 @@ it%fixt=temp
 end subroutine
 
 subroutine scalvel(it)
+use gems_set_properties, only: set_scal_vel
 class(integrate)            :: it
 real(dp)                   :: soft
 real(dp)                   :: factor,newtemp
@@ -1294,36 +1295,20 @@ integer                    :: i
 
 newtemp=it%p%o(1)
 soft=it%p%o(2)
-
-call inq_temperature(it)
-
-if (it%temp==0._dp) then
-  call wwan('Not scale factor, actual temp is cero',newtemp/=0._dp)
-  return
-endif
-
-factor=(newtemp/it%temp)**soft
-
-la => it%alist
-do i = 1,it%nat
-  la => la%next
-  la%o%vel = la%o%vel * factor
-enddo
-
-it%temp = it%temp*(factor**2)
-it%b_temp=.true.
+call set_scal_vel(it,newtemp,soft)  
 
 end subroutine scalvel
  
 subroutine scalvel_after(it)
-class(integrate)            :: it
-real(dp)                    :: upto,temp
+use gems_set_properties, only: set_scal_vel
+class(integrate)  :: it
+real(dp)          :: upto,temp,t
 
 temp=it%p%o(1)
 upto=it%p%o(3)
-call inq_temperature(it)
+t=inq_temperature(it)
 
-if(dabs(it%temp-temp)>upto*temp) call scalvel(it)
+if(abs(t-temp)>upto*temp) call set_scal_vel(it,temp)
 
 end subroutine scalvel_after
 

@@ -726,10 +726,14 @@ end subroutine write_state
 !ARCHIVOS PROPIEDADES
 
 subroutine write_tmoment(op)
-class(outpropa)     :: op
-call inq_cm_vel(op%g) 
-op%f(1:dm) = op%f(1:dm) + op%g%cm_vel(1:dm)*op%g%mass
-op%f(dm+1) = op%f(dm+1) + sqrt(dot_product(op%g%cm_vel(1:dm),op%g%cm_vel(1:dm))*op%g%mass)
+use gems_inq_properties, only: inq_cmvel,inq_mass
+class(outpropa)  :: op
+real(dp)         :: cmv(3),m
+
+call inq_cmvel(cmv,op%g) 
+m=inq_mass(op%g)
+op%f(1:dm) = op%f(1:dm) + cmv(:)*m
+op%f(dm+1) = op%f(dm+1) + sqrt(dot_product(cmv,cmv)*m)
 end subroutine
 
 subroutine write_amoment(op)
@@ -758,8 +762,7 @@ end subroutine
                 
 subroutine write_girrad(op)
 class(outpropa)     :: op
-call group_inq_rg(op%g)
-op%f(1) = op%f(1) + op%g%rg_pos
+op%f(1) = op%f(1) + inq_rg(op%g)
 end subroutine
                
 subroutine write_pressure(op)
@@ -809,22 +812,22 @@ end subroutine write_epot
 
 subroutine write_ecin(op)
 class(outpropa)     :: op
-call inq_kin_energy(op%g)
-op%f(1) = op%f(1) + op%g%ekin*ui_ev
+op%f(1) = op%f(1) + inq_kenergy(op%g)*ui_ev
 end subroutine write_ecin
  
 subroutine write_absecin(op)
 class(outpropa)     :: op
-call inq_abskin_energy(op%g)
-op%f(1) = op%f(1) + op%g%ekin*ui_ev
+real(dp)            :: cmv(3)=[0._dp,0._dp,0._dp]
+op%f(1) = op%f(1) + inq_kenergy(op%g,cmv)*ui_ev
 end subroutine write_absecin
   
 subroutine write_energy(op)
-class(outpropa)     :: op
-call inq_kin_energy(op%g)
+class(outpropa) :: op
+
 call inq_pot_energy(op%g)
+
 op%f(1) = op%f(1) + op%g%epot*ui_ev
-op%f(2) = op%f(2) + op%g%ekin*ui_ev
+op%f(2) = op%f(2) + inq_kenergy(op%g)*ui_ev
 op%f(3) = op%f(1) + op%f(2) 
 end subroutine write_energy
 
@@ -835,10 +838,10 @@ end subroutine write_box
 
 subroutine write_absenergy(op)
 class(outpropa)     :: op
-call inq_abskin_energy(op%g)
+real(dp)            :: cmv(3)=[0._dp,0._dp,0._dp]
 call inq_pot_energy(op%g)
 op%f(1) = op%f(1) + op%g%epot*ui_ev
-op%f(2) = op%f(2) + op%g%ekin*ui_ev
+op%f(2) = op%f(2) + inq_kenergy(op%g,cmv)*ui_ev
 op%f(3) = op%f(1) + op%f(2) 
 end subroutine write_absenergy
                    
@@ -850,15 +853,13 @@ real(dp)            :: aux
 
 !Primera energia
 if(first) then
-  call inq_kin_energy(op%g)
   call inq_pot_energy(op%g)
-  eini=op%g%epot+op%g%ekin
+  eini=op%g%epot+inq_kenergy(op%g)
   first=.false.
 endif
 
-call inq_kin_energy(op%g)
 call inq_pot_energy(op%g)
-ge = ge+(eini-(op%g%epot+op%g%ekin))**2
+ge = ge+(eini-(op%g%epot+inq_kenergy(op%g)))**2
 aux = sqrt(ge)
 op%f(1)=aux
 op%f(2)=aux/(dm_steps+1._dp)**2
@@ -866,33 +867,34 @@ end subroutine write_globalerror
 
 subroutine write_energypa(op)
 class(outpropa)     :: op
-call inq_kin_energy(op%g)
 call inq_pot_energy(op%g)
 op%f(1) = op%f(1) + op%g%epot*ui_ev/op%g%nat
-op%f(2) = op%f(2) + op%g%ekin*ui_ev/op%g%nat
+op%f(2) = op%f(2) + inq_kenergy(op%g)*ui_ev/op%g%nat
 op%f(3) = op%f(3) + (op%g%epot+op%g%ekin)*ui_ev/op%g%nat 
 end subroutine write_energypa
 
 subroutine write_aenergy(op)
-class(outpropa)     :: op
-call inq_angular_energy(op%g) 
-op%f(1) = op%f(1) + op%g%erot*ui_ev
-op%f(2) = op%f(2) + op%g%evib*ui_ev
-op%f(3) = op%f(3) + (op%g%erot+op%g%evib)*ui_ev
+class(outpropa)   :: op
+real(dp)          :: cmr(3),cmv(3)
+real(dp)          :: erot,evib
+call inq_cmpos(cmr,op%g)
+call inq_cmvel(cmv,op%g)
+call inq_angular_energy(erot,evib,op%g,cmr,cmv) 
+op%f(1) = op%f(1) + erot*ui_ev
+op%f(2) = op%f(2) + evib*ui_ev
+op%f(3) = op%f(3) + (erot+evib)*ui_ev
 end subroutine
 
 subroutine write_temp(op)
 class(outpropa)     :: op
-call inq_temperature(op%g)
-op%f(1) = op%f(1) + op%g%temp
+op%f(1) = op%f(1) + inq_temperature(op%g)
 end subroutine
 
 subroutine write_tempall(op)
 class(outpropa)     :: op
-call inq_temperature(op%g)
 op%f(1) = op%f(1) + op%g%temprot
 op%f(2) = op%f(2) + op%g%tempvib
-op%f(3) = op%f(3) + op%g%temp
+op%f(3) = op%f(3) + inq_temperature(op%g)
 end subroutine
 
 subroutine write_pos(of)
@@ -909,7 +911,7 @@ write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  !call group_inq_cmpos(of%g)
+  !call inq_cmpos(of%g)
   !write(un,'(a,2x,3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
   f(1:dm)=la%o%pos(1:dm)
   write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
@@ -1096,11 +1098,13 @@ end subroutine
 subroutine write_vel_rot(of)
 use gems_program_types
 class(outfile)     :: of
-type(atom_dclist),pointer  :: la
-integer                    :: i
+type(atom_dclist),pointer :: la
+integer                   :: i
 real(dp),dimension(3)     :: r,v,vrot,vvib
+real(dp)                  :: cmr(3),cmv(3)
 
-call inq_angular_energy(of%g) 
+call inq_cmpos(cmr,of%g)
+call inq_cmvel(cmv,of%g)
 
 write(of%un,*) of%g%nat
 write(of%un,*) time
@@ -1109,8 +1113,8 @@ la => of%g%alist
 do i=1,of%g%nat
   la => la%next
   
-  r(:) = la%o%pos(:)-of%g%cm_pos(:)
-  v(:) = la%o%vel(:)-of%g%cm_vel(:)
+  r(:) = la%o%pos(:)-cmr(:)
+  v(:) = la%o%vel(:)-cmv(:)
 
   vrot = cross_product(of%g%ang_vel,r)
   vvib(:) = v(:)-vrot(:)

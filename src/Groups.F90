@@ -67,22 +67,15 @@ type, public :: group
 
 
   ! -----temperatura
-  real(dp)                    :: temp    =0.0_dp  ,&
-                                 tempvib =0.0_dp  ,&
-                                 temprot =0.0_dp  ,&
-                                 mass    =0.0_dp
+  real(dp)                    :: tempvib =0.0_dp  ,&
+                                 temprot =0.0_dp  
   ! -----energies
   real(dp)                    :: ekin    =0.0_dp  ,&
                                  epot    =0.0_dp
   ! -----center of mass
-  real(dp),dimension(dm)      :: cm_pos  =0.0_dp  ,&
-                                 cg_pos  =0.0_dp  ,&
-                                 cm_vel  =0.0_dp
-  ! -----rg
-  real(dp)                    :: rg_pos  =0.0_dp
+  real(dp),dimension(dm)      :: cg_pos  =0.0_dp  
+
   ! -----angular properties
-  real(dp)                    :: erot    =0.0_dp  ,&
-                                 evib    =0.0_dp
   real(dp),dimension(3)       :: ang_mom =0.0_dp  ,&
                                  ang_vel =0.0_dp
   real(dp),dimension(3,3)     :: inercia =0.0_dp
@@ -113,29 +106,21 @@ type, public :: group
   ! inquire sea mas eficientes
 
   ! -----temperatura
-  logical                     :: b_temp    =.false. ,&
-                                 b_tempvib =.false. ,&
-                                 b_temprot =.false. ,&
-                                 b_mass    =.false.
+  logical                     :: b_tempvib =.false. ,&
+                                 b_temprot =.false.
   ! -----energies
-  logical                     :: b_ekin    =.false. ,&
-                                 b_epot    =.false.
+  logical                     :: b_epot    =.false.
   ! ----- pressure
   logical                     :: b_virial   =.false. ,&
                                  b_pressure =.false.
 
   ! -----center of mass
-  logical                     :: b_cm_pos  =.false. ,&
-                                 b_cg_pos  =.false. ,&
-                                 b_cm_vel  =.false.
-  ! -----radio de giro
-  logical                     :: b_rg_pos  =.false.
+  logical                     :: b_cg_pos  =.false. 
 
   ! -----angular properties
-  logical                     :: b_erot    =.false. ,&
-                                 b_evib    =.false.
   logical                     :: b_ang_mom =.false. ,&
                                  b_ang_vel =.false.
+
   logical                     :: b_inercia =.false. ,&
                                  b_covar   =.false.
   ! -----geometria y morfologia
@@ -782,9 +767,6 @@ call g%alist%add_before()
 call g%alist%prev%point(a)
 g%nat = g%nat + 1 ! numero de particulas
 
-! propiedades basicas para modificar
-g%mass = g%mass + a % mass ! masa
-
 ! si esta vectorial, ahora no tiene sentido
 if(associated(g%pp)) then
   deallocate(g%pp)
@@ -836,7 +818,6 @@ la=>prev
 
 ! TODO: propiedades extras para modificar?
 g%nat = g%nat - 1
-g%mass = g%mass - a%mass
 
 call all_changed(g)
 
@@ -953,41 +934,27 @@ end subroutine gindex_epot_changed
                   
 subroutine all_changed(g)
 class(group) :: g
-g%b_mass     =.false.
-g%b_erot     =.false.
-g%b_evib     =.false.
-g%b_cm_vel   =.false.
 g%b_ang_mom  =.false.
 g%b_ang_vel  =.false.
 g%b_maxpos   =.false.
 g%b_minpos   =.false.
 g%b_mainaxis =.false.
-g%b_cm_pos   =.false.
-g%b_rg_pos   =.false.
 g%b_covar    =.false.
 g%b_inercia  =.false.
 g%b_virial   =.false.
 g%b_pressure =.false.
-g%b_ekin    =.false.
-g%b_temp    =.false.
 g%b_tempvib =.false.
 g%b_temprot =.false.
-g%b_mass     =.false.
 call epot_changed(g)
 end subroutine all_changed
             
 subroutine pos_changed(g)
 class(group) :: g
-g%b_erot     =.false.
-g%b_evib     =.false.
-g%b_cm_vel   =.false.
 g%b_ang_mom  =.false.
 g%b_ang_vel  =.false.
 g%b_maxpos   =.false.
 g%b_minpos   =.false.
 g%b_mainaxis =.false.
-g%b_cm_pos   =.false.
-g%b_rg_pos   =.false.
 g%b_covar    =.false.
 g%b_inercia  =.false.
 g%b_virial   =.false.
@@ -1003,13 +970,8 @@ end subroutine epot_changed
                           
 subroutine vel_changed(g)
 class(group) :: g
-g%b_ekin    =.false.
-g%b_temp    =.false.
 g%b_tempvib =.false.
 g%b_temprot =.false.
-g%b_erot    =.false.
-g%b_evib    =.false.
-g%b_cm_vel  =.false.
 g%b_ang_mom =.false.
 g%b_ang_vel =.false.
 g%b_pressure =.false.

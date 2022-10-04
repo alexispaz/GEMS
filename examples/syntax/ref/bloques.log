@@ -13,23 +13,23 @@
 #  This is free software, and you are welcome to redistribute it
 #  under certain conditions; type `license` for details.
 #  
-#  Version:0149-dirty
+#  Version:83fe
 #  I/O Units:
 #    -input: bloques.gms
 #    -log:   bloques.log
 #    -chp:   bloques.chp
 #  MPI: Not compiled for MPI
-#  OpenMP: Using 8 threads
+#  OpenMP: Using 6 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    -1112042056
-#    530525088
-#    364513989
-#    -1653425248
-#    -1426479949
-#    -742062200
-#    -19037222
-#    1963206470
+#    -423313580
+#    1110344510
+#    734603579
+#    936516345
+#    -1391208295
+#    -2085932759
+#    -32875840
+#    -898380771
 # Input script for GEMS
 
 # Testing blocks
@@ -126,7 +126,7 @@ getin x2 cm_pos
 interact 1 pair lj 1. 0.890898718140339 2
 #-STD-> The interaction label is :i1
 # NHB Not using linked cells since it would involve less than 4 cells.
-# NHB  -cut radious:    2.00000
+# NHB  -total cut radious:    3.00000
 
 # Testing math
 tau_ps:=0.01018
@@ -182,8 +182,8 @@ print cm_pos
 
 # Final deletion of particles
 - group 2
-#-STD->            2 particles deleted
+#-STD->            4 particles deleted
 
-#-STD-> cpu time:      0.011 s
+#-STD-> cpu time:      0.003 s
 #-STD-> wall time:      0.000 s
 #-STD-> vecinos actualizados: 1 veces

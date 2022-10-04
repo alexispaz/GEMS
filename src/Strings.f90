@@ -27,7 +27,7 @@ interface str
   module procedure int2char,float2char
 end interface
 
-public    :: upcase,locase,str,int2char0
+public    :: upcase,locase,str,int2char0,int2char
 public    :: contar_cifras
 
 character(len=*),parameter,public ::    &

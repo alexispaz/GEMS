@@ -50,9 +50,10 @@ implicit none
 
 ! Command line argument
 integer                    :: narg,carg,larg !number of arguments, counter and length
-character(:),allocatable   :: arg            !argument
+character(:),allocatable   :: arg, cmd       !argument
 
 integer      :: i
+
 
  ! Si se compila con soporte para mpi, inicializo los procesadores.
 #ifdef HAVE_MPI
@@ -72,9 +73,9 @@ narg=command_argument_count()
 if(narg>0) then
 
   do carg=1,narg
-    call get_command_argument(1,length=larg)
+    call get_command_argument(carg, length=larg)
     allocate(character(larg) :: arg)
-    call get_command_argument (1, value=arg)
+    call get_command_argument (carg, value=arg)
 
     arg=adjustl(arg)
 
@@ -88,7 +89,8 @@ if(narg>0) then
       stdin=arg
       stdinlen=larg
     end select
-
+    
+    deallocate(arg)
   end do
 
 endif
@@ -200,7 +202,7 @@ call wlog('','    ---> trying to recover from chpfile ',chpmode)
 #ifdef HAVE_MPI
 call wlog(''); write(logunit,'(a,i0,a,i0)') "MPI: Im thread ", mpi_pc, " of ", mpi_tpc
 #else  
-call wlog(''); write(logunit,'(a)') "MPI: Not compiled for MPI"
+call wlog('','MPI: Not compiled for MPI')
 #endif
 
 !$OMP PARALLEL
@@ -323,8 +325,8 @@ do
   call flush(logunit)
   if (eof.or.term_signal) exit
 
-  call readl(w1)
-  call execute_command(trim(adjustl(w1)))
+  call readl(cmd)
+  call execute_command(cmd)
 
 enddo
 

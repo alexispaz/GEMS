@@ -50,7 +50,9 @@ real(dp)             :: sigma,vprom
 type(group),pointer   :: ghd=>null()
 
 ! lp hyperdinamics
-type(decorrelation)           :: dvp,dbp,dvbp
+! FIXME: Rise an internal ifort error
+! type(decorrelation)  :: dvp,dbp,dvbp
+class(decorrelation), pointer  :: dvp,dbp,dvbp
 real(dp)                      :: f
 integer                       :: ctime
 
@@ -132,6 +134,7 @@ real(dp)                  :: bprom,vbprom,prob,dumy,zfact!,dvbmin,aux
 logical                   :: acelerar=.false.!,dummy
 class(ngroup),pointer :: ig
 
+allocate(dvp,dbp,dvbp)
 
 call dvp%init()
 call dbp%init()

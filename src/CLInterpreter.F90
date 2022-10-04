@@ -54,10 +54,7 @@ real(dp)                  :: fv(dm),fv2(dm),fv3(dm)
 logical                   :: b1,bv1(dm)!,b2,b3
 
 ! Variables auxiliares para lectura, parsing y demas. 
-character(:),allocatable  :: w1,w2,w3
 character(linewidth)      :: wfix
-integer                   :: i1,i2,i3,i4,i5,i6,i7,i8
-real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16 
 
 ! character(:)              :: help_file='DOCDIR/help.md'
 
@@ -77,7 +74,7 @@ contains
 ! EXECUTE COMMANDS
 
 recursive subroutine execute_command(com)
-use gems_programs
+use gems_programs, only: dinamic_from_xyz, dinamic
 use gems_hyperdynamics
 #ifdef HAVE_MPI
 use gems_replicaexchange, only: parallel_tempering,parallel_tempering2
@@ -90,9 +87,18 @@ use gems_calc, only: calc_cli
 
                               
 character(*)  :: com
-! type(group)   :: gaux ! NOTE: Rise an internal ifort error.
+! type(group)   :: gaux !  FXIME: Rise an internal ifort error.
 class(group),pointer   :: gaux
-allocate(gaux)
+character(:),allocatable  :: w1,w2
+integer                   :: i1,i2,i3,i4,i5
+real(dp)                  :: f1,f2,f3,f4,f5,f6
+
+! FXIME: gaux is a pointer to avoid an internal ifort error.
+select case(com)
+case('-','^-','^+','>+','^>')
+  allocate(gaux)
+  call gaux%init()
+end select
 
 select case(com)
 case('license')
@@ -130,26 +136,22 @@ case('cycle')
      
 case('-') ! Destroy
 
-  ! Seleccioname esto del sistema
-  call gaux%init()
+  i1=sys%nat
   call select_commands(sys,gaux)
   call wwan('empty selection',gaux%nat==0)
            
-  call wstd(); write(logunit,*) i1, 'particles deleted'
+  call wstd(); write(logunit,*) gaux%nat, 'particles deleted'
   call gaux%destroy_all()
-  call gaux%dest()
       
 case('^-') ! Destroy
   
   ! Seleccioname esto de mi seleccion 
-  call gaux%init()
   call select_commands(gsel,gaux)
   call wwan('empty selection',gaux%nat==0)
        
   ! Seleccioname esto del sistema
   call wstd(); write(logunit,*) gaux%nat, 'particles deleted'
   call gaux%destroy_all()
-  call gaux%dest()
           
 case('+') ! Create
   call create_commands(sys)
@@ -160,8 +162,6 @@ case('^+') ! Crea y agrega a la seleccion previa
   ! WARNING FIXME Aquellas selecciones en donde gini=gsel, a medida que
   ! agreguen a gs (gout) incrementan el gini.... esto puede traer conflicto
   ! call create_commands(sys,gsel)
-
-  call gaux%init()
   call create_commands(gaux)
   call sys%attach(gaux)
   call wstd(); write(logunit,*) sys%nat, 'particles in system'
@@ -171,11 +171,9 @@ case('^+') ! Crea y agrega a la seleccion previa
 
   call wwan('empty selection',gsel%nat==0)  
   call gaux%detach_all()
-  call gaux%dest()
 
 case('>+') ! Crea y selecciona lo creado
 
-  call gaux%init()
   call create_commands(gaux)
   call sys%attach(gaux)
   call wstd(); write(logunit,*) sys%nat, 'particles in system'
@@ -186,7 +184,6 @@ case('>+') ! Crea y selecciona lo creado
 
   call wwan('empty selection',gsel%nat==0) 
   call gaux%detach_all()
-  call gaux%dest()
 
 
 case('>') ! Seleccioname esto del sistema
@@ -204,11 +201,9 @@ case('^') ! Agrega esto a mi seleccion (Union de conjuntos)
 
 case('^>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
 
-  call gaux%init()
   call select_commands(gsel,gaux)
   call gsel%detach_all()
   call gsel%attach(gaux) 
-  call gaux%dest()
 
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
@@ -371,8 +366,8 @@ case('setwtmd1d')
   call readf(f2)   ! ancho de las gaussianas
   call readf(f3)   ! Parametro de la WTMD
   call readf(f4)   ! tau (frecuencia)
-  call readi(i5)   ! cada cuanto grabo la dCM
-  call readi(i6)   ! cantidad de particulas en el core
+  call readi(i1)   ! cada cuanto grabo la dCM
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics         
   i3=1
     call werr('No integration group',its%size<1)
@@ -382,7 +377,7 @@ case('setwtmd1d')
     endif  
   ! FIXME:
   call gmeta%attach(gsel)
-  call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
+  call wtmetad_set(f1,f2,f3,f4,i1,i2,i3)
 
 case('setpos1d')
   !Lectura de los parametros necesarios para Well tempered Metadynamics
@@ -402,14 +397,14 @@ case('setpos1d')
   call gmeta%attach(gsel)
   call posicion1d_set(f1,f2,f3,f4,i5,i3)
 
- case('setwall1d')
-  call readf(f5)   ! potencial inicial
-  call readf(f6)   ! potencial final
+case('setwall1d')
+  call readf(f1)   ! potencial inicial
+  call readf(f2)   ! potencial final
   call readi(i4)   ! potencial bines
-  call readf(f9)   ! radio de la burbuja
+  call readf(f3)   ! radio de la burbuja
   ! FIXME:
   call gmeta%attach(gsel)
-  call wall1D_set(f5,f6,i4,f9)
+  call wall1D_set(f1,f2,i4,f3)
 
 case('wtdcm')
   call readi(i1)
@@ -451,9 +446,9 @@ case('setwtmd2d')
   call readf(f3)   ! ancho de rg
   call readf(f4)   ! Parametro de la WTMD
   call readf(f5)   ! tau (frecuencia)
-  call readi(i6)   ! cada cuanto grabo la dCM
-  call readf(f15)  ! tolerancia en las gaussianas
-  call readi(i8)   ! cantidad de particulas en el core
+  call readi(i1)   ! cada cuanto grabo la dCM
+  call readf(f6)  ! tolerancia en las gaussianas
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics 
   i3=1
     call werr('No integration group',its%size<1)
@@ -463,33 +458,33 @@ case('setwtmd2d')
     endif  
   ! FIXME:
   call gmeta%attach(gsel)
-  call wtmd2D_set(f1,f2,f3,f4,f5,i6,f15,i8,i3)
+  call wtmd2D_set(f1,f2,f3,f4,f5,i1,f6,i2,i3)
 
 case('setwall2d')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
-  call readi(i4)   ! potencial bines dcm
-  call readf(f10)  ! potencial inicial rg
-  call readf(f11)  ! potencial final rg
-  call readi(i5)   ! potencial bines rg
-  call readf(f14)  ! radio de la burbuja
+  call readf(f1)  ! potencial inicial dcm
+  call readf(f2)  ! potencial final dcm
+  call readi(i4)  ! potencial bines dcm
+  call readf(f3)  ! potencial inicial rg
+  call readf(f4)  ! potencial final rg
+  call readi(i5)  ! potencial bines rg
+  call readf(f5)  ! radio de la burbuja
   ! FIXME:
   call gmeta%attach(gsel)
-  call wall2D_set(f6,f7,i4,f10,f11,i5,f14)
+  call wall2D_set(f1,f2,i4,f3,f4,i5,f5)
 
 
 case('setwallauxcore')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
+  call readf(f1)   ! potencial inicial dcm
+  call readf(f2)   ! potencial final dcm
   ! FIXME:
   call gmeta%attach(gsel)
-  call wallauxCore_set(f6,f7)
+  call wallauxCore_set(f1,f2)
 case('setwallauxshell')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
+  call readf(f1)   ! potencial inicial dcm
+  call readf(f2)   ! potencial final dcm
   ! FIXME:
   call gmeta%attach(gsel)
-  call wallauxShell_set(f6,f7)
+  call wallauxShell_set(f1,f2)
 
 case('wtdcmrgco')
       
@@ -546,11 +541,11 @@ case('dmcv')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !Lectura de los parametros necesarios para Parabola (Umb_Samp)
-  call readi(i5)   ! cada cuanto grabo la dCM
-  call readf(f6)   ! burbuja
-  call readi(i6)   ! cantidad de particulas en el core
+  call readi(i3)   ! cada cuanto grabo la dCM
+  call readf(f1)   ! burbuja
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics
-  call DM_CV_set(i5,f6,i6)
+  call DM_CV_set(i3,f1,i2)
   !Umbrella sampling
   ! FIXME:
   call gmeta%attach(gsel)
@@ -579,13 +574,13 @@ case('partemp')
   call readl(w1)
   select case (w1)
    case('dmcv')
-    call readi(i5)   ! cada cuanto grabo la dCM
-    call readf(f6)   ! burbuja
-    call readi(i6)   ! cantidad de particulas en el core
+    call readi(i1)   ! cada cuanto grabo la dCM
+    call readf(f1)   ! burbuja
+    call readi(i2)   ! cantidad de particulas en el core
     !Pasar los parametros al modudo Metadynamics
   ! FIXME:
   call gmeta%attach(gsel)
-    call DM_CV_set(i5,f6,i6)
+    call DM_CV_set(i1,f1,i2)
    !PTWTMD
    case('wtdcm')
     !Lectura de los parametros necesarios para Well tempered Metadynamics
@@ -593,8 +588,8 @@ case('partemp')
     call readf(f2)   ! ancho de las gaussianas
     call readf(f3)   ! Parametro de la WTMD
     call readf(f4)   ! tau (frecuencia)
-    call readi(i5)   ! cada cuanto grabo la dCM
-    call readi(i6)   ! cantidad de particulas en el core
+    call readi(i1)   ! cada cuanto grabo la dCM
+    call readi(i2)   ! cantidad de particulas en el core
     !Pasar los parametros al modudo Metadynamics
     i3=1
     call werr('No integration group',its%size<1)
@@ -604,7 +599,7 @@ case('partemp')
     endif
   ! FIXME:
   call gmeta%attach(gsel)
-    call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
+    call wtmetad_set(f1,f2,f3,f4,i1,i2,i3)
     case default
     call werr('I do not understand the last command',.true.)
   endselect
@@ -628,14 +623,25 @@ case default
 
 end select 
 
+
+! FXIME: gaux is a pointer to avoid an internal ifort error.
+select case(com)
+case('-','^-','^+','>+','^>')
+  call gaux%dest()
+  deallocate(gaux)
+end select
+  
 endsubroutine execute_command
 
 subroutine interacciones
+use gems_constants,only: linewidth
 use gems_neighbor,only: ngroup,ngindex
 use gems_interaction,only: polvar_interact, interact_new
 use gems_variables,only: polvars
-class(ngroup),pointer  :: ig
-character(:),allocatable   :: label
+class(ngroup),pointer      :: ig
+character(linewidth)       :: wfix
+character(:),allocatable   :: label, w1
+integer                    :: i1,i2
 
 ! Read user label if found or assing a new one
 call readl(w1)
@@ -719,51 +725,48 @@ subroutine help(w)
 endsubroutine help
 
 subroutine evolve_commands
+use gems_constants,only: linewidth
 use gems_integration,only: polvar_integrate
 use gems_variables,only: polvars
 use gems_integration,only: integrate_cli, integrate
+use gems_strings,only: int2char
 type(integrate),pointer   :: it
+character(:),allocatable  :: label, w1, w2
 
-! Get label name
+! Read user label if found or assing a new one
 call readl(w1)
-
-! Find previous label
 it=>null()
 if(w1(1:1)==':') then
-  it=>polvar_integrate(w1)
-  if (associated(it)) call readl(w1)
+  label=w1
+  it=>polvar_integrate(label)
+  call readl(w1)
+else 
+  label=int2char(its%size+1)
+  label=':'//label
 endif
-
+       
 ! If label is not found create new one
 if (.not.associated(it)) then
 
   ! Create new evolution algoritm
   call its%append()
   it=>its%o(its%size)
-
-  ! Create new label
-  if(w1(1:1)==':') then
-    ! Using label defined by user
-    call polvars%link(trim(w1),it)
-    call readl(w1)
-  else
-    ! Using label defined by default
-    write(w2,'(a,i0)') ':',its%size
-    call polvars%link(trim(w2),it)
-    call wstd('The algorithm label is '//trim(w2))
-  endif
-
-  ! Initialize the integrate
   call it%init_ext(gsel)
 
+  ! Create new label
+  call polvars%link(label,it)
+  call wstd('The algorithm label is '//label)
 endif
 
-call integrate_cli(it,trim(adjustl(w1)))
+call integrate_cli(it,w1)
 
 endsubroutine evolve_commands
 
 subroutine cv_commands
 use gems_cvs
+character(:),allocatable  :: w1, w2
+real(dp)                  :: f1
+
 
 ! ! Interacciones
 ! ! Esto es beta, pero la idea es ir agregando atomos al grupo de interaccion
@@ -833,6 +836,7 @@ endselect
 endsubroutine cv_commands
 
 subroutine clean_commands
+character(:),allocatable  :: w1
 call readl(w1)
 selectcase(w1)
 case('creation')
@@ -846,6 +850,9 @@ endselect
 endsubroutine clean_commands
  
 subroutine group_commands
+character(:),allocatable  :: w1
+integer                   :: i1
+
 call readi(i1)
 call readl(w1)
 selectcase(w1)
@@ -862,8 +869,12 @@ endsubroutine group_commands
 
 subroutine create_commands(gn)
 ! Create atoms and add them to `gn` group
-class(group),intent(inout)    :: gn
-integer                       :: i
+class(group),intent(inout) :: gn
+integer                    :: i
+character(:),allocatable   :: w1
+integer                    :: i1
+real(dp)                   :: f1,fv(dm),fv2(dm)
+
 
 call readl(w1)
 selectcase(w1)
@@ -947,7 +958,9 @@ endsubroutine unselect_commands
 subroutine select_commands(gini,gout)
 class(group),intent(inout)          :: gout
 class(group),intent(inout),optional :: gini
-integer                            :: i
+character(:),allocatable            :: w1
+integer                             :: i,i1,i2
+real(dp)                            :: f1, f2, f3, f4
 
 call readl(w1)
 
@@ -1110,6 +1123,8 @@ endsubroutine select_commands
 
 subroutine out_commands
 use gems_output, only:prf,pri
+character(:),allocatable   :: w1
+
 
 call readl(w1)
   
@@ -1134,6 +1149,9 @@ end select
 end subroutine out_commands
 
 subroutine checkpoint_commands
+character(:),allocatable  :: w1
+integer                   :: i1, i2
+
 call readl(w1)
 selectcase(w1)
 case('write')
@@ -1158,6 +1176,9 @@ endsubroutine checkpoint_commands
 
 subroutine set_commands()
 use gems_elements, only: inq_z
+character(:),allocatable  :: w1,w2
+integer                   :: i1
+real(dp)                  :: f1
 
 call readl(w1)
 select case(w1)
@@ -1287,8 +1308,8 @@ endsubroutine set_commands
 subroutine get_commands
 use gems_random
 use gems_variables,only:polvars
-integer                    :: i
-character(:),allocatable   :: var, vari
+integer                    :: i, i2
+character(:),allocatable   :: var, vari, w1, w2
 
 ! Reding the variable name
 call readl(var)
@@ -1325,6 +1346,9 @@ endsubroutine get_commands
 subroutine mpi_commands
 use gems_random
 use gems_mpi, only: mpi_pc, mpi_tpc
+character(:),allocatable  :: w1
+integer                   :: i1
+
 call readl(w1)
 #ifdef HAVE_MPI
 #else
@@ -1350,6 +1374,7 @@ end subroutine  mpi_commands
 
 subroutine log_commands
 use, intrinsic :: iso_fortran_env, only: output_unit
+character(:),allocatable  :: w1
  
 if(logunit/=truelogunit) close(logunit) 
 
@@ -1378,7 +1403,10 @@ use gems_tables, only: etable
 use gems_variables,only:polvars
 integer                   :: ans
 type(atom_dclist),pointer :: la
-integer                   :: i
+real(dp)                  :: cmr(dm), f1, f2
+character(:),allocatable  :: w1
+integer                   :: i, i1
+
 
 ! Reading print order
 call readl(w1)
@@ -1416,43 +1444,39 @@ case('dm_steps')
 case('selnat') 
   call polvars%hard('_ans[1]',gsel%nat)
 case('temp') 
-  call inq_temperature(gsel)
-  call polvars%hard('_ans[1]',gsel%temp)
+  call polvars%hard('_ans[1]',inq_temperature(gsel))
 case('cm_vel')
-  call inq_cm_vel(gsel)
-  call polvars%hard('_ans[1]',gsel%cm_vel(1))
-  call polvars%hard('_ans[2]',gsel%cm_vel(2))
-  call polvars%hard('_ans[3]',gsel%cm_vel(3))
+  call inq_cmvel(cmr,gsel)
+  call polvars%hard('_ans[1]',cmr(1))
+  call polvars%hard('_ans[2]',cmr(2))
+  call polvars%hard('_ans[3]',cmr(3))
   ans=3
 case('cm_pos')
-  call group_inq_cmpos(gsel)
-  call polvars%hard('_ans[1]',gsel%cm_pos(1))
-  call polvars%hard('_ans[2]',gsel%cm_pos(2))
-  call polvars%hard('_ans[3]',gsel%cm_pos(3))
+  call inq_cmpos(cmr,gsel)
+  call polvars%hard('_ans[1]',cmr(1))
+  call polvars%hard('_ans[2]',cmr(2))
+  call polvars%hard('_ans[3]',cmr(3))
   ans=3
 case('cm_diff2','cm_diff')
+  call inq_cmpos(fv(:),gsel)
+
   call readi(i1) ! The second group
-  ! Run selecction according to the second group selected
-  call group_inq_cmpos(gsel)
   if (i1==-1) then
-    fv = gsel%cm_pos-gsel%cm_pos
+    cmr(:)=fv(:)
   else if (i1==0) then
-    !call pos_changed()
-    call group_inq_cmpos(sys)
-    fv = gsel%cm_pos-sys%cm_pos
+    call inq_cmpos(cmr,sys)
   else
-    !call pos_changed()
-    call group_inq_cmpos(gr(i1))
-    fv = gsel%cm_pos-gr(i1)%cm_pos
+    call inq_cmpos(cmr,gr(i1))
   endif
+  fv(:) = fv(:)-cmr(:)
+
   if(w1=='cm_diff2') then
     call polvars%hard('_ans[1]',dot_product(fv,fv))
   else
     call polvars%hard('_ans[1]',sqrt(dot_product(fv,fv)))
   endif
 case('rg_pos')
-  call group_inq_rg(gsel)
-  call polvars%hard('_ans[1]',gsel%rg_pos)
+  call polvars%hard('_ans[1]',inq_rg(gsel))
 case('minpos') 
   call inq_boundingbox(gsel)
   call polvars%hard('_ans[1]',gsel%minpos(1))
@@ -1598,6 +1622,7 @@ endselect
 end function print_commands
 
 subroutine time_commands
+character(:),allocatable  :: w1
 call readl(w1)
 selectcase(w1)
 case('cero')
@@ -1613,13 +1638,16 @@ endsubroutine time_commands
            
 subroutine element_commands
 use gems_elements, only: add_z 
+character(:),allocatable  :: w1
+real(dp)                  :: f1
+
 
 call readl(w1)
 selectcase(w1)
 case('add')
   call reada(w1)
-  call readf(f2)
-  call add_z(trim(adjustl(w1)),f2,0._dp,1._dp)
+  call readf(f1)
+  call add_z(trim(adjustl(w1)),f1,0._dp,1._dp)
 case default  
   call wwan('I do not understand the last command')  
 endselect 
@@ -1627,6 +1655,8 @@ endselect
 endsubroutine element_commands
 
 subroutine prng_commands
+character(:),allocatable  :: w1
+integer                   :: i1, i2
 call readl(w1)
 selectcase(w1)
 case('lcg')
@@ -1666,14 +1696,15 @@ endsubroutine prng_commands
       
 subroutine box_commands
 use gems_groups, only: useghost
+character(:),allocatable  :: w1
 integer   :: i,j
+real(dp)  :: f1,f2,f3
 
 call readl(w1)
 selectcase(w1)
 case('move')
-  call inq_cm_vel(sys)
-  fv=-sys%cm_vel
-  call set_add_cmvel(sys,fv)
+  call inq_cmvel(fv,sys)
+  call set_add_cmvel(sys,-fv)
 case('tsize')
   cubic=.false.
   do i = 1,dm
@@ -1712,6 +1743,8 @@ endsubroutine box_commands
 
 subroutine table_commands
 type(etable) t1
+character(:),allocatable :: w1,w2
+integer                  :: i2,i3
 
 call reada(w1) ! Archivo
 call readi(i2) ! Columna x
@@ -1748,6 +1781,7 @@ endsubroutine table_commands
 
 subroutine mtable_commands
 !type(etable) t1,t2,t3
+character(:),allocatable :: w2
 
 call readl(w2) ! Comando 
 !select case(w2)
@@ -1803,8 +1837,8 @@ use gems_fields, only: write_halfsho
 class(outfile),pointer   :: of
 class(outpropa),pointer  :: op
 type(outpropa_l),pointer :: ln
-character(:),allocatable :: label
-integer                  :: j
+character(:),allocatable :: label,w1, w2
+integer                  :: j,i1,i2
 
 ! Read user label if found or assing a new one
 call readl(w1)

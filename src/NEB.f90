@@ -372,6 +372,8 @@ do i = 2, nimg
   sumrad=sumrad+aux
 enddo       
 
+g%pv(:) = 0._dp
+
 !Salida general
 bkptime=time
 do i =1, nimg

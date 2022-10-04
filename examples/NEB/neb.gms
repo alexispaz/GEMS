@@ -28,11 +28,11 @@ group 2 add
 interact 1 tb read test.prm
  
 # Outfiles
-outfile :f1 name Energy.$jobname$.dat
+outfile :f1 name Energy.$jobname.dat
 outfile :f1 cols time energy 1
 outfile :f1 each 1
     
-outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 name Pos.$jobname.xyz
 outfile :f2 Poscr 1
 outfile :f2 each 1
 

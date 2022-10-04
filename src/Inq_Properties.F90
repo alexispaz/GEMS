@@ -17,14 +17,6 @@
 
  
 module gems_inq_properties
-! conjuntos de subrutinas inq_
-! energy : calculate epot and ekin and the same for each sgrp(j)
-! angular_energy : 
-! angular_mechanic :
-! mass_center : calculate cm_pos and cm_vel and the same for each sgrp(j)
-! pbc : efectuate the pbc
-! disrad :
-
 use gems_program_types, only: dt,tbox,box,one_box,mic
 use gems_groups, only: group,atom,atom_dclist,vdistance
 use gems_constants,     only: sp,dp,kB_ui,ui_ev,pi,pio2,dm
@@ -43,8 +35,8 @@ private :: dp,kB_ui,pio2,ui_ev,pi  ! constants
 save
 
 !All subroutines or all functions
-!interface group_inq_cmpos
-!  module procedure atom_dclist_inq_cmpos, group_inq_cmpos
+!interface inq_cmpos
+!  module procedure atom_dclist_inq_cmpos, inq_cmpos
 !end interface
 
 contains
@@ -281,64 +273,41 @@ g%b_epot=.true.
 
 end subroutine inq_pot_energy
      
-subroutine inq_abskin_energy(g)
-class(group)         :: g
-type(atom_dclist),pointer   :: la
-integer              :: i
-
-if(g%b_ekin) return
-
-g%ekin = 0.0_dp
-
-
-! Prerequisitos
-la => g%alist
-do i = 1,g%nat
-  la => la%next
-  g%ekin = g%ekin + dot_product(la%o%vel,la%o%vel)*la%o%mass
-enddo
-
-g%ekin = g%ekin*0.5_dp
-
-g%b_ekin=.true.
-end subroutine inq_abskin_energy
-    
-subroutine inq_kin_energy(g)
-class(group)               :: g
-type(atom_dclist),pointer  :: la
-integer                    :: i
-real(dp)                   :: v(3)
-
-if(g%b_ekin) return
-
-g%ekin = 0.0_dp
+   
+function inq_kenergy(g,cmv_) result(e)
+real(dp)                     :: e
+real(dp),optional,intent(in) :: cmv_(dm)
+class(group),intent(in)      :: g
+type(atom_dclist),pointer    :: la
+integer                      :: i
+real(dp)                     :: v(dm),cmv(dm)
 
 ! Prerequisitos
-call inq_cm_vel(g)
+if(present(cmv_))then
+ cmv(:)=cmv_(:)
+else
+ call inq_cmvel(cmv,g)
+endif
+
+e=0._dp
 
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  v(:)=la%o%vel(:)-g%cm_vel(:)
-  g%ekin = g%ekin + dot_product(v,v)*la%o%mass
+  v(:)=la%o%vel(:)-cmv(:)
+  e = e + dot_product(v,v)*la%o%mass
 enddo
 
-g%ekin = g%ekin*0.5_dp
+e = e*0.5_dp
 
-g%b_ekin=.true.
-end subroutine inq_kin_energy
+end function inq_kenergy
 
-subroutine inq_temperature(g)
-class(group)         :: g
-
-if(g%b_temp) return
-
-! Prerequisitos
-call inq_kin_energy(g)
-
-g%temp  = 2.0_dp * g%ekin / (kB_ui*(dm*g%nat))!-dm)) ! El -dm es cuando la energia interna esta referida al centro de masa y la dinamica conservativa????
-g%b_temp=.true.
-end subroutine inq_temperature
+function inq_temperature(g) result(t)
+class(group),intent(in) :: g
+real(dp)                :: t
+t = inq_kenergy(g)
+t = 2._dp*t/(kB_ui*(dm*g%nat))!-dm)) ! El -dm es cuando la energia interna esta referida al centro de masa y la dinamica conservativa????
+end function inq_temperature
 
 ! pressure
 !---------
@@ -441,8 +410,6 @@ if(.not.b_gvirial) then
   virial(:,:)=g%virial(:,:)
 endif
 
-! call inq_kin_energy(g)
-
 if(g%b_pressure) return
 
 g%pressure(:,:) = 0.0_dp
@@ -478,74 +445,57 @@ end subroutine inq_pressure
 
 ! center of mass
 !---------------
- 
-subroutine inq_mass(g)
-class(group)         :: g
-type(atom_dclist),pointer   :: la
-integer              :: i
+             
+function inq_mass(g) result(m)
+real(dp)                   :: m
+class(group),intent(in)    :: g
+type(atom_dclist),pointer  :: la
+integer                    :: i
 
-if(g%b_mass) return
-
-g%mass = 0.0_dp
-
-la => g%alist%next
-do i = 1,g%nat
-  g%mass = g%mass + la%o%mass
-  la => la%next
-enddo
-
-g%b_mass=.true.
-end subroutine inq_mass
-
-subroutine group_inq_cmpos(g)
-class(group)         :: g
-type(atom_dclist),pointer   :: la
-integer              :: i
-
-if(g%b_cm_pos) return
-
-g%cm_pos(1:dm) = 0.0_dp
-
-! Prerequisitos
-call inq_mass(g)
-
+m=0._dp
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  g%cm_pos(1:dm) = g%cm_pos(1:dm) + la%o % mass * la%o%pos(1:dm)
+  m = m + la%o%mass
 enddo
-g%cm_pos(1:dm) = g%cm_pos(1:dm)/g%mass
 
-g%b_cm_pos=.true.
-end subroutine
+end function inq_mass
+              
+subroutine inq_cmpos(r,g)
+real(dp),intent(out)       :: r(dm)
+class(group)               :: g
+type(atom_dclist),pointer  :: la
+integer                    :: i
 
-
-subroutine group_inq_rg(g)
-class(group)         :: g
-type(atom_dclist),pointer   :: la
-integer              :: i
-real(dp)             :: sumaRg,vd(dm)
-
-if(g%b_rg_pos) return
-
-g%rg_pos = 0.0_dp
-sumaRg= 0.0_dp
-! Prerequisitos
-call group_inq_cmpos(g)
-
+r(:) = 0._dp
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  vd(1:dm)=la%o%pos(1:dm)-g%cm_pos(1:dm)
-   sumaRg= sumaRg + dot_product(vd,vd)
+  r(:) = r(:) + la%o%mass*la%o%pos(1:dm)
 enddo
-g%rg_pos =sqrt(sumaRg / real (g%nat,dp))
+r(:) = r(:)/inq_mass(g)
 
-g%b_rg_pos=.true.
-end subroutine
+end subroutine inq_cmpos
 
+function inq_rg(g) result(rg)
+real(dp)                   :: rg
+class(group)               :: g
+type(atom_dclist),pointer  :: la
+integer                    :: i
+real(dp)                   :: cmr(dm),vd(dm)
 
+call inq_cmpos(cmr,g)
 
+rg=0._dp
+la => g%alist
+do i = 1,g%nat
+  la => la%next
+  vd(:)=la%o%pos(1:dm)-cmr(:)
+  rg = rg + dot_product(vd,vd)
+enddo
+rg =sqrt(rg / real (g%nat,dp))
+
+end function
 
 function atom_dclist_inq_cmpos(alist,mass) result(rcm)
 type(atom_dclist),target,intent(in)  :: alist
@@ -569,26 +519,21 @@ if(present(mass)) mass=m
 
 end function
 
-subroutine inq_cm_vel(g)
-class(group)         :: g
+subroutine inq_cmvel(r,g)
+real(dp),intent(out)        :: r(dm) 
+class(group)                :: g
 type(atom_dclist),pointer   :: la
-integer              :: i
+integer                     :: i
 
-if(g%b_cm_vel) return
-
-! Prerequisitos
-call inq_mass(g)
-
-g%cm_vel(1:dm) = 0.0_dp
+r(:) = 0._dp
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  g%cm_vel(1:dm) = g%cm_vel(1:dm) + la%o%mass * la%o%vel(1:dm)
+  r(:) = r(:) + la%o%mass*la%o%vel(1:dm)
 enddo
-g%cm_vel(1:dm) = g%cm_vel(1:dm)/g%mass
+r(:) = r(:)/inq_mass(g)
 
-g%b_cm_vel=.true.
-end subroutine
+end subroutine inq_cmvel
 
 
 ! geometry
@@ -776,21 +721,21 @@ use gems_algebra, only:cross_product
 class(group)              :: g
 type(atom_dclist),pointer :: la
 integer                   :: i
-real(dp),dimension(3)     :: r,v
+real(dp),dimension(3)     :: r,v,cmr,cmv
 
 if(g%b_ang_mom) return
 
 ! Prerequisitos
-call group_inq_cmpos(g)
-call inq_cm_vel(g)
+call inq_cmpos(cmr,g)
+call inq_cmvel(cmv,g)
 
 g%ang_mom = 0.0_dp
 la => g%alist
 do i = 1,g%nat
   la => la%next
 
-  r(:) = la%o%pos(:)-g%cm_pos(:)
-  v(:) = la%o%vel(:)-g%cm_vel(:)
+  r(:) = la%o%pos(:)-cmr(:)
+  v(:) = la%o%vel(:)-cmv(:)
 
   g%ang_mom = g%ang_mom + cross_product(r,v)*la%o%mass
 enddo
@@ -824,41 +769,37 @@ end subroutine
 
 ! SEGURO TIENE BUGS
 
-subroutine inq_angular_energy(g)
-class(group)               :: g
+subroutine inq_angular_energy(erot,evib,g,cmr,cmv)
+class(group)              :: g
+real(dp),intent(in)       :: cmr(3),cmv(3)
+real(dp),intent(out)      :: erot,evib
 type(atom_dclist),pointer :: la
 integer                   :: i
 real(dp),dimension(3)     :: r,v,vrot,vvib
 
-if(g%b_evib.and.g%b_erot) return
-
 ! Prerequisitos
 call inq_angular_vel(g)
-call group_inq_cmpos(g)
-call inq_cm_vel(g)
 
-g%erot = 0.0_dp
-g%evib = 0.0_dp
+erot = 0.0_dp
+evib = 0.0_dp
 
 la => g%alist
 do i = 1,g%nat
   la => la%next
 
-  r(:) = la%o%pos(:)-g%cm_pos(:)
-  v(:) = la%o%vel(:)-g%cm_vel(:)
+  r(:) = la%o%pos(:)-cmr(:)
+  v(:) = la%o%vel(:)-cmv(:)
 
   vrot = cross_product(g%ang_vel,r)
   vvib(:) = v(:)-vrot(:)
 
-  g%evib = g%evib + dot_product(vrot,vrot)*la%o%mass 
-  g%erot = g%erot + dot_product(vvib,vvib)*la%o%mass 
+  evib = evib + dot_product(vrot,vrot)*la%o%mass 
+  erot = erot + dot_product(vvib,vvib)*la%o%mass 
 enddo
 
-g%evib = g%evib*0.5_dp
-g%erot = g%erot*0.5_dp
+evib = evib*0.5_dp
+erot = erot*0.5_dp
 
-g%b_evib = .true.
-g%b_erot = .true.
 end subroutine
 
 ! morfology

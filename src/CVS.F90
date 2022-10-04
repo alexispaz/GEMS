@@ -34,7 +34,7 @@ module gems_cvs
 use gems_constants,only:dp,dm
 ! use gems_algebra,only:real_v,integer_v
 use gems_groups, only:igroup,group_ap,atom,atom_dclist
-use gems_inq_properties, only:group_inq_cmpos,inq_cm_vel,group_inq_rg
+use gems_inq_properties, only:inq_cmpos,inq_cmvel,inq_rg
 use gems_errors, only:werr
 
 implicit none
@@ -191,13 +191,17 @@ end subroutine cv_attach
 ! end function
                            
 subroutine cv_jaco_cmpos(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
+real(dp)                   :: m
 logical,save               :: pragmaonce=.false.
 
 ! Solo se ejecuta una ves
 if(pragmaonce) return
+
+m=inq_mass(c)
 
 la => c%alist
 do i=1,c%nat
@@ -205,7 +209,7 @@ do i=1,c%nat
 
   c%j(1:dm,i,1:dm) = 0._dp
   do j=1,dm
-    c%j(j,i,j) = la%o%mass/c%mass
+    c%j(j,i,j) = la%o%mass/m
   enddo
 enddo       
 
@@ -214,22 +218,27 @@ pragmaonce=.true.
 end subroutine cv_jaco_cmpos
                                          
 subroutine cv_jaco_cm(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
 logical,save               :: pragmaonce=.false.
+real(dp)                   :: cmr(3),m
 
 ! Solo se ejecuta una ves
 if(pragmaonce) return
 
+m=inq_mass(c)
+
 j=c%ir(1)  
-c%t(1)=c%cm_pos(j)
+call inq_cmpos(cmr,c)
+c%t(1)=cmr(j)
 
 la => c%alist
 do i=1,c%nat
   la => la%next 
   c%j(:,i,:) = 0._dp
-  c%j(1,i,j) = la%o%mass/c%mass
+  c%j(1,i,j) = la%o%mass/m
 enddo       
             
 
@@ -239,25 +248,29 @@ end subroutine cv_jaco_cm
             
 
 subroutine cv_eval_cm(c)
-class(cv)                  :: c
-integer                    :: j
+class(cv)   :: c
+integer     :: j
+real(dp)    :: cmr(3)
 
 ! Add the COM pos/vel to the head
-call group_inq_cmpos(c) 
-
+call inq_cmpos(cmr,c) 
 j=c%ir(1)  
-c%t(1)=c%cm_pos(j)
+c%t(1)=cmr(j)
 
 end subroutine cv_eval_cm
              
 subroutine cv_eval_cmpos(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
+real(dp)                   :: cmr(3),m
+
+m=inq_mass(c)
 
 ! Add the COM pos/vel to the head
-call group_inq_cmpos(c) 
-c%t(1:dm)=c%cm_pos(1:dm)
+call inq_cmpos(cmr,c) 
+c%t(1:dm)=cmr(:)
 
 ! TODO: This part is only needed once
 la => c%alist
@@ -266,7 +279,7 @@ do i=1,c%nat
 
   c%j(1:dm,i,1:dm) = 0._dp
   do j=1,dm
-    c%j(j,i,j) = la%o%mass/c%mass
+    c%j(j,i,j) = la%o%mass/m
   enddo
 enddo       
 
@@ -276,15 +289,16 @@ subroutine cv_eval_rg(c)
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i
+real(dp)                   :: cmr(3)
 
 ! Add the COM pos/vel to the head
-call group_inq_rg(c) 
-c%t(1)=c%rg_pos
+call inq_cmpos(cmr,c)
+c%t(1)=inq_rg(c)
 
 la => c%alist
 do i=1,c%nat
   la => la%next 
-  c%j(1,i,:)=(la%o%pos(:)-c%cm_pos(:))/(c%rg_pos*c%nat)
+  c%j(1,i,:)=(la%o%pos(:)-cmr(:))/(c%t(1)*c%nat)
 enddo       
 
 end subroutine cv_eval_rg

@@ -1229,7 +1229,7 @@ call upcase(m)
 end subroutine readu
 
 subroutine readl(m)
-character(:),allocatable  :: m
+character(:),allocatable,intent(out)  :: m
 
 call reada(m)
 call locase(m)
