@@ -1289,9 +1289,8 @@ subroutine scalvel(it)
 use gems_set_properties, only: set_scal_vel
 class(integrate)            :: it
 real(dp)                   :: soft
-real(dp)                   :: factor,newtemp
+real(dp)                   :: newtemp
 class(atom_dclist),pointer :: la
-integer                    :: i
 
 newtemp=it%p%o(1)
 soft=it%p%o(2)

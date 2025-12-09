@@ -100,6 +100,8 @@ e0r0_atm:=1581225.25240563
 evolve piston_lgf x {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 evolve piston_lgf y {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 evolve piston_lgf z {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
+# evolve piston_lgf xyz {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 
 
-dinamica 100
+dinamica 50
+checkpoint write last.chp

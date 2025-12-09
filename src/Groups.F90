@@ -823,7 +823,7 @@ call all_changed(g)
 
 end subroutine group_detach_link
            
-subroutine group_detach_atom(g,a)
+recursive subroutine group_detach_atom(g,a)
 ! Detach atom from group `alist`
 class(group)               :: g
 type(atom_dclist), pointer :: la

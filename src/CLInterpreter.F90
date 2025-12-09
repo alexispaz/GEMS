@@ -731,7 +731,7 @@ use gems_variables,only: polvars
 use gems_integration,only: integrate_cli, integrate
 use gems_strings,only: int2char
 type(integrate),pointer   :: it
-character(:),allocatable  :: label, w1, w2
+character(:),allocatable  :: label, w1
 
 ! Read user label if found or assing a new one
 call readl(w1)
@@ -1656,7 +1656,7 @@ endsubroutine element_commands
 
 subroutine prng_commands
 character(:),allocatable  :: w1
-integer                   :: i1, i2
+integer                   :: i1
 call readl(w1)
 selectcase(w1)
 case('lcg')
@@ -1838,7 +1838,7 @@ class(outfile),pointer   :: of
 class(outpropa),pointer  :: op
 type(outpropa_l),pointer :: ln
 character(:),allocatable :: label,w1, w2
-integer                  :: j,i1,i2
+integer                  :: j,i2
 
 ! Read user label if found or assing a new one
 call readl(w1)

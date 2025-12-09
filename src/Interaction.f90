@@ -71,7 +71,6 @@ logical,optional,intent(in)    :: dontclean
 logical,intent(in)             :: b_out
 real(dp),optional,intent(out)  :: pot
 integer                        :: i
-real(dp)                       :: aux
 type(boundgr_l),pointer        :: ln
 class(ngroup), pointer         :: g
 class(atom),pointer            :: ap

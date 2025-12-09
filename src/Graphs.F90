@@ -138,7 +138,7 @@ la => g%ref%alist
 do ii = 1,g%ref%nat
   la => la%next
   o1 => la%o
-  ! i = o1%gid(g) ! FIXME: Rise an internal ifort error.
+  i = o1%gid(g) ! FIXME: Rise an internal ifort error.
 
   ! g%adj(i,i)=1
   do l = 1, g%nn(i)  ! sobre los vecinos
@@ -516,38 +516,39 @@ end select
 
 end subroutine
 
-subroutine select_connected(g,gini,gout)
-! Add to gout all atoms in graph conected to gini
-use gems_groups, only: group
-class(graph),intent(inout) :: g
-type(group),intent(in)     :: gini
-type(group),intent(inout)  :: gout
-type (atom),pointer        :: at
-integer                    :: i
-logical, allocatable       :: lmask(:)
-
-! Update index... just in case (TODO: check)
-call g%update_index()
-
-! Compute subraphs  
-call g%interact()
-allocate(lmask(g%ngraphs))
-
-! Get labels from atoms in gini and save them to lmask
-lmask(:)=.false.
-do i = 1,g%nat
-  at=>g%a(i)%o
-  ! if(at%gri(gini)/=-1) lmask(g%label(i))=.true. ! FIXME: Rise an internal ifort error.
-enddo
- 
-! Search the igaph again and peek atoms by its labels.
-do i = 1,g%nat
-  at=>g%a(i)%o
-  if(lmask(i)) call gout%attach(at)
-enddo  
-
-deallocate(lmask)
-
-end subroutine select_connected
+! DEFINED BUT NOT USED
+! subroutine select_connected(g,gini,gout)
+! ! Add to gout all atoms in graph conected to gini
+! use gems_groups, only: group
+! class(graph),intent(inout) :: g
+! type(group),intent(in)     :: gini
+! type(group),intent(inout)  :: gout
+! type (atom),pointer        :: at
+! integer                    :: i
+! logical, allocatable       :: lmask(:)
+!
+! ! Update index... just in case (TODO: check)
+! call g%update_index()
+!
+! ! Compute subraphs  
+! call g%interact()
+! allocate(lmask(g%ngraphs))
+!
+! ! Get labels from atoms in gini and save them to lmask
+! lmask(:)=.false.
+! do i = 1,g%nat
+!   at=>g%a(i)%o
+!   ! if(at%gri(gini)/=-1) lmask(g%label(i))=.true. ! FIXME: Rise an internal ifort error.
+! enddo
+!  
+! ! Search the igaph again and peek atoms by its labels.
+! do i = 1,g%nat
+!   at=>g%a(i)%o
+!   if(lmask(i)) call gout%attach(at)
+! enddo  
+!
+! deallocate(lmask)
+!
+! end subroutine select_connected
 
 end module gems_graphs

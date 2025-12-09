@@ -8,24 +8,27 @@
              is an Extensible Molecular Simulator
  
 
-# Compilation 
+# Build and install
 
-GEMS uses autotools to configure the compilation. If you have download a
-tarball of GEMS you can compile by running:
+GEMS use either meson (recommended) or autotools build systems. 
+To build with meson run:
 
+    meson setup build
+    meson install -C build
+
+Run `meson dist` to create a distribution. Installation prefix, debug flags and
+other variables can be modified following meson way. For instance:
+
+    meson setup build --prefix=$PWD/usr --reconfigure && meson install -C build/
+ 
+Instead, autotools can be used by running:
+
+    autoreconf -fi; # Only if no configure script is given
     ./configure
     make
 
-Instead, if you want to clone from GitHub then:
-
-    git clone git@github.com:alexispaz/GEMS.git
-    cd GEMS
-    autoreconf -fi
-    ./configure
-    make
-
-Further compiling options are handle
-in a standar way. For instance:
+Run `make dist` to create a distribution. Further compiling options are handle
+following autotools way. For instance:
 
     export PATH=/share/apps/gcc/6.2.0/bin/:$PATH
     export LD_LIBRARY_PATH=/share/apps/gcc/6.2.0/lib64:$LD_LIBRARY_PATH
@@ -33,17 +36,11 @@ in a standar way. For instance:
     export FCFLAGS=-fno-use-linker-plugin
 	./configure --disable-openmp FCFLAGS='-Ofast'
 
-See `./configure --help` for more information
+See `./configure --help` for more information.
 
-To create a tar ball to run in other computers without autotools use:
-  
-    make dist
+## Dependencies
 
-then you only need to configure and make (i.e. `./configure; make`).
-
-## Git subtrees
-
-GEMS uses the following `git subtrees`: 
+Mandatory dependencies are: 
 
 - Fortran Preprocesor Templates for Dynamic Data Structures (FPT-DDS) 
   url: (https://github.com/alexispaz/FortranTemplates)
@@ -51,29 +48,12 @@ GEMS uses the following `git subtrees`:
 - Fortran 90 function parser v1.1
   url: (https://github.com/alexispaz/fparser)
 
-The subtrees were created by:
-
-	git remote add fpt git@github.com:alexispaz/FortranTemplates.git
-    git subtree add --prefix lib/fpt fpt master --squash
-
-	git remote add fparser git@github.com:alexispaz/fparser.git
-    git subtree add --prefix lib/fparser fparser master --squash
-
-After clone GEMS, to keep the remote relation with the sub projects you can
-run:
-
-	git remote add fpt git@github.com:alexispaz/FortranTemplates.git
-	git remote add fparser git@github.com:alexispaz/fparser.git
-	git fetch fpt
-	git fetch fparser
-
-This allows to pull sub projects updates like:
-
-	git pull -s subtree fpt master
+Meson build system will automatically download and install these dependencies
+if are no already present in the environment.
 
 # About
 
-GEMS code is hosted in_ [github](https://github.com/alexispaz/GEMS).
+GEMS code is hosted in [github](https://github.com/alexispaz/GEMS).
 
 Copyright notices and license information for the different files used in the
 GEMS project can be found in the ABOUT file that follows a *similar* format

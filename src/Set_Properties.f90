@@ -163,7 +163,7 @@ end subroutine set_add_cmvel
 subroutine set_gdist(g,newtemp)
 use gems_random, only:rang
 use gems_constants
-real(dp)                   :: factor,newtemp,vel_med,f(dm)
+real(dp)                   :: factor,newtemp,vel_med
 real(dp)                   :: r1
 class(group)               :: g
 class(atom_dclist),pointer :: la

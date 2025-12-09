@@ -83,6 +83,7 @@ outfile :f2 each 100
 set tempgdist 300  
 evolve :pepe ermak 100 10
 evolve :pepe ermak 300 10
-dinamica 10000
+dinamica 5000
+checkpoint write last.chp
 
 

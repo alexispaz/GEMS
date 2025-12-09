@@ -291,16 +291,20 @@ end subroutine smatb_cli
 
 subroutine smatb_readprm(g,prmfile)
 ! Subrroutine to read the parameter file
-use gems_input_parsing, only:opts, input_options, gems_iopts
+use gems_input_parsing, only:opts, input_options, read_line, reada, readf
 use gems_elements, only:inq_z
 use gems_errors, only:wlog
 use gems_algebra, only:sort_int
 type(smatb)                 :: g
 character(*),intent(in)     :: prmfile
 type(input_options), target :: iopts
+type(input_options), pointer :: old_opts
 character(:),allocatable    :: clase,w1,w2
 real(dp)                    :: a,eps,p,q,r0,rci,rce
 integer                     :: u,i,j
+
+! Guardar puntero input parsing previo
+old_opts => opts
 
 ! Redirigiendo el input parsing a las opciones locales
 u = find_io(30)
@@ -356,8 +360,8 @@ do
   endselect
 enddo
 
-! Devuelvo el input parsing al gems
-opts=>gems_iopts
+! Devuelvo el input parsing
+opts => old_opts
 close(u)
 
 ! FIXME: This warning is always true if the interaction is between two groups
