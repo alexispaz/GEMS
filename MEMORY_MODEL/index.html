@@ -1,0 +1,1189 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Technical documentation for the GEMS molecular simulator">
+      
+      
+      
+        <link rel="canonical" href="https://alexispaz.github.io/GEMS/MEMORY_MODEL/">
+      
+      
+        <link rel="prev" href="../ARCHITECTURE/">
+      
+      
+        <link rel="next" href="../DATAFLOW/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Memory model - GEMS Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#gems-memory-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="GEMS Documentation" class="md-header__button md-logo" aria-label="GEMS Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GEMS Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Memory model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/alexispaz/GEMS" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="GEMS Documentation" class="md-nav__button md-logo" aria-label="GEMS Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GEMS Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/alexispaz/GEMS" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../INPUT_LANGUAGE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Input language
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CLI_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#conceptual-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conceptual Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ownership">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atom-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atom Objects
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#indexed-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Indexed Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cell-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cell Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbor-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbor Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#atom-field-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atom Field Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invalidation-and-recompile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invalidation And Recompile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-vs-compute-oriented-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic Vs Compute-Oriented Structures
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#locality-cache-implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Locality / Cache Implications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openmpgpu-readiness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenMP/GPU Readiness
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATAFLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HOTPATHS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hot paths
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#conceptual-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conceptual Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ownership">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atom-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atom Objects
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#indexed-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Indexed Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cell-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cell Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbor-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbor Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#atom-field-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atom Field Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invalidation-and-recompile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invalidation And Recompile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-vs-compute-oriented-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic Vs Compute-Oriented Structures
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#locality-cache-implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Locality / Cache Implications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openmpgpu-readiness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenMP/GPU Readiness
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="gems-memory-model">GEMS Memory Model<a class="headerlink" href="#gems-memory-model" title="Permanent link">&para;</a></h1>
+<p>Status: fresh analysis of current <code>main</code> at <code>af392e6</code>.</p>
+<p>Related documents: <a href="../ARCHITECTURE/">architecture</a>, <a href="../DATAFLOW/">dataflow</a>, <a href="../HOTPATHS/">hot paths</a>, and <a href="../DEVELOPER_GUIDE/">developer guide</a>.</p>
+<h2 id="conceptual-model">Conceptual Model<a class="headerlink" href="#conceptual-model" title="Permanent link">&para;</a></h2>
+<p>The current code supports the intended model:</p>
+<div class="highlight"><pre><span></span><code>editable dynamic representation
+    -&gt; compiled dense representation
+    -&gt; compute-heavy kernels
+</code></pre></div>
+<p>but implements it as a set of layered structures rather than a monolithic compiled-state object.</p>
+<p>Editable state:</p>
+<ul>
+<li><code>group%alist</code>: linked-list membership.</li>
+<li><code>gsel</code>, <code>gr(:)</code>, <code>sys</code>, <code>ghost</code>, and workflow-specific groups.</li>
+<li>Per-atom fields and PBC/ghost membership.</li>
+</ul>
+<p>Compiled/indexed state:</p>
+<ul>
+<li><code>igroup%a(:)</code>: dense-ish atom pointer index.</li>
+<li>atom <code>gr(:)</code>/<code>id(:)</code> membership arrays.</li>
+<li><code>cgroup%head(:,:,:)</code> and <code>next(:)</code>.</li>
+<li><code>ngroup%nn(:)</code> and <code>list(:,:)</code>.</li>
+</ul>
+<p>Compute-heavy state:</p>
+<ul>
+<li>concrete <code>ngroup</code> interaction objects (<code>lj</code>, <code>smatb</code>, field/bias/graph types).</li>
+<li>integration groups.</li>
+<li>output accumulators and analysis/CV arrays.</li>
+</ul>
+<h2 id="ownership">Ownership<a class="headerlink" href="#ownership" title="Permanent link">&para;</a></h2>
+<h3 id="atom-objects">Atom Objects<a class="headerlink" href="#atom-objects" title="Permanent link">&para;</a></h3>
+<p>Atoms are heap-allocated and attached to groups. The primary owner is not an isolated atom container; lifetime is controlled by group membership.</p>
+<ul>
+<li><code>atom%dest</code> detaches the atom from every group before deallocating internal arrays.</li>
+<li><code>group%destroy_all</code> calls <code>a%dest()</code> and deallocates atom objects.</li>
+<li><code>group%try_destroy_all</code> detaches atoms and deallocates only atoms with no remaining group references.</li>
+<li>Ghost atoms are either preallocated in <code>atom%ghost(1:7)</code> when PBC is enabled or allocated by <code>new_ghost</code> in the older full ghost path.</li>
+</ul>
+<h3 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h3>
+<p><code>group</code> owns its membership list nodes, not necessarily the atom objects. Attaching an atom also registers the group id in the atom. Detaching removes both sides.</p>
+<p><code>gindex</code> stores pointers to groups. <code>group_destroy</code> removes the group from <code>gindex</code> but does not renumber group ids.</p>
+<h3 id="indexed-groups">Indexed Groups<a class="headerlink" href="#indexed-groups" title="Permanent link">&para;</a></h3>
+<p><code>igroup</code> owns <code>a(:)</code> and <code>limbo</code>.</p>
+<ul>
+<li><code>a(:)</code> stores atom pointers, not atom payload.</li>
+<li><code>amax</code> is the active scanned extent.</li>
+<li>Detach can null slots or put atoms in <code>limbo</code>.</li>
+<li><code>igroup_update_index</code> compacts the pointer index and rewrites atom-local ids.</li>
+</ul>
+<h3 id="cell-groups">Cell Groups<a class="headerlink" href="#cell-groups" title="Permanent link">&para;</a></h3>
+<p><code>cgroup</code> owns cell-list arrays:</p>
+<ul>
+<li><code>head(:,:,:)</code>: first atom index per cell.</li>
+<li><code>next(:)</code>: next atom index in cell chain.</li>
+</ul>
+<p>It does not own atoms; it sorts existing indexed atoms.</p>
+<h3 id="neighbor-groups">Neighbor Groups<a class="headerlink" href="#neighbor-groups" title="Permanent link">&para;</a></h3>
+<p><code>ngroup</code> owns:</p>
+<ul>
+<li>internal <code>ref</code> group.</li>
+<li>internal candidate <code>b</code> <code>cgroup</code>.</li>
+<li>inherited <code>igroup</code> index.</li>
+<li>neighbor arrays <code>nn(:)</code> and <code>list(:,:)</code>.</li>
+</ul>
+<p>Concrete interaction objects extend <code>ngroup</code> and may own additional arrays, for example TB parameter matrices and band arrays.</p>
+<h2 id="atom-field-storage">Atom Field Storage<a class="headerlink" href="#atom-field-storage" title="Permanent link">&para;</a></h2>
+<p><code>atom%pos</code>, <code>vel</code>, <code>force</code>, and <code>acel</code> are Fortran pointers. By default, <code>atom_allocate</code> allocates each as a separate <code>dm</code>-length heap target.</p>
+<p><code>group_switch_vectorial</code> can replace per-atom vector allocations with slices into group-owned contiguous arrays:</p>
+<div class="highlight"><pre><span></span><code>atom vector allocations
+    -&gt; group%pp/pv/pf/pa contiguous arrays
+    -&gt; atom vector pointers redirected to slices
+</code></pre></div>
+<p>This improves contiguity for a chosen group but changes ownership of the atom vector targets. <code>group_switch_objeto</code> reverses it. The source comments mark this area as a workaround/TODO, so future refactors should treat it as fragile.</p>
+<h2 id="invalidation-and-recompile">Invalidation And Recompile<a class="headerlink" href="#invalidation-and-recompile" title="Permanent link">&para;</a></h2>
+<p>Property invalidation:</p>
+<ul>
+<li><code>gindex_all_changed</code>, <code>gindex_pos_changed</code>, <code>gindex_vel_changed</code>, and <code>gindex_epot_changed</code> broadcast cache invalidation to all registered groups.</li>
+<li><code>group_attach_atom</code> and <code>group_detach_link</code> call <code>all_changed</code>.</li>
+<li>integration steps call <code>gindex_all_changed</code>.</li>
+</ul>
+<p>Indexed group invalidation:</p>
+<ul>
+<li><code>igroup_detach_atom</code> may null slots and trigger <code>igroup_update_index</code> when holes exceed <code>aupd</code>.</li>
+<li><code>igroup%update</code> signals extended types that internal arrays may need rebuild.</li>
+</ul>
+<p>Cell-list invalidation:</p>
+<ul>
+<li><code>cgroup%tessellated</code> tracks whether cell storage is valid.</li>
+<li><code>cgroup_attach_atom</code> tries to sort new atoms incrementally when tessellated; failures mark it stale.</li>
+<li><code>cgroup_detach_atom</code> can unsort or mark stale.</li>
+<li><code>test_update</code> tessellates and sorts <code>ngroup%b</code> before checking neighbor rebuilds.</li>
+</ul>
+<p>Neighbor-list invalidation:</p>
+<ul>
+<li><code>ngroup%listed</code> indicates whether <code>nn/list</code> are valid.</li>
+<li><code>test_update</code> rebuilds if a neighbor group is not listed.</li>
+<li>It also rebuilds when the sum of the two largest displacements exceeds <code>nb_dcut</code>.</li>
+<li><code>update</code> records <code>pos_old</code> and calls each ngroup's selected neighbor builder.</li>
+</ul>
+<p>Ghost invalidation:</p>
+<ul>
+<li><code>set_pbc</code> allocates/deallocates ghost arrays.</li>
+<li><code>box mic F</code> enables <code>useghost</code>; <code>test_update</code> calls <code>pbchalfghost(maxrcut)</code>.</li>
+<li><code>ghost_switch</code> attaches/detaches active ghost atoms from every ghost-enabled group that contains the prime atom.</li>
+</ul>
+<h2 id="dynamic-vs-compute-oriented-structures">Dynamic Vs Compute-Oriented Structures<a class="headerlink" href="#dynamic-vs-compute-oriented-structures" title="Permanent link">&para;</a></h2>
+<p>Dynamic/flexible:</p>
+<ul>
+<li><code>group</code>, <code>gsel</code>, <code>gr(:)</code>.</li>
+<li>atom group membership arrays.</li>
+<li>ghost activation/deactivation.</li>
+<li>parser variables and labels.</li>
+</ul>
+<p>Compute-oriented:</p>
+<ul>
+<li><code>igroup%a(:)</code> for indexed atom access.</li>
+<li><code>cgroup</code> cell arrays.</li>
+<li><code>ngroup%nn/list</code>.</li>
+<li>concrete interaction arrays.</li>
+<li>output/CV/NEB/TB work arrays.</li>
+</ul>
+<p>Partially compute-oriented but still pointer-rich:</p>
+<ul>
+<li>force kernels use neighbor ids but dereference atom pointers and atom vector pointers.</li>
+<li>OpenMP tasks exist in neighbor search, but atom payload layout is not structure-of-arrays.</li>
+</ul>
+<h2 id="locality-cache-implications">Locality / Cache Implications<a class="headerlink" href="#locality-cache-implications" title="Permanent link">&para;</a></h2>
+<p>Good locality:</p>
+<ul>
+<li>neighbor counts and lists are dense integer arrays.</li>
+<li>cell heads and next arrays are dense.</li>
+<li>group vectorization can make selected vector fields contiguous.</li>
+</ul>
+<p>Poor or uncertain locality:</p>
+<ul>
+<li>atom objects are individually allocated.</li>
+<li>atom mechanical fields are separate pointer targets unless vectorized.</li>
+<li>linked-list traversal remains common in setup, properties, output, and some kernels.</li>
+<li><code>ngroup%list -&gt; ngroup%a -&gt; atom -&gt; pos/force</code> still has multiple pointer hops.</li>
+</ul>
+<h2 id="openmpgpu-readiness">OpenMP/GPU Readiness<a class="headerlink" href="#openmpgpu-readiness" title="Permanent link">&para;</a></h2>
+<p>Promising pieces:</p>
+<ul>
+<li>explicit indexing layers (<code>igroup</code>, <code>ngroup</code>).</li>
+<li>dense neighbor-list arrays.</li>
+<li>clear separation between neighbor update and interaction dispatch.</li>
+<li>linked-cell data structure.</li>
+</ul>
+<p>Friction points:</p>
+<ul>
+<li>object/pointer-heavy atom payload.</li>
+<li>polymorphic interaction dispatch.</li>
+<li>ghost membership mutates groups at runtime.</li>
+<li>global module state and broad invalidation.</li>
+<li>no explicit device-ready compiled state or storage policy.</li>
+</ul>
+<p>Before GPU work, document and stabilize a kernel contract: dense input arrays, force/energy outputs, ghost/halo ownership, and rebuild policy.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
