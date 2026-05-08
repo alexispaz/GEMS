@@ -87,6 +87,14 @@ Mandatory dependencies are:
 Meson build system will automatically download and install these dependencies
 if are no already present in the environment.
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Memory model](docs/MEMORY_MODEL.md)
+- [Input language](docs/INPUT_LANGUAGE.md)
+- [CLI reference](docs/CLI_REFERENCE.md)
+- [Developer guide](docs/DEVELOPER_GUIDE.md)
+
 # About
 
 GEMS code is hosted in [github](https://github.com/alexispaz/GEMS).
@@ -114,4 +122,3 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
 GEMS. If not, see <https://www.gnu.org/licenses/>.
-
