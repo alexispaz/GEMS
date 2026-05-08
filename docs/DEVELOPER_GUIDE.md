@@ -29,6 +29,19 @@ cd examples
 ./test.sh
 ```
 
+## Documentation Preview
+
+The documentation site is configured with MkDocs and Material for MkDocs:
+
+```sh
+python -m venv .venv-docs
+. .venv-docs/bin/activate
+python -m pip install -r requirements-docs.txt
+mkdocs serve
+```
+
+The MkDocs configuration is intentionally local-preview only. It does not configure deployment or GitHub Pages.
+
 ## Source Orientation
 
 - Parser and CLI: `Input_Parsing.F90`, `CLInterpreter.F90`.

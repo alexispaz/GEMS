@@ -1,0 +1,16 @@
+site_name: GEMS Documentation
+site_description: Technical documentation for the GEMS molecular simulator
+repo_url: https://github.com/alexispaz/GEMS
+docs_dir: docs
+
+theme:
+  name: material
+
+nav:
+  - Architecture: ARCHITECTURE.md
+  - Memory model: MEMORY_MODEL.md
+  - Data flow: DATAFLOW.md
+  - Hot paths: HOTPATHS.md
+  - Input language: INPUT_LANGUAGE.md
+  - CLI reference: CLI_REFERENCE.md
+  - Developer guide: DEVELOPER_GUIDE.md

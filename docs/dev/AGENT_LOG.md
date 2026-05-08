@@ -68,3 +68,56 @@ Fresh documentation pass after synchronizing local `main` to `origin/main` at `a
 ### Tests Executed
 
 - Not run yet; documentation-only changes so far.
+
+## 2026-05-08 10:01:34 -0300
+
+### Scope
+
+MkDocs local preview configuration.
+
+### Files Inspected
+
+- `docs/ARCHITECTURE.md`
+- `docs/MEMORY_MODEL.md`
+- `docs/DATAFLOW.md`
+- `docs/HOTPATHS.md`
+- `docs/INPUT_LANGUAGE.md`
+- `docs/CLI_REFERENCE.md`
+- `docs/DEVELOPER_GUIDE.md`
+- `docs/dev/AGENT_LOG.md`
+
+### Configuration Added
+
+- Added root `mkdocs.yml`.
+- Set `docs_dir: docs`.
+- Set Material for MkDocs with:
+  - `theme.name: material`
+
+### Navigation Decision
+
+The MkDocs navigation lists only the main user/developer documentation pages:
+
+1. Architecture
+2. Memory model
+3. Data flow
+4. Hot paths
+5. Input language
+6. CLI reference
+7. Developer guide
+
+Existing auxiliary documents such as `docs/ddda.md`, `docs/types.md`, and `docs/dev/AGENT_LOG.md` remain in `docs/` but are intentionally omitted from the primary navigation for now.
+
+### Deployment
+
+- No deployment configured.
+- No GitHub Pages configuration added.
+
+### Tests Executed
+
+- `mkdocs --version` succeeded with MkDocs 1.6.1.
+- `mkdocs build --strict --site-dir /tmp/gems-mkdocs-site` failed because the local environment has MkDocs installed but not the `material` theme.
+- Added `requirements-docs.txt` with `mkdocs-material` so local preview can be installed in a project-local virtual environment instead of globally.
+- Created a temporary virtual environment at `/tmp/gems-docs-venv` for validation only.
+- Installed `mkdocs-material` into the temporary virtual environment after sandboxed network access failed.
+- `/tmp/gems-docs-venv/bin/mkdocs build --strict --site-dir /tmp/gems-mkdocs-site` succeeded.
+- MkDocs reported that `ddda.md`, `types.md`, and `dev/AGENT_LOG.md` are not in `nav`; this matches the documented navigation decision.
