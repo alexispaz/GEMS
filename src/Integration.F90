@@ -14,12 +14,44 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
+! 
+!	References
+!
+! Grønbech-Jensen & Farago (2014). Constant pressure and temperature
+! discrete-time Langevin molecular dynamics. JCP 141(19) 194108.
+! DOI:10.1063/1.4901303
+!
+! Grønbech-Jensen & Farago (2012). A simple and effective Verlet-type
+! algorithm for simulating Langevin dynamics.
+! DOI:10.1080/00268976.2012.760055
+!
+! Kolb & Dünweg (1999). Optimized constant pressure stochastic
+! dynamics. JCP 111(10) 4453. DOI:10.1063/1.479208  
+!
+! Allen & Tildesley (1987). Computer simulation of liquids.
+! Oxford science publications. ISBN: 9780198556459.
+!
+! Snook (2006). The ermak and Generalised Langevin Apprroach to the
+! Dynamics of Atomic, Polymeric and Colloidal System. Elsevier. ISBN:
+! 9780444521293.
+!
+! Ermak & Buckholz (1980). Numerical integration of the Langevin equation:
+! Monte Carlo simulation, J. Comput. Phys. 35 169.
+!
+! Andersen (1980). Molecular dynamics simulations at constant pressure
+! and/or temperature. J. of Chem. Phys. 72(4) 2384. DOI:10.1063/1.439486 
+!
+! Papadopoulou et al (1993). Molecular Dynamics and Monte Carlo Simulations
+! in the Grand Canonical Ensemble: Local versus Global Control. J. of Chem.
+! Phys. 98(6) 4897. DOI:10.1063/1.464945. 
+!
+! Heffelfinger & van Swol (1998). Diffusion in Lennard‐Jones Fluids Using Dual
+! Control Volume Grand Canonical Molecular Dynamics Simulation (DCV‐GCMD).
+! J. of Chem. Phys. 100(10) 7548. DOI:10.1063/1.466849.
  
 module gems_integration
 use gems_program_types         !, nghost
 use gems_groups
-use gems_atoms
 use gems_inq_properties
 use gems_set_properties
 use gems_constants, only: dp, dd, dm, kB_ui
@@ -43,7 +75,7 @@ type, extends(group) :: integrate
   logical                       :: b_fixt=.false.   ! Fix temperature
 
   contains
-  procedure   :: init_ext => integrate_constructor
+  procedure   :: init_ext => integrate_construct
   procedure   :: dest_ext => integrate_destructor
 
 end type
@@ -99,7 +131,7 @@ contains
 #define _TYPE type(integrate)
 #include "vector_body.inc"
 
-subroutine integrate_constructor(it,g1)
+subroutine integrate_construct(it,g1)
 class(integrate),target  :: it
 type(group),intent(in)   :: g1
 
@@ -111,18 +143,20 @@ call it%p%init()
 call it%i%init()
 
 ! Inicializo el grupo  
-call it%add(g1)
+call it%attach(g1)
 
-end subroutine integrate_constructor
+end subroutine integrate_construct
   
 subroutine integrate_cli(it,w)
 use gems_errors, only: werr, wref
 use gems_input_parsing, only: readf, readl, readb
 use gems_constants, only: atm_ui, linewidth
 use gems_bias, only: biason
+use gems_constants, only: same_proc
+use, intrinsic :: iso_c_binding
 class(integrate),target  :: it
 character(*), intent(in) :: w
-character(len=linewidth) :: w1
+character(:),allocatable :: w1
 real(dp)                 :: f1,f2,f3,f4,f5
 integer                  :: i, i1
 logical                  :: b1
@@ -132,7 +166,7 @@ case ('voter')
   ! This is not an integration algotihm...  this just set the time to be the voter time or the regular time..  But it has to follow
   ! the temperature of an algorithm with constant T.  Thus, this should be aplied to an iteration type that allows to get a
   ! temperature
-  call werr('A constant temperature algorithm is needed',.not.associated(it%stepa,target=ermak_a))
+  call werr('A constant temperature algorithm is needed',.not.same_proc(c_funloc(it%stepa),c_funloc(ermak_a)))
   call wwan('Hyperdinamics without a bias?',.not.biason)
   call readb(b1)
   voter=b1
@@ -187,6 +221,14 @@ case('ermak_x','ermak_y','ermak_z')
   case('z')
     call set_ermak(it,dt,f1,f2,3)
   endselect  
+case('gcmc')
+  call readf(f1)  
+  call readf(f2)
+  call readf(f3)
+  call readf(f4)
+  call readi(i1)
+  call readf(f5)
+  call set_gcmc(it,f1,f2,f3,f4,i1,f5)
 case('secfile')
   it%stepa => from_openfile_a
   it%stepb => from_openfile_b
@@ -224,7 +266,7 @@ case('clean') ! Delete all integration objects
   call its%destroy()
 
 case default
-  call werr('Integration algorithm unknown')
+  call werr('Integration algorithm unknown',.true.)
 end select 
 
 end subroutine integrate_cli
@@ -241,51 +283,32 @@ call it%dest()
 end subroutine integrate_destructor
                              
 subroutine integration_stepa
-use gems_neighbour, only: ghost,pbcghost_move
+use gems_groups, only: pbcghost_move
 integer   :: i
 
 do i=1,its%size
-  call its%o(i)%stepa()
+  if(associated(its%o(i)%stepa)) call its%o(i)%stepa()
 enddo
+call gindex_all_changed()
 
 ! Debo computar de nuevo el volumen, por si hay cambios debido a algun/os
 ! piston/es
-call box_setvars()
-     
-if(ghost)then
-  call pbcghost_move
-else
-  ! Needed to avoid atoms outside box when doing neighboor list (on interact)
-  call do_pbc(alocal,nlocal)
-endif
-
-call posvel_changed()
+if(boxed) call box_setvars()
   
 end subroutine
      
 subroutine integration_stepb
-use gems_neighbour, only: ghost,pbcghost_move
+use gems_groups, only: pbcghost_move
 use gems_bias, only: biason, bias
 integer   :: i
             
 do i=1,its%size
-  call its%o(i)%stepb()
+  if(associated(its%o(i)%stepb)) call its%o(i)%stepb()
 enddo
+call gindex_all_changed()
     
-if(ghost)then
-  call pbcghost_move()
-else
-  ! Needed to avoid atoms outside box 
-  call do_pbc(alocal,nlocal)
-endif
-
-call posvel_changed()
-  
-! No creo que sea necesario
-! do i=1,size(gr)
-!   if(.not.gr(i)%agrouped) cycle
-!   call followthehead_b(gr(i))
-! enddo
+! FIXME: Only Predictor-Corrector change the positions in the step b.  So...
+! it can move atom outside the box.
 
 ! Avance del tiempo
 if(voter) then
@@ -302,7 +325,7 @@ end subroutine
  
 subroutine integration_reversea
 use gems_constants, only: same_proc
-use gems_neighbour, only: pbcghost_move
+use gems_groups, only: pbcghost_move
 use, intrinsic :: iso_c_binding
 type(integrate),pointer :: it
 integer                 :: i
@@ -316,16 +339,9 @@ enddo
                
 end subroutine
 
-subroutine itnada(it)
-class(integrate)   :: it 
-end subroutine
-     
+! Kolb Dünweg (@Kolb1999)
+!------------------------ 
 
-!                                                                   Kolb Dünweg
-!------------------------------------------------------------------------------ 
-! Kolb, A., & Dünweg, B. (1999). Optimized constant pressure stochastic
-! dynamics. Journal of Chemical Physics, 111(10), 4453–4459.
-! http://doi.org/10.1063/1.479208 
 subroutine set_lkd(it,temp,press,pgama0,pgamav,pmass)
 use gems_constants, only:kB_ui
 class(integrate)        :: it 
@@ -378,18 +394,17 @@ do i = 1,it%nat
   la => la%next
   do k=1,dd
     call rang(r1)
-    la%o%acel(k) = la%o%force(k) * la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%vel(k) = la%o%vel(k) &
              + 0.5_dp*dt*la%o%acel(k)                    &
-             -0.5_dp*dt*pgama0*la%o%one_mass*la%o%vel(k) &
-             + la%o%one_mass*fac0*r1
+             -0.5_dp*dt*pgama0/la%o%mass*la%o%vel(k) &
+             + fac0*r1/la%o%mass
   enddo
 enddo
 
 ! Calculate pressure 
 call inq_pressure(it)
 press = (it%pressure(1,1)+it%pressure(2,2)+it%pressure(3,3))/3
-! print *, press,pfix(1)
 
 ! Calculate half piston momentum
 call rang(r1)
@@ -454,7 +469,6 @@ pmass  =it%p%o(6)
 ! Calculate pressure again
 call inq_pressure(it)
 press = (it%pressure(1,1)+it%pressure(2,2)+it%pressure(3,3))/3
-! print *, press,pfix(1)
 
 ! Calculate final piston momentum
 call rang(r1)
@@ -468,21 +482,19 @@ do i = 1,it%nat
   la => la%next
   do k=1,dd
     call rang(r1)
-    la%o%acel(k) = la%o%force(k) * la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%vel(k) = la%o%vel(k) &
              + 0.5_dp*dt*la%o%acel(k)                     &
-             - 0.5_dp*dt*pgama0*la%o%one_mass*la%o%vel(k) &
-             + la%o%one_mass*fac0*r1
+             - 0.5_dp*dt*pgama0/la%o%mass*la%o%vel(k) &
+             + fac0*r1/la%o%mass
   enddo          
 enddo
 
 end subroutine
  
-!                                                        Grønbech-Jensen Farago   
-!------------------------------------------------------------------------------ 
-! Grønbech-Jensen, N., & Farago, O. (2014). Constant pressure and temperature
-! discrete-time Langevin molecular dynamics. The Journal of Chemical Physics,
-! 141(19), 194108. http://doi.org/10.1063/1.4901303
+! Grønbech-Jensen Farago (@Grønbech-Jensen2014) 
+!----------------------------------------------
+
 subroutine set_lgf(it,temp,press,pgama0,pgamav,pmass)
 use gems_constants, only:kB_ui
 class(integrate)        :: it 
@@ -545,7 +557,8 @@ inv_pmass = it%p%o(5)
 bv        = it%p%o(6)
 facv      = it%p%o(7)
 
-!FIXME: using of first makes this uncompatible with more than 1 integrate object
+!FIXME: using of first makes this incompatible with more than 1 integrate
+!object.. but more than one NPT implies more than one box? Not possible.
 if(first) then
   first=.false.
                                                               
@@ -568,8 +581,6 @@ box_vol=box_vol+bv*dt*(pvel(1)+0.5_dp*inv_pmass*(dt*pistonf(1)+rangv))
 ! Save rangv
 it%p%o(9)=rangv
 
-! print *, pistonf,(it%virial(1,1)+it%virial(2,2)+it%virial(3,3))/3,it%nat*it%fixtemp*kB_ui/box_vol ,pfix
-
 ! Compute the box lengths
 do k=1,dd
   tbox(k,k) = box(k)*(box_vol/boxv_old)**(1./dd)
@@ -581,15 +592,15 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
+  b0=1._dp/(1._dp+facg0/la%o%mass)
       
   do k=1,dd
 
     ! Tiro el random number n+1
     call rang(r1)
-    la%o%pos_v(k) = la%o%one_mass*fac0*r1
+    la%o%pos_v(k) = fac0*r1/la%o%mass
                 
-    la%o%acel(k) = la%o%force(k)*la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
     la%o%pos(k) = box(k)/box_old(k)*la%o%pos(k) &
              + 2._dp*box(k)/(box_old(k)+box(k))*b0*dt*( la%o%vel(k)+0.5_dp*dt*la%o%acel(k)+0.5_dp*la%o%pos_v(k) ) 
   enddo
@@ -635,14 +646,14 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
-  a0=(1._dp-facg0*la%o%one_mass)*b0
+  b0=1._dp/(1._dp+facg0/la%o%mass)
+  a0=(1._dp-facg0/la%o%mass)*b0
  
   do k = 1, dd
     la%o%vel(k) = a0*la%o%vel(k) &
-                + 0.5_dp*dt*(a0*la%o%acel(k)+la%o%one_mass*la%o%force(k))&
+                + 0.5_dp*dt*(a0*la%o%acel(k)+la%o%force(k)/la%o%mass)&
                 + b0*la%o%pos_v(k) 
-    la%o%acel(k) = la%o%force(k)*la%o%one_mass
+    la%o%acel(k) = la%o%force(k)/la%o%mass
   enddo          
 enddo
                
@@ -696,15 +707,11 @@ it%fixt=temp
 end subroutine
  
 subroutine lgf_flex_stepa(it)
-! Following 
-!   Andersen, H. C. (1980). Molecular dynamics simulations at constant pressure
-!   and/or temperature. The Journal of Chemical Physics, 72(4), 2384–2393.
-!   http://doi.org/10.1063/1.439486
-! I wrote a extended Lagrangian with Lx, Ly and Lz as extended variable and using
-! the reduce atomic variables px=rx/Lx and \dot{px}=\dot{rx}/Lx (see eq 3.2 and
-! the discussion of eq 3.3 in Andersen paper). Then I got the Hamiltonian trough a
-! Legendre transformation and find the "piston" force (after come back to real variables) as:
-! fpx=V/Lx( (Wx+NKT)/V-Pext )
+! Following @Andersen1980, I wrote a extended Lagrangian with Lx, Ly and Lz
+! as extended variable and using the reduce atomic variables px=rx/Lx and
+! \dot{px}=\dot{rx}/Lx (see eq 3.2 and the discussion of eq 3.3). Then I got
+! the Hamiltonian trough a Legendre transformation and find the "piston"
+! force (after come back to real variables) as: fpx=V/Lx( (Wx+NKT)/V-Pext )
 use gems_random, only:rang
 class(integrate)              :: it 
 real(dp)                      :: r1
@@ -762,13 +769,13 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
+  b0=1._dp/(1._dp+facg0/la%o%mass)
       
   ! Tiro el random number n+1
   call rang(r1)
-  la%o%pos_v(dd) = la%o%one_mass*fac0*r1
+  la%o%pos_v(dd) = fac0*r1/la%o%mass
               
-  la%o%acel(dd) = la%o%force(dd)*la%o%one_mass
+  la%o%acel(dd) = la%o%force(dd)/la%o%mass
   la%o%pos(dd) = box(dd)/box_old*la%o%pos(dd) &
            + 2._dp*box(dd)/(box_old+box(dd))*b0*dt*( la%o%vel(dd)+0.5_dp*dt*la%o%acel(dd)+0.5_dp*la%o%pos_v(dd) ) 
 enddo
@@ -816,28 +823,28 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
   
-  b0=1._dp/(1._dp+facg0*la%o%one_mass)
-  a0=(1._dp-facg0*la%o%one_mass)*b0
+  b0=1._dp/(1._dp+facg0/la%o%mass)
+  a0=(1._dp-facg0/la%o%mass)*b0
  
   la%o%vel(dd) = a0*la%o%vel(dd) &
-              + 0.5_dp*dt*(a0*la%o%acel(dd)+la%o%one_mass*la%o%force(dd))&
+              + 0.5_dp*dt*(a0*la%o%acel(dd)+la%o%force(dd)/la%o%mass)&
               + b0*la%o%pos_v(dd) 
-  la%o%acel(dd) = la%o%force(dd)*la%o%one_mass
+  la%o%acel(dd) = la%o%force(dd)/la%o%mass
  
 enddo
                
 end subroutine
                        
                                                                                         
-!                                                                      Brownian
-!------------------------------------------------------------------------------ 
+! Brownian
+!--------- 
 subroutine set_cbrownian(it,temp,gama)
 use gems_constants, only:kB_ui
 class(integrate)    :: it
 real(dp),intent(in) :: temp,gama
 real(dp)            :: fac1,fac2
 
-it%stepa => itnada
+it%stepa => null()
 it%stepb => cbrownian
 
 fac1 = dt/gama
@@ -869,7 +876,7 @@ do i = 1,it%nat
 
     call rang(r1)
     posold = la%o%pos(j)
-    la%o%pos(j) = posold + la%o%one_mass*fac1*la%o%force(j) + la%o%one_sqrt_mass*r1*fac2
+    la%o%pos(j) = posold + fac1*la%o%force(j)/la%o%mass + r1*fac2/sqrt(la%o%mass)
 
     ! Me parece que esta velocidad esta mal definida,
     ! ya que depende de gamma, y por ende la temperatura....
@@ -881,30 +888,12 @@ enddo
 
 end subroutine
   
-!                                                                Ermak Buckholz
-!------------------------------------------------------------------------------ 
-!Reference:
-!  D. L. Ermak and H. Buckholz, “Numerical integration of the Langevin equation:
-!  Monte Carlo simulation”, J. Comput. Phys. 35, 169 (1980)
-!See also the Introduction of:
-!  Grønbech-Jensen, N., & Farago, O. (2012). A simple and effective Verlet-type
-!  algorithm for simulating Langevin dynamics, 1–10.
-!  http://doi.org/10.1080/00268976.2012.760055
-!
-!  "The appearance of exponential “weight functions” in the integrals in Eqs.
-!  (9) and (10) opens the possibility for using a variety of linear
-!  combinations involving fn−1, fn, and fn+1. Themost popular integration
-!  schemes for the determinis- tic force constitute the van Gunsteren-Berendsen
-!  [9] and the Langevin impulse [10] methods."
-!
-!TODO:Find the method used in this implementation
-!
-!For the implementation see
-!  "Computer simulation of liquids" de Allen Chap 9, "Brownian Dinamics", Pag 263 
-!A similar algorithm is in 
-!  "The ermak and Generalised Langevin Apprroach to the Dynamics of
-!  Atomic, Polymeric and Colloidal System" de Ian Snook de Elsevier, Sec 6.2.4 "A
-!  third first-order BD algorithm", Pag 118.
+! Ermak Buckholz (@Ermak1980)
+!----------------------------
+!Following the implementation in @Allen1987, Chap 9 "Brownian Dinamics", Pag
+!263. A similar algorithm is in @Snook2006, Sec.  6.2.4 "A third first-order
+!BD algorithm", Pag 118. See also the nice introduction in
+!@Grønbech-Jensen2012.
      
 subroutine set_ermak(it,dt,gama,temp,i)
 class(integrate)    :: it
@@ -990,7 +979,7 @@ do i = 1,it%nat
   ! Realizo la parte estocastica con las varianzas adecuadas
   ! ranr la almaceno en a%pos_v y ranv en a%pos_v, esto es porque
   ! quiero mantener la correlacion entre las dos
-  f_lan = skt*la%o%one_sqrt_mass
+  f_lan = skt/sqrt(la%o%mass)
   do j = 1, dd
     call rang(r1,r2)
     la%o%pos_v(j) = f_lan*sdr*r1
@@ -1024,8 +1013,8 @@ cc2=it%p%o(3)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%vel (1:dd) = cc0*la%o%vel(1:dd) + (cc1-cc2)*la%o%acel(1:dd) + cc2*la%o%force(1:dd)* la%o%one_mass + la%o%vel_v(1:dd)
-  la%o%acel(1:dd) = la%o%force(1:dd)* la%o%one_mass
+  la%o%vel (1:dd) = cc0*la%o%vel(1:dd) + (cc1-cc2)*la%o%acel(1:dd) + cc2*la%o%force(1:dd)/la%o%mass + la%o%vel_v(1:dd)
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
 enddo
 
 end subroutine
@@ -1063,7 +1052,7 @@ do i = 1,it%nat
   ! Realizo la parte estocastica con las varianzas adecuadas
   ! ranr la almaceno en a%pos_v y ranv en a%pos_v, esto es porque
   ! quiero mantener la correlacion entre las dos
-  f_lan = skt*la%o%one_sqrt_mass
+  f_lan = skt/sqrt(la%o%mass)
   call rang(r1,r2)
   la%o%pos_v(x) = f_lan*sdr*r1
   la%o%vel_v(x) = f_lan*sdv*(crv1*r1+crv2*r2)
@@ -1098,8 +1087,8 @@ x=it%i%o(1)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%vel (x) = cc0*la%o%vel(x) + (cc1-cc2)*la%o%acel(x) + cc2*la%o%force(x)* la%o%one_mass + la%o%vel_v(x)
-  la%o%acel(x) = la%o%force(x)* la%o%one_mass
+  la%o%vel (x) = cc0*la%o%vel(x) + (cc1-cc2)*la%o%acel(x) + cc2*la%o%force(x)/la%o%mass + la%o%vel_v(x)
+  la%o%acel(x) = la%o%force(x)/la%o%mass
 enddo
 
 end subroutine
@@ -1137,15 +1126,13 @@ end subroutine ermak_a_reverse
   !
   ! end subroutine
  
-!                            Explicit velocity Störmer-Verlet (Velocity-Verlet)
-!------------------------------------------------------------------------------
-! Verlet algorithm suffers from the problem that the total kinetic energy of
-! a simulated system (which is supposed to be proportional to the temperature)
-! becomes pro- gressively depressed for increasing time step dt5,6 compared to
-! the potential energy. Other thermodynamic ! observables also exhibit varia-
-! tions with dt... Grønbech-Jensen, N., & Farago, O. (2014). Constant pressure and temperature
-! discrete-time Langevin molecular dynamics. Journal of Chemical Physics,
-! 141(19). http://doi.org/10.1063/1.4901303 
+! Explicit velocity Störmer-Verlet (Velocity-Verlet)
+!---------------------------------------------------
+! From @Grønbech-Jensen2014: "Verlet algorithm suffers from the problem that
+! the total kinetic energy of a simulated system (which is supposed to be
+! proportional to the temperature) becomes progressively depressed for
+! increasing time step dt compared to the potential energy. Other
+! thermodynamic observables also exhibit varia- tions with dt"
   
 subroutine velocity_verlet_a(it)
 class(integrate)             :: it
@@ -1161,7 +1148,7 @@ la => it%alist
 do  i = 1, it%nat
   la => la%next
   ! Ojo al sacar la siguiente linea (depende el neb de ella)
-  la%o%acel(1:dd) = la%o%force(1:dd) * la%o%one_mass
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
   la%o%pos (1:dd) = la%o%pos(1:dd) + dt*la%o%vel(1:dd) + acel_dx*la%o%acel(1:dd)
   la%o%vel (1:dd) = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd) 
 enddo
@@ -1179,15 +1166,15 @@ acel_dv = dt*0.5_dp
 la => it%alist
 do  i = 1, it%nat 
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd)*la%o%one_mass 
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass 
   la%o%vel(1:dd)  = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd)
 enddo
 
 end subroutine
 
 
-!                                                         predictor - corrector
-!------------------------------------------------------------------------------ 
+! Predictor Corrector
+!--------------------
 
 subroutine nordsieck_predictor(it)
 !nordsieck predictor corrector 5to orden algorithm to solve the equation of motion
@@ -1246,7 +1233,7 @@ la => it%alist
 do i = 1,it%nat
   la => la%next
 
-  half_mass = dt2_2*la%o % one_mass
+  half_mass = dt2_2/la%o%mass
 
   !set the corrector factor
   p(1:dd)=half_mass*la%o%force(1:dd)- la%o%acel(1:dd)
@@ -1266,7 +1253,8 @@ enddo
 
 end subroutine 
 
-! Termostatos
+! Simple scaling
+!---------------
 
 subroutine set_scalvel(it,steps,temp,upto)
 class(integrate)              :: it
@@ -1283,11 +1271,11 @@ call it%p%append(0.5_dp/steps)
 
 ! Allow fluctuations to a certain degree
 if(present(upto)) then
-  it%stepa => itnada
+  it%stepa => null()
   it%stepb => scalvel_after
   call it%p%append(upto)  
 else
-  it%stepa => itnada
+  it%stepa => null()
   it%stepb => scalvel
 endif
                 
@@ -1298,47 +1286,33 @@ it%fixt=temp
 end subroutine
 
 subroutine scalvel(it)
+use gems_set_properties, only: set_scal_vel
 class(integrate)            :: it
 real(dp)                   :: soft
-real(dp)                   :: factor,newtemp
+real(dp)                   :: newtemp
 class(atom_dclist),pointer :: la
-integer                    :: i
 
 newtemp=it%p%o(1)
 soft=it%p%o(2)
-
-call inq_temperature(it)
-
-if (it%temp==0._dp) then
-  call wwan('Not scale factor, actual temp is cero',newtemp/=0._dp)
-  return
-endif
-
-factor=(newtemp/it%temp)**soft
-
-la => it%alist
-do i = 1,it%nat
-  la => la%next
-  la%o%vel = la%o%vel * factor
-enddo
-
-it%temp = it%temp*(factor**2)
-it%b_temp=.true.
+call set_scal_vel(it,newtemp,soft)  
 
 end subroutine scalvel
  
 subroutine scalvel_after(it)
-class(integrate)            :: it
-real(dp)                    :: upto,temp
+use gems_set_properties, only: set_scal_vel
+class(integrate)  :: it
+real(dp)          :: upto,temp,t
 
 temp=it%p%o(1)
 upto=it%p%o(3)
-call inq_temperature(it)
+t=inq_temperature(it)
 
-if(dabs(it%temp-temp)>upto*temp) call scalvel(it)
+if(abs(t-temp)>upto*temp) call set_scal_vel(it,temp)
 
 end subroutine scalvel_after
 
+! Andersen
+!---------
 
 subroutine set_andersen(it,temp,nu)
 use gems_constants, only:kB_ui
@@ -1347,7 +1321,7 @@ real(dp),intent(in) :: temp
 real(dp),intent(in) :: nu
 real(dp)            :: factor
 
-it%stepa => itnada
+it%stepa => null()
 it%stepb => andersen
 
 ! The target temperature
@@ -1384,7 +1358,7 @@ do i=1,it%nat
   if(r>nudt)cycle
 
   !Particulas que colisionan
-  vel_med = factor*la%o%one_sqrt_mass
+  vel_med = factor/sqrt(la%o%mass)
   do j = 1, dm
     call rang(r)
     la%o%vel(j) = vel_med*r
@@ -1393,17 +1367,185 @@ do i=1,it%nat
 enddo
 
 end subroutine andersen
+
+! Gran Canonic Montecarlo (@Papadopoulou1993)
+! -------------------------------------------
+! Grand canonical Monte Carlo in a control volume . It fulfill the
+! distribution for the given thermodynamic activity.  The control volume is
+! the box slice between `z1` and `z2`. The number of attempted adjustments is
+! `nadj` following @Heffelfinger1998
+ 
+subroutine set_gcmc(g, z1, z2, act, rc, nadj, temp)
+use gems_constants, only:kB_ui
+class(integrate)    :: g
+real(dp),intent(in) :: z1, z2, act, rc, temp
+integer,intent(in)  :: nadj
+
+! TODO: Check that all the atoms belong to the same kind (have the same name,
+! etc and belong to same groups) so the atom template is any of them
+ 
+g%stepa => null()
+g%stepb => gcmc
+
+call g%p%append(z1)
+call g%p%append(z2)
+call g%p%append(act)
+call g%p%append(rc)
+call g%p%append(temp)
+call g%i%append(nadj)
+
+end subroutine
+ 
+subroutine gcmc(g)
+! For rigid spheres and considering a particular area between two xy planes.
+! TODO: Generalize with a boltzman energy
+! TODO: Check overlap with a reference group (for mixtures)
+use gems_groups, only: ghost_from_atom, useghost
+use gems_neighbor, only: ngroup,maxrcut
+use gems_random, only: ranu,rang
+use gems_constants, only: dm, kB_ui
+class(integrate)           :: g
+class(group),pointer       :: gp
+real(dp)                   :: z1,z2,act 
+real(dp)                   :: r(3), vd(3), dr, v, rc, temp, beta
+type(atom_dclist), pointer :: la
+type(atom),pointer         :: o, ref
+integer                    :: nadj
+integer                    :: i,j,n,m
+ 
+z1=g%p%o(1)
+z2=g%p%o(2)
+act=g%p%o(3)
+rc=g%p%o(4)
+temp=g%p%o(5)
+nadj=g%i%o(1)  
+           
+! Compute volume
+v=box(1)*box(2)*(z2-z1)
+     
+! Count particles in the control volume
+n=0
+la=>g%alist
+do j=1,g%nat
+  la=>la%next
+  if(la%o%pos(3)<z1.or.la%o%pos(3)>z2) cycle
+  n=n+1
+enddo
+    
+! Point to an atom that will work as template
+! in order to add new atoms into groups.
+       
+! Attempted adjustments 
+adj: do i=1,nadj
+
+  ref => g%alist%next%o
+  beta = sqrt(kB_ui*temp/ref%mass)
+  call werr('No more particles',.not.associated(ref))
+
+  ! Creation attempt
+  if (ranu()<0.5) then
+    
+    ! Metropolis acceptance
+    if(act*v/(n+1)<ranu()) cycle
+
+    ! Random coordinates
+    r(1)=ranu()*box(1)
+    r(2)=ranu()*box(2)
+    r(3)=ranu()*(z2-z1)+z1
+
+    ! Check overlap
+    la=>g%alist
+    do j=1,g%nat
+      la=>la%next
+      o => la%o
+
+      ! ! Skip particles outside the control volume.
+      ! FIXME: consider PBC
+      ! if(o%pos(3)<z1-rc) cycle
+      ! if(o%pos(3)>z2+rc) cycle
+
+      ! Skip if overlapping
+      vd(:) = distance(o%pos,r,o%pbc)
+      dr = dot_product(vd,vd)
+      if(dr<rc*rc) cycle adj
+
+    enddo
+
+    ! Add particle
+    n=n+1
+
+    ! Initialize particle from template.
+    allocate(o)
+    call o%init()
+    call atom_asign(o,ref)
+    o%pos(:)=r(:)
+     
+    ! Give a velocity from maxwell-boltzman distribution
+    ! TODO: Remove CM of added particles.
+    do j = 1,dm
+      call rang(dr)
+      la%o%vel(j) = beta*dr
+    enddo
+
+    ! Add to the same groups of the template.
+    do j=1,ref%ngr
+      gp => ref%gro(j)
+      call gp%attach(o)
+    enddo
+
+    ! Create ghost images
+    if(useghost) call ghost_from_atom(o,maxrcut)
+           
+    ! Free pointer
+    o=>null()
+
+  ! Destruction attempt
+  else 
+            
+    ! Metropolis acceptance
+    if(n/(v*act)<ranu()) cycle
+                
+    ! Choose a particle
+    m=floor(ranu()*n)+1
+    if(m>n) m=n
+
+    la=>g%alist
+    do j=1,g%nat
+      la=>la%next
+      o => la%o
+
+      ! Skip particles outside the control volume.
+      if(o%pos(3)<z1) cycle
+      if(o%pos(3)>z2) cycle
+
+      m=m-1  
+      if(m==0) exit
+    enddo
+    call werr('Chosen particle does not exists',m>0)
+            
+    ! Remove particle
+    n=n-1
+    call o%dest()
+    deallocate(o)
+           
+  endif 
+   
+enddo adj
       
-!                                                         desde archivo
-!------------------------------------------------------------------------------ 
+           
+end subroutine
+
+ 
+
+! Follow file
+!------------
 
 subroutine from_openfile_a(it)
 ! read atoms from file
-use gems_elements, only: ncsym
 class(integrate)             :: it
 integer                    :: i,j,io
 type(atom_dclist),pointer  :: la
-character(ncsym)           :: sym
+character(10)              :: sym
 real(dp)                   :: acel_dx,acel_dv
 
 acel_dv = dt*0.5_dp
@@ -1422,7 +1564,7 @@ read(fleu,*)
 la => it%alist
 do i = 1,it%nat
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd) * la%o%one_mass
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass
   read(fleu,*) sym, la%o%pos
   la%o%vel (1:dd) = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd) 
 enddo
@@ -1440,14 +1582,14 @@ acel_dv = dt*0.5_dp
 la => it%alist
 do  i = 1,it%nat
   la => la%next
-  la%o%acel(1:dd) = la%o%force(1:dd)*la%o%one_mass 
+  la%o%acel(1:dd) = la%o%force(1:dd)/la%o%mass 
   la%o%vel(1:dd)  = la%o%vel(1:dd) + acel_dv*la%o%acel(1:dd)
 enddo
 
 end subroutine from_openfile_b
 
-!                                                                 PBC
-!-------------------------------------------------------------------------
+! PBC
+!----
       
 ! subroutine triclinic_pbc
 !  !Si ahora no tengo una celda cubica, sino los vectores que indican los lados
@@ -1520,7 +1662,7 @@ end subroutine read_chppiston
 ! Variables and Labels
 
 function polvar_integrate(var) result(g)
-use gems_variables, only: polvar, polvar_find
+use gems_variables, only: polvar, polvars
 use gems_errors, only: werr
 character(*),intent(in)  :: var
 type(polvar),pointer     :: pv
@@ -1528,7 +1670,7 @@ type(integrate),pointer      :: g
 
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
+pv=>polvars%find(var)
 
 g=>null()
 if(.not.associated(pv)) return
@@ -1540,7 +1682,7 @@ select type(v=>pv%val)
 type is (integrate)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function

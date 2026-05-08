@@ -568,7 +568,7 @@ end subroutine
 !  call d%init()
 !
 !  do i = 1,size(signal%y)
-!    call d%add(signal%y(i))
+!    call d%attach(signal%y(i))
 !  enddo
 !
 !  ! El siguiente do hace log_2(N)-1 lineas, donde N es el numero de puntos

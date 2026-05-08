@@ -35,7 +35,6 @@
 module gems_output
  use gems_inq_properties
  use gems_program_types
- use gems_atoms
  use gems_groups
  use gems_constants
  use gems_strings
@@ -43,15 +42,14 @@ module gems_output
  use gems_tables
  use gems_input_parsing
  use gems_ddda
- use gems_elements, only: ncsym,csym
 
 implicit none
 
-! TODO: generalizar outpropa para apuntar a grupos, intergroups, interactions
+! TODO: generalizar outpropa para apuntar a grupos, ngroups, interactions
 !       quizas se puede declarar distintos tipos de outpropa y que el outfile
 !       apunte a todas ellas. No se si hacer un deferred porque hay muchas propiedades
 !       parecidas (epot, ecin, temp, etc) y no vale la pena apuntar a todas ellas, pero si 2 o 3 objetos heredaros, uno para
-!       intergroups, otro para integrations, etc. otro para cosas como pos, vel, etc que se escriben sin buffer, otras con buffer.
+!       ngroups, otro para integrations, etc. otro para cosas como pos, vel, etc que se escriben sin buffer, otras con buffer.
 !       todas que esten dentro de un outfile, y que sea el outfile el que distinga cuando le ponen de un tipo incompatible con otro
 !       tipo (e.g. epot con pos)
 type :: outpropa
@@ -134,8 +132,8 @@ end interface
 type(outfile_vop),public :: of_vop
              
 ! Precision de salida
-character(5),public        :: prf='20.7'
-character(2),public        :: pri='0'
+character(:),allocatable,public    :: prf!='20.7'
+character(:),allocatable,public    :: pri!='0'
   
 public :: outfile, polvar_outfile
 public :: outfile_write,outfile_prom,outfile_ddda
@@ -145,7 +143,6 @@ logical,public        :: chpmode=.false.
 
 integer              :: fstart=1,fend=1e8,fstep=1, npoints
 ! character(1)         :: tips
-character(ncsym)      :: symbol
 logical              :: read_error
 real(dp)             :: long
 integer              :: contador
@@ -275,13 +272,13 @@ do while( associated(ln%next) )
 
   call ln%o%w
 
-  fm='('//trim(.ich.ln%o%n)//'(x,e'//trim(prf)//'))'
+  fm='('//trim(str(ln%o%n))//'(x,e'//trim(prf)//'))'
 
   write(of%un,fmt=fm,advance='no') ln%o%f(:)
   ln%o%f(:)=0.0_dp
 enddo
 
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -316,13 +313,13 @@ of%n=0
 ln => of%p
 do while( associated(ln%next) )
   ln => ln%next
-  fm='('//trim(.ich.ln%o%n)//'(x,e'//trim(prf)//'))'
+  fm='('//trim(str(ln%o%n))//'(x,e'//trim(prf)//'))'
 
   write(of%un,fmt=fm,advance='no') ln%o%f
   ln%o%f(:)=0.0_dp
 enddo
 
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -361,7 +358,7 @@ do while( associated(ln%next) )
     write(of%un,fmt='(e25.12,1x)',advance='no') op%d(l)%med()
   enddo 
 enddo
-write(of%un,*)  
+write(of%un,'(a)')
      
 
 ! loop between window blocks
@@ -396,14 +393,14 @@ do j =1,ln%o%d(1)%size-2
       write(of%und,fmt='(2(e25.12,2x))',advance='no')  err,errerr
     enddo
 
-    write(of%und,*)
+    write(of%und,'(a)')
  
   enddo 
 enddo
 
 ! Separador de bloque (Enable `plot "file" i 3` in gnuplot)
-write(of%und,*)
-write(of%und,*)
+write(of%und,'(a)')
+write(of%und,'(a)')
 
 if(of%flush) then
   call flush(of%un)
@@ -541,7 +538,7 @@ do i = 1,of_vop%size
   if(of%enable(j)) call of%w()
 
 enddo
-
+                
 endsubroutine
 
 subroutine write_out_int(j,n)
@@ -610,8 +607,6 @@ integer      :: i
 type(outfile),pointer     :: of
 
 frame=frame+1
-pnframe=frame
-ptime=time*time_out
 
 ! Mecanismo de checkpoint. No escribo hasta que no se haya leido.
 if(chpmode) return
@@ -624,21 +619,24 @@ enddo
 endsubroutine
 
 subroutine write_screenshot(archivo,g)
-use gems_program_types
-type(group),intent(in)  :: g
-character(*)            :: archivo
-type (atom_dclist),pointer :: la
-integer            :: i,j,u
+type(group),intent(in)      :: g
+character(*)                :: archivo
+type (atom_dclist),pointer  :: la
+integer                     :: i,u
+real(dp)                    :: f(3)
+
+f(:)=0._dp 
 
 u = find_io(30)
 
 open(u, file=trim(adjustl(archivo)),position='rewind')
 write(u,*) g%nat
-write(u,*)
+write(u,'(a)')
 la => g%alist
 do i = 1,g%nat
   la => la%next
-  write(u,'(a'//csym//',3(e13.5),2x,i2)') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2),la%o%molid
+  f(1:dm)=la%o%pos(1:dm)
+  write(u,'(a,3(2x,e13.5),2x,i2)') la%o%sym,f(:)
 enddo
 close(u)
 
@@ -728,10 +726,14 @@ end subroutine write_state
 !ARCHIVOS PROPIEDADES
 
 subroutine write_tmoment(op)
-class(outpropa)     :: op
-call inq_cm_vel(op%g) 
-op%f(1:dm) = op%f(1:dm) + op%g%cm_vel(1:dm)*op%g%mass
-op%f(dm+1) = op%f(dm+1) + sqrt(dot_product(op%g%cm_vel(1:dm),op%g%cm_vel(1:dm))*op%g%mass)
+use gems_inq_properties, only: inq_cmvel,inq_mass
+class(outpropa)  :: op
+real(dp)         :: cmv(3),m
+
+call inq_cmvel(cmv,op%g) 
+m=inq_mass(op%g)
+op%f(1:dm) = op%f(1:dm) + cmv(:)*m
+op%f(dm+1) = op%f(dm+1) + sqrt(dot_product(cmv,cmv)*m)
 end subroutine
 
 subroutine write_amoment(op)
@@ -760,8 +762,7 @@ end subroutine
                 
 subroutine write_girrad(op)
 class(outpropa)     :: op
-call group_inq_rg(op%g)
-op%f(1) = op%f(1) + op%g%rg_pos
+op%f(1) = op%f(1) + inq_rg(op%g)
 end subroutine
                
 subroutine write_pressure(op)
@@ -811,22 +812,22 @@ end subroutine write_epot
 
 subroutine write_ecin(op)
 class(outpropa)     :: op
-call inq_kin_energy(op%g)
-op%f(1) = op%f(1) + op%g%ekin*ui_ev
+op%f(1) = op%f(1) + inq_kenergy(op%g)*ui_ev
 end subroutine write_ecin
  
 subroutine write_absecin(op)
 class(outpropa)     :: op
-call inq_abskin_energy(op%g)
-op%f(1) = op%f(1) + op%g%ekin*ui_ev
+real(dp)            :: cmv(3)=[0._dp,0._dp,0._dp]
+op%f(1) = op%f(1) + inq_kenergy(op%g,cmv)*ui_ev
 end subroutine write_absecin
   
 subroutine write_energy(op)
-class(outpropa)     :: op
-call inq_kin_energy(op%g)
+class(outpropa) :: op
+
 call inq_pot_energy(op%g)
+
 op%f(1) = op%f(1) + op%g%epot*ui_ev
-op%f(2) = op%f(2) + op%g%ekin*ui_ev
+op%f(2) = op%f(2) + inq_kenergy(op%g)*ui_ev
 op%f(3) = op%f(1) + op%f(2) 
 end subroutine write_energy
 
@@ -837,10 +838,10 @@ end subroutine write_box
 
 subroutine write_absenergy(op)
 class(outpropa)     :: op
-call inq_abskin_energy(op%g)
+real(dp)            :: cmv(3)=[0._dp,0._dp,0._dp]
 call inq_pot_energy(op%g)
 op%f(1) = op%f(1) + op%g%epot*ui_ev
-op%f(2) = op%f(2) + op%g%ekin*ui_ev
+op%f(2) = op%f(2) + inq_kenergy(op%g,cmv)*ui_ev
 op%f(3) = op%f(1) + op%f(2) 
 end subroutine write_absenergy
                    
@@ -852,15 +853,13 @@ real(dp)            :: aux
 
 !Primera energia
 if(first) then
-  call inq_kin_energy(op%g)
   call inq_pot_energy(op%g)
-  eini=op%g%epot+op%g%ekin
+  eini=op%g%epot+inq_kenergy(op%g)
   first=.false.
 endif
 
-call inq_kin_energy(op%g)
 call inq_pot_energy(op%g)
-ge = ge+(eini-(op%g%epot+op%g%ekin))**2
+ge = ge+(eini-(op%g%epot+inq_kenergy(op%g)))**2
 aux = sqrt(ge)
 op%f(1)=aux
 op%f(2)=aux/(dm_steps+1._dp)**2
@@ -868,67 +867,77 @@ end subroutine write_globalerror
 
 subroutine write_energypa(op)
 class(outpropa)     :: op
-call inq_kin_energy(op%g)
 call inq_pot_energy(op%g)
 op%f(1) = op%f(1) + op%g%epot*ui_ev/op%g%nat
-op%f(2) = op%f(2) + op%g%ekin*ui_ev/op%g%nat
+op%f(2) = op%f(2) + inq_kenergy(op%g)*ui_ev/op%g%nat
 op%f(3) = op%f(3) + (op%g%epot+op%g%ekin)*ui_ev/op%g%nat 
 end subroutine write_energypa
 
 subroutine write_aenergy(op)
-class(outpropa)     :: op
-call inq_angular_energy(op%g) 
-op%f(1) = op%f(1) + op%g%erot*ui_ev
-op%f(2) = op%f(2) + op%g%evib*ui_ev
-op%f(3) = op%f(3) + (op%g%erot+op%g%evib)*ui_ev
+class(outpropa)   :: op
+real(dp)          :: cmr(3),cmv(3)
+real(dp)          :: erot,evib
+call inq_cmpos(cmr,op%g)
+call inq_cmvel(cmv,op%g)
+call inq_angular_energy(erot,evib,op%g,cmr,cmv) 
+op%f(1) = op%f(1) + erot*ui_ev
+op%f(2) = op%f(2) + evib*ui_ev
+op%f(3) = op%f(3) + (erot+evib)*ui_ev
 end subroutine
 
 subroutine write_temp(op)
 class(outpropa)     :: op
-call inq_temperature(op%g)
-op%f(1) = op%f(1) + op%g%temp
+op%f(1) = op%f(1) + inq_temperature(op%g)
 end subroutine
 
 subroutine write_tempall(op)
 class(outpropa)     :: op
-call inq_temperature(op%g)
 op%f(1) = op%f(1) + op%g%temprot
 op%f(2) = op%f(2) + op%g%tempvib
-op%f(3) = op%f(3) + op%g%temp
+op%f(3) = op%f(3) + inq_temperature(op%g)
 end subroutine
 
 subroutine write_pos(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
+
+f(:)=0._dp 
  
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  !call group_inq_cmpos(of%g)
-  !write(un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),(0._dp,j=dm,2)
+  !call inq_cmpos(of%g)
+  !write(un,'(a,2x,3(2x,e25.12))') la%o%sym,(la%o%pos(j)-of%g%cm_pos(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%pos(1:dm)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
 
 end subroutine
-
+             
 subroutine write_poscr(of)
 class(outfile)            :: of
 type(atom_dclist),pointer :: la
-integer                   :: i,j 
+integer                   :: i,g(3)
+real(dp)                  :: f(3)
+
+f(:)=0._dp
+g(:)=0._dp
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12),(3(2x,i0)))') la%o%sym,&
-     (la%o%pos(j),j=1,dm),(0._dp,j=dm,2),(la%o%boxcr(j),j=1,dm),(0,j=dm,2)
+  f(1:dm)=la%o%pos(1:dm)
+  g(1:dm)=la%o%boxcr(1:dm)
+  write(of%un,'(a,2x,3(2x,e25.12),(3(2x,i0)))') la%o%sym,f(:),g(:)
 enddo
  
 if(of%flush) call flush(of%un)
@@ -943,7 +952,7 @@ real(dp)                    :: rd
 integer                     :: i,j
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
@@ -954,7 +963,7 @@ do i=1,of%g%nat
     lb => lb%next
 
     rd=rdistance2(la%o,lb%o)
-    if(rd<100.0_dp) write(of%un,'(2(a'//csym//',1x),e25.12)')  la%o%sym,lb%o%sym,sqrt(rd)
+    if(rd<100.0_dp) write(of%un,'(2(a,1x),e25.12)')  la%o%sym,lb%o%sym,sqrt(rd)
 
   enddo
 enddo
@@ -967,15 +976,19 @@ subroutine write_fce(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%force(j)*ui_kcm,j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%force(1:dm)*ui_kcm
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -986,15 +999,19 @@ subroutine write_vel(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel(j),j=1,dm),(0._dp,j=dm,2)
+  f(1:dm)=la%o%vel(1:dm)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:)
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1006,12 +1023,11 @@ use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
 integer                     :: i,j
-
+ 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,fmt='(e25.12,'//cdm//'(x,e25.12))') &
-   (la%o%pos(j),j=1,dm),la%o%epot*ui_ev
+  write(of%un,fmt='(e25.12,'//cdm//'(x,e25.12))') (la%o%pos(j),j=1,dm),la%o%epot*ui_ev
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1022,15 +1038,19 @@ subroutine write_pose(of)
 use gems_program_types
 class(outfile)     :: of
 type(atom_dclist),pointer   :: la
-integer                     :: i,j
+integer                     :: i
+real(dp)                    :: f(3)
 
+f(:)=0._dp 
+ 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%pos(j),j=1,dm),la%o%epot*ui_ev,(0._dp,j=dm+1,2)
+  f(1:dm)=la%o%pos(1:dm)
+  write(of%un,'(a,2x,3(2x,e25.12))') la%o%sym,f(:),la%o%epot*ui_ev
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1046,9 +1066,9 @@ integer                     :: i
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',2x,e25.12)') la%o%sym,la%o%q
+  write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%q
 enddo                   
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -1067,9 +1087,9 @@ call inq_bondorder(of%g,r1,r2)
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',2x,e25.12)') la%o%sym,la%o%border
+  write(of%un,'(a,2x,e25.12)') la%o%sym,la%o%border
 enddo                   
-write(of%un,*)
+write(of%un,'(a)')
 
 if(of%flush) call flush(of%un)
 
@@ -1078,39 +1098,28 @@ end subroutine
 subroutine write_vel_rot(of)
 use gems_program_types
 class(outfile)     :: of
-type(atom_dclist),pointer   :: la
-integer                     :: i,j
+type(atom_dclist),pointer :: la
+integer                   :: i
+real(dp),dimension(3)     :: r,v,vrot,vvib
+real(dp)                  :: cmr(3),cmv(3)
 
-call inq_angular_energy(of%g) 
+call inq_cmpos(cmr,of%g)
+call inq_cmvel(cmv,of%g)
 
 write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
+write(of%un,*) time
 
 la => of%g%alist
 do i=1,of%g%nat
   la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel_rot(j),j=1,dm),(0._dp,j=dm,2)
-enddo
+  
+  r(:) = la%o%pos(:)-cmr(:)
+  v(:) = la%o%vel(:)-cmv(:)
 
-if(of%flush) call flush(of%un)
+  vrot = cross_product(of%g%ang_vel,r)
+  vvib(:) = v(:)-vrot(:)
 
-end subroutine
-
-subroutine write_vel_vib(of)
-use gems_program_types
-class(outfile)     :: of
-type(atom_dclist),pointer   :: la
-integer                     :: i,j
-
-call inq_angular_energy(of%g) 
-
-write(of%un,*) of%g%nat
-write(of%un,*) nframe,time
-
-la => of%g%alist
-do i=1,of%g%nat
-  la => la%next
-  write(of%un,'(a'//csym//',3(2x,e25.12))') la%o%sym,(la%o%vel_vib(j),j=1,dm),(0._dp,j=dm,2)
+  write(of%un,'(a,2x,6(2x,e25.12))') la%o%sym,vrot,vvib
 enddo
 
 if(of%flush) call flush(of%un)
@@ -1118,7 +1127,7 @@ if(of%flush) call flush(of%un)
 end subroutine
 
 function polvar_outfile(var) result(g)
-use gems_variables, only: polvar, polvar_find
+use gems_variables, only: polvar, polvars
 use gems_errors, only: werr
 character(*),intent(in) :: var
 type(polvar),pointer    :: pv
@@ -1126,7 +1135,7 @@ class(outfile),pointer  :: g
 
 
 call werr('Labels should start with colon `:` symbol',var(1:1)/=':')
-pv=>polvar_find(var)
+pv=>polvars%find(var)
 
 g=>null()
 if(.not.associated(pv)) return
@@ -1138,7 +1147,7 @@ select type(v=>pv%val)
 class is (outfile)
   g=>v
 class default
-  call werr('I dont know how to return that')
+  call werr('I dont know how to return that',.true.)
 end select
 
 end function polvar_outfile

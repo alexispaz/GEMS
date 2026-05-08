@@ -5,17 +5,17 @@
 
 # Create the cube
 #include unitcells/fcc.gms
-+< reply   1 0 0     4
-+< reply   0 1 0     4
-+< reply   0 0 1     4
+^+ reply   1 0 0     4
+^+ reply   0 1 0     4
+^+ reply   0 0 1     4
 
 out posxyz asd.xyz
 
 # Perform the cutting operation using planes
->> below   3.5  3    3     1  2.5  0.5   1  0.5 2.5
->> below   3.5  3    3     1  2.5  0.5   3  0.5 0.5 
->> below   3.5  3    3     1  0.5  2.5   3  0.5 0.5
->> above   1   2.5  0.5    1  0.5  2.5   3  0.5 0.5
+^> below   3.5  3    3     1  2.5  0.5   1  0.5 2.5
+^> below   3.5  3    3     1  2.5  0.5   3  0.5 0.5 
+^> below   3.5  3    3     1  0.5  2.5   3  0.5 0.5
+^> above   1   2.5  0.5    1  0.5  2.5   3  0.5 0.5
 
 # Rotations to align a face on the xy-plane.
 set rotate z -45    3 0.5 0.5

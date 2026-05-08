@@ -6,10 +6,9 @@ dimension 3
 prng lcg
 prng seed 123456
 
->< read conf.xyz
-sys add
+>+ read conf.xyz
 
-> sys
+> all
 set pbc F F F 
 group 1 add
 > element Co
@@ -23,11 +22,10 @@ set mass 40.
 
 box move (make the total velocity zero)
 
-interact 2 under lj  0.10364 3.4 200
-interact 3 under lj  0.06218 3.4 200
-interact 2 with 3 lj 0.08291 3.4 200
-
-
+interact 2 pair lj  0.10364 3.4 200
+interact 3 pair lj  0.06218 3.4 200
+interact 2 < 3 pair lj 0.08291 3.4 200
+interact 3 < 2 pair lj 0.08291 3.4 200
 
 time step 0.005   (integration timestep [ps])
                 
@@ -41,10 +39,10 @@ outfile :f2 pos 1
 outfile :f2 each 1e6
         
 
-> sys
+> all
 out state 
 
-> sys
+> all
 set tempgdist 500
 evolve ermak 500 2     
 

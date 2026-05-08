@@ -25,13 +25,13 @@ box size 20 20 20
 prng lcg
 prng seed 123456
  
->< fill 10 0.25 $boxx $boxy 0.1  0. 0. 3.3  
-sys add H
+>+ fill 10 0.25 $boxx $boxy 0.1  0. 0. 3.3  
+set element H
 
->< fill 10 0.25 0.1 0.1 $boxz    5. 5. 0.
-sys add C
+>+ fill 10 0.25 0.1 0.1 $boxz    5. 5. 0.
+set element C
 
-> sys
+> all
 group 1 add
 out posxyz 
 
@@ -49,8 +49,8 @@ group 3 add
 box move (make the total velocity zero)
 
 
-interact :pared 2 under halfsho_plane 1. 3.0 -3
-interact 2 under halfsho_plane 1. $boxz 3
+interact :pared 2 field halfsho_plane 1. 3.0 -3
+interact 2 field halfsho_plane 1. $boxz 3
 
 bloque save 1
   r0 := {3.0+(1.*$time)}
@@ -72,7 +72,7 @@ outfile :f3 name Pos.$jobname$.xyz
 outfile :f3 pos 1
 outfile :f3 each 1
 
-> sys
+> all
 evolve v_verlet
 set tempgdist 300
 dinamica 5000

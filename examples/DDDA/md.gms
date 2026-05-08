@@ -13,15 +13,15 @@ dimension 3
 prng lcg
 prng seed 123456
 
->< read coords.xyz
-sys add Ag
+>+ read coords.xyz
+set element Ag
 
 > element Ag
 group 1 add
 
 time step 0.001d0  (integration timestep [ps])
 
-interact 1 under tb read ../../parameters/baletto_2003.prm  
+interact 1 tb read ../../parameters/baletto_2003.prm  
 
                 
 outfile :f1 name Energy.$jobname$.dat
@@ -38,7 +38,7 @@ outfile :f3 cols energy 1
 outfile :f3 each 1
 outfile :f3 ddda 10
  
-> sys
+> all
 evolve ermak 300 1
                 
 dinamica 100

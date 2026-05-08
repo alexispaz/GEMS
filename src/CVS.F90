@@ -33,9 +33,8 @@ module gems_cvs
      
 use gems_constants,only:dp,dm
 ! use gems_algebra,only:real_v,integer_v
-use gems_groups, only:group,group_l,group_ap
-use gems_atoms, only:atom,atom_dclist
-use gems_inq_properties, only:group_inq_cmpos,inq_cm_vel,group_inq_rg
+use gems_groups, only:igroup,group_ap,atom,atom_dclist
+use gems_inq_properties, only:inq_cmpos,inq_cmvel,inq_rg
 use gems_errors, only:werr
 
 implicit none
@@ -44,7 +43,7 @@ private
 public cv_eval_cmpos, cv_eval_cm, cv_calc_sho, cv_eval_rg
 public cv_jaco_cmpos, cv_jaco_cm
   
-type,extends(group),public :: cv
+type,extends(igroup),public :: cv
  
   ! Array of asociated groups (CV that use many groups)
   ! type(group_ap),allocatable  :: gs(:)
@@ -55,6 +54,7 @@ type,extends(group),public :: cv
   
   ! Parametros enteros de la variable colectiva
   ! type(integer_v) :: ir
+  integer              :: dm=0
   integer,allocatable  :: ir(:)
              
   ! real(dp),allocatable :: zt(:)     ! The CV
@@ -77,16 +77,16 @@ type,extends(group),public :: cv
   logical                    :: b_flag=.false.
 
   contains
-    ! Constructor
-    procedure :: cv_init
 
-    ! La interfaz del procedimiento para set no es conocido a priori ya que no
-    ! se sabe el numero de parametros necesario. Por ello, hay que llamarlo con
-    ! un call directo como se hace con los potenciales
-    ! procedure :: cv_set
+  procedure :: attach_atom => cv_attach
+  ! Constructor
+  ! procedure :: init => cv_init
 
-    ! procedure :: eval => inq_prop
-    generic   :: init => cv_init
+  ! La interfaz del procedimiento para set no es conocido a priori ya que no
+  ! se sabe el numero de parametros necesario. Por ello, hay que llamarlo con
+  ! un call directo como se hace con los potenciales
+  ! procedure :: cv_set
+
 end type cv
              
 abstract interface
@@ -122,31 +122,36 @@ contains
 ! #define _NODE cv_v
 ! #define _CLASS type(cv)
 ! #include "vector_body.inc"
-    
-subroutine cv_init(c,n,g)
-! n is the cv dimension
-class(cv)               :: c
-type(group),intent(in)  :: g
-integer,intent(in)      :: n
-
-call werr('The CV is already created',allocated(c%t))
-
-call c%group_initialize()
-call c%add(g)
-
-allocate(c%j(n,c%nat,dm))
-allocate(c%t(n))
-allocate(c%tf(n))
-allocate(c%z(n))
-! allocate(c%gs(m))
-             
-c%b_flag=.false.
-                 
-! allocate(pr())
-! allocate(ir())
-              
-end subroutine cv_init
   
+subroutine cv_attach(g,a,l_)
+class(cv),target     :: g
+class(atom),target   :: a
+integer              :: n, m
+integer,intent(out),optional :: l_
+integer                      :: l
+
+! Attempt to attach
+call g%igroup_attach_atom(a,l)
+if(present(l_)) l_=l
+if(l==0) return
+                                
+! Reallocate if needed
+if(allocated(g%j)) then
+  if(g%nat<size(g%j,2)) return
+  deallocate(g%j)
+endif
+
+n=g%nat+g%pad
+m=g%dm
+
+allocate(g%j(m,n,dm))
+allocate(g%t(m))
+allocate(g%tf(m))
+allocate(g%z(m)) 
+ 
+end subroutine cv_attach
+            
+!   
 ! subroutine cv_setg(c,ind,g)
 ! ! Set pointer to group
 ! type(group),target   :: g  
@@ -186,13 +191,17 @@ end subroutine cv_init
 ! end function
                            
 subroutine cv_jaco_cmpos(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
+real(dp)                   :: m
 logical,save               :: pragmaonce=.false.
 
 ! Solo se ejecuta una ves
 if(pragmaonce) return
+
+m=inq_mass(c)
 
 la => c%alist
 do i=1,c%nat
@@ -200,7 +209,7 @@ do i=1,c%nat
 
   c%j(1:dm,i,1:dm) = 0._dp
   do j=1,dm
-    c%j(j,i,j) = la%o%mass/c%mass
+    c%j(j,i,j) = la%o%mass/m
   enddo
 enddo       
 
@@ -209,22 +218,27 @@ pragmaonce=.true.
 end subroutine cv_jaco_cmpos
                                          
 subroutine cv_jaco_cm(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
 logical,save               :: pragmaonce=.false.
+real(dp)                   :: cmr(3),m
 
 ! Solo se ejecuta una ves
 if(pragmaonce) return
 
+m=inq_mass(c)
+
 j=c%ir(1)  
-c%t(1)=c%cm_pos(j)
+call inq_cmpos(cmr,c)
+c%t(1)=cmr(j)
 
 la => c%alist
 do i=1,c%nat
   la => la%next 
   c%j(:,i,:) = 0._dp
-  c%j(1,i,j) = la%o%mass/c%mass
+  c%j(1,i,j) = la%o%mass/m
 enddo       
             
 
@@ -234,25 +248,29 @@ end subroutine cv_jaco_cm
             
 
 subroutine cv_eval_cm(c)
-class(cv)                  :: c
-integer                    :: j
+class(cv)   :: c
+integer     :: j
+real(dp)    :: cmr(3)
 
 ! Add the COM pos/vel to the head
-call group_inq_cmpos(c) 
-
+call inq_cmpos(cmr,c) 
 j=c%ir(1)  
-c%t(1)=c%cm_pos(j)
+c%t(1)=cmr(j)
 
 end subroutine cv_eval_cm
              
 subroutine cv_eval_cmpos(c)
+use gems_inq_properties, only: inq_mass
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i,j
+real(dp)                   :: cmr(3),m
+
+m=inq_mass(c)
 
 ! Add the COM pos/vel to the head
-call group_inq_cmpos(c) 
-c%t(1:dm)=c%cm_pos(1:dm)
+call inq_cmpos(cmr,c) 
+c%t(1:dm)=cmr(:)
 
 ! TODO: This part is only needed once
 la => c%alist
@@ -261,7 +279,7 @@ do i=1,c%nat
 
   c%j(1:dm,i,1:dm) = 0._dp
   do j=1,dm
-    c%j(j,i,j) = la%o%mass/c%mass
+    c%j(j,i,j) = la%o%mass/m
   enddo
 enddo       
 
@@ -271,15 +289,16 @@ subroutine cv_eval_rg(c)
 class(cv)                  :: c
 type (atom_dclist),pointer :: la
 integer                    :: i
+real(dp)                   :: cmr(3)
 
 ! Add the COM pos/vel to the head
-call group_inq_rg(c) 
-c%t(1)=c%rg_pos
+call inq_cmpos(cmr,c)
+c%t(1)=inq_rg(c)
 
 la => c%alist
 do i=1,c%nat
   la => la%next 
-  c%j(1,i,:)=(la%o%pos(:)-c%cm_pos(:))/(c%rg_pos*c%nat)
+  c%j(1,i,:)=(la%o%pos(:)-cmr(:))/(c%t(1)*c%nat)
 enddo       
 
 end subroutine cv_eval_rg

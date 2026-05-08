@@ -25,13 +25,13 @@ box size 20 20 20
 prng lcg
 prng seed 123456
  
->< fill 10 0.25 $boxx$ $boxy$ 0.1   0. 0. 3.3  
-sys add H
+>+ fill 10 0.25 $boxx$ $boxy$ 0.1   0. 0. 3.3  
+set element H
 
->< fill 10 0.25 0.1 0.1 $boxz$      5. 5. 0.
-sys add C
+>+ fill 10 0.25 0.1 0.1 $boxz$      5. 5. 0.
+set element C
 
-> sys
+> all
 set pbc T T T 
 group 1 add
 out posxyz 
@@ -47,8 +47,8 @@ group 3 add
 
 box move (make the total velocity zero)
 
-interact 2 under sho_plane 1. 3.3 3
-interact 3 under sho_line  1.  5. 5. 0.   0. 0. 1
+interact 2 field sho_plane 1. 3.3 3
+interact 3 field sho_line  1.  5. 5. 0.   0. 0. 1
 
 time step 0.001
                 
@@ -61,7 +61,7 @@ outfile :f1 each 100
 # outfile :f3 pos 1
 # outfile :f3 each 1
 
-> sys
+> all
 evolve v_verlet
 set tempgdist 300
 dinamica 1000

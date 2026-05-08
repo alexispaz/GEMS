@@ -20,7 +20,7 @@ module gems_siesta
   use gems_program_types
   use gems_input_parsing
   use gems_constants
-  use gems_neighbour
+  use gems_neighbor
   use gems_errors
 
   integer              :: igr_siesta=0
@@ -52,7 +52,7 @@ contains
     integer              :: i,siesta_nat   
     character(linewidth) :: temp
 
-    siesta_nat=igr_vop%o(igr_siesta)%o%n(1)
+    siesta_nat=ngindex%o(igr_siesta)%o%n(1)
 
     ! Los archivos involucrados en el llamado al siesta
     write(siesta_ini,*) trim(adjustl(ioprefix))//"_siesta.fdf"  ! El input... se genera automaticamente
@@ -121,7 +121,7 @@ contains
     ! Corriendo sin la linea anterior para encontrar la primera densidad
     call wlog('SIESTA','')
     call wlog('SIESTA', 'Get .DM file with the actual configuration')
-    call igr_vop%o(igr_siesta)%o%interact()
+    call ngindex%o(igr_siesta)%o%interact()
 
     ! Escribiendo nuevamente con el uso de la densidad anterior
     u_siesta=find_io(30)
@@ -151,7 +151,7 @@ contains
   end subroutine siesta_writehead
 
   subroutine siesta_interaction(ig)
-    class(intergroup),intent(inout)         :: ig
+    class(ngroup),intent(inout)         :: ig
     integer                   :: i,k,l,j
     character(150)            :: w1
     type(atom_dclist),pointer :: la
@@ -159,14 +159,14 @@ contains
     ig%epot=0.0_dp
 
 
-    if(ig%n(1)==0) return
+    if(ig%nat==0) return
 
     ! Escribo coordenadas
     u_siesta=find_io(30)
     open( u_siesta , file=trim(adjustl(siesta_tmp)) )
 
-    la => ig%a      ! sobre los atomos
-    do i = 1,ig%n(1)
+    la => ig%alist      ! sobre los atomos
+    do i = 1,ig%nat
       la=>la%next
  
       do k = 1,siesta_esp
@@ -195,12 +195,12 @@ contains
 
     ! Leo las fuerzas (que estan en ev/a)
     l=0
-    la => ig%a      ! sobre los atomos
-    do i = 1,ig%n(1)
+    la => ig%alist      ! sobre los atomos
+    do i = 1,ig%nat
       la=>la%next
       read(u_siesta,*) j,(la%o%force(l),l=1,dm)
       la%o%force = la%o%force*ev_ui 
-      la%o%epot = ig%epot/ig%n(1)  ! POR COMPATIBLIDAD
+      la%o%epot = ig%epot/ig%nat  ! POR COMPATIBLIDAD
     enddo
 
     ! Tensor de estress

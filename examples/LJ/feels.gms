@@ -20,24 +20,24 @@
 dimension 3
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
-+< atom 1 1 5
-+< atom 2.2 1 5
-+< atom 3.4 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
+^+ atom 1 1 5
+^+ atom 2.2 1 5
+^+ atom 3.4 1 1
 # m0=1uma
-sys add H
+set element H
 
-> sys
+> all
 set pbc F F F 
 group 1 add
  
-> sys
-- atom 5
+> all
+^~ atom 5
 group 2 add
  
 > atom 2 
-+ atom 4
+^ atom 4
 group 3 add
 
 > atom 5
@@ -50,8 +50,8 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 2 with  2 slj 1. 0.890898718140339 1.108683
-interact 4 feels 3 slj 1. 0.890898718140339 1.108683
+interact 2 pair slj 1. 0.890898718140339 1.108683
+interact 4 < 3 pair slj 1. 0.890898718140339 1.108683
 
 # About time unit
 #   1eV=9648.61 uma*A**2/ps**2
@@ -59,7 +59,7 @@ interact 4 feels 3 slj 1. 0.890898718140339 1.108683
 #   1ps**2=  9648.61 m0*r0**2/E0
 #   1ps=sqrt(9648.61) tau 
 #   1ps=98.22 tau
-getin tau_ps 0.01018
+tau_ps:=0.01018
        
 time step {0.002*$tau_ps$}   (integration timestep [ps])
                 
@@ -75,7 +75,7 @@ outfile :f1 each 10
 # outfile :f3 each 1
          
 
-> sys
+> all
 
 out state
 evolve v_verlet

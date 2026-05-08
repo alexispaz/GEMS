@@ -18,14 +18,13 @@
 
 module gems_metadynamics
 use gems_constants,          only: dp,pi,ev_ui,dm,kB_ui
-use gems_atoms,       only: atom,atom_dclist
-use gems_groups,      only: group
-use gems_strings, only: operator(.ich.)
+use gems_groups,      only: group,atom,atom_dclist
+use gems_strings, only: str
 use gems_integration,     only: integration_stepa, integration_stepb, its, integrate
 use gems_interaction,     only: interact
 use gems_output
 use gems_errors
-use gems_neighbour, only: intergroup
+use gems_neighbor, only: ngroup
 use gems_checkpoint
 
 
@@ -64,17 +63,21 @@ public         :: metadynamics
 public         :: wtmd2D_set,dm_cv_set,wall2D_set,wallauxCore_set,wallauxShell_set
 public         :: wtmetad_set,wall1D_set, bias_point_1D,Collective_Variable     
 public         :: write_cvs,write_E_1D,dCM,posicion1d_set,wtxy_2D
+ 
+! FIXME:
+type(group),target,public   :: gmeta
+ 
 contains
 
 
 subroutine metadynamics(steps,b_out,b_wtmd_2D,b_DMCV,b_dCM_RgTotal,b_dCM_RgAu,b_dCM,b_pos1d,b_x,b_xy)
-use gems_neighbour, only:nupd_vlist 
+use gems_neighbor, only:nupd_vlist 
 use gems_input_parsing, only:execute_block,load_blk, bloques
 ! use gems_errors, only: timer_start, timer_dump
 
 ! esta subrutina funciona con subsystemas
 integer,intent(in)    :: steps
-integer               :: ns,i
+integer               :: ns
 logical,intent(in)    :: b_out,b_wtmd_2D,b_DMCV,b_dCM_RgTotal,b_dCM_RgAu,b_dCM,b_pos1d,b_x,b_xy
  
 ! Timing
@@ -113,12 +116,12 @@ do ns = 1,steps
 
  ! Checkpoint
   if (b_ckp) then
-    if (mod(dm_steps,real(chpeach))==0._dp)  call write_chp(ns,steps)
+    if (mod(dm_steps,real(chpeach,dp))==0._dp)  call write_chp(ns,steps)
   endif
    
   ! Command interpreter
   if (b_load) then
-    if (mod(dm_steps,real(load_each))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
+    if (mod(dm_steps,real(load_each,dp))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
 
     ! Lisent to term signal
     if (term_signal) then
@@ -135,45 +138,37 @@ enddo
 end subroutine
          
 subroutine posicion1d_set(wt1,wt2,wt3,wt4,wt5,wt6)
-  real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
-  real(dp),intent(in)    :: wt2    ! Ancho de las gaussianas
-  real(dp),intent(in)    :: wt3    ! Parametro de WTMD
-  real(dp),intent(in)    :: wt4    ! tau (frecuencia)
-  integer ,intent(in)    :: wt5    ! cada cuanto imprimir la CV
-  integer ,intent(in)    :: wt6    ! id group
+use gems_strings, only: str
+real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
+real(dp),intent(in)    :: wt2    ! Ancho de las gaussianas
+real(dp),intent(in)    :: wt3    ! Parametro de WTMD
+real(dp),intent(in)    :: wt4    ! tau (frecuencia)
+integer ,intent(in)    :: wt5    ! cada cuanto imprimir la CV
+integer ,intent(in)    :: wt6    ! id group
 
-  !seleccion del grupo de integracion (cuales se mueven)
+!seleccion del grupo de integracion (cuales se mueven)
 g => its%o(wt6)
 call werr('Integration group should be in a constant T ensamble',.not.g%b_fixt)
 temp_md=g%fixt
 
-  wWTini      = wt1
-  sigCV1      = wt2
-  dT_WT       = wt3
-  tauWT       = wt4
-  printD      = wt5
-  cant_parta  = 1
+wWTini      = wt1
+sigCV1      = wt2
+dT_WT       = wt3
+tauWT       = wt4
+printD      = wt5
+cant_parta  = 1
 
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '--Parametros de la Well-Tempered Metadynamic  (1D)--'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) 'Altura inicial de la Gauss (KJ/mol)=',wWTini
-  write(*,*) 'Ancho de medio pico de la Gauss (A)=',sigCV1
-  write(*,*) 'Parametrop de la WTMetaD           =',dT_WT
-  write(*,*) 'Frecuencia de incorporacion (ps)   =',tauWT
-  write(*,*) 'Cantidad Particulas en el core     =',cant_parta
-  write(*,*) 'Cantidad Particulas en el core     =',temp_md
-  !Control, escribimos en el .log
-  call wlog ('WTMD1D_Pos'); write(logunit,*) 'w->',wWTini,'sig1->',sigCV1
-  call wlog ('WTMD1D_Pos'); write(logunit,*) 'dT->',dT_WT,'tau->',tauWT
-  call wlog ('WTMD1D_Pos'); write(logunit,*) 'printCV->',printD,'temp->',temp_md,'N_partcore->',cant_parta
+call wlog('WTMD1D_Pos', 'Altura inicial de la Gauss (KJ/mol)='//str(wWTini))
+call wlog('WTMD1D_Pos', 'Ancho de medio pico de la Gauss (A)='//str(sigCV1))
+call wlog('WTMD1D_Pos', 'Parametrop de la WTMetaD           ='//str(dT_WT))
+call wlog('WTMD1D_Pos', 'Frecuencia de incorporacion (ps)   ='//str(tauWT))
+call wlog('WTMD1D_Pos', 'Cantidad Particulas en el core     ='//str(cant_parta))
+call wlog('WTMD1D_Pos', 'Cantidad Particulas en el core     ='//str(temp_md))
+call wlog('WTMD1D_Pos', 'printCV                            ='//str(printD))
 
-                                          
-  wWTini  = wWTini * real(kjau_pro,dp)
-  tauWT_pasos= int(tauWT/dt)
-  call ini_1D
+wWTini  = wWTini * real(kjau_pro,dp)
+tauWT_pasos= int(tauWT/dt)
+call ini_1D
 end subroutine posicion1d_set
  subroutine pared_1d_max(pared)
   implicit none
@@ -181,7 +176,7 @@ end subroutine posicion1d_set
    type (atom_dclist),pointer   :: la
    integer                      :: i
    ff1d = -kBuCM*(pos_x-pared)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + ff1d
@@ -195,7 +190,7 @@ end subroutine posicion1d_set
    integer                      :: i
    ff1d = -kBuCM*(pos_x-pared)
 
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + ff1d
@@ -206,13 +201,12 @@ subroutine posicion1d(n,nstep)
 type (atom_dclist),pointer   :: la
 integer                      :: i
 integer                      :: binCV1_1,binCV1_2,n,nstep
-real(dp)                     :: biasf
 real(dp)                     :: ffcte
 
 pos_x=0
 
 ! Apertura  de archivos y poner a 0 las variables del potencial
-la => gsel%alist
+la => gmeta%alist
 do i = 1,cant_parta
   la => la%next
   pos_x=la%o%pos(1) 
@@ -230,7 +224,7 @@ if(pos_x >= potiniCV1 .AND. pos_x <= potfinCV1) then
   ffcte= sline_interpotation(pos_x,interpolation_x(binCV1_1),for_int_y(binCV1_1),&
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
   !calculo de la fuerza del bias en la cordenada colectiva dCM
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
     la => la%next
     la%o%force(1) = la%o%force(1) + real (ffcte,dp)
@@ -258,119 +252,112 @@ if(mod (n,printD)==0)  write(236,'(f12.3,f12.6)') real (n*dt,dp), pos_x
 !!!!!!!!!!!!! Set de parametros para correr wtmd 1D 2D con o sin barreras!!!!!!!
 !Parametros WTMD 2D
 subroutine wtmd2D_set(wt1,wt2,wt3,wt4,wt5,wt6,wt7,wt8,wt9)
-  real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
-  real(dp),intent(in)    :: wt2    ! Ancho CV1
-  real(dp),intent(in)    :: wt3    ! Ancho CV2
-  real(dp),intent(in)    :: wt4    ! Parametro de WTMD
-  real(dp),intent(in)    :: wt5    ! tau (frecuencia)
-  integer ,intent(in)    :: wt6    ! cada cuanto imprimir las variables Colectivas
-  real(dp),intent(in)    :: wt7    ! tolerancia para las gaussianas         
-  integer ,intent(in)    :: wt8    ! cantidad de particulas en el core
-  integer ,intent(in)    :: wt9    ! id de grupo de integracion donde se monta la Meta
-           
-
+real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
+real(dp),intent(in)    :: wt2    ! Ancho CV1
+real(dp),intent(in)    :: wt3    ! Ancho CV2
+real(dp),intent(in)    :: wt4    ! Parametro de WTMD
+real(dp),intent(in)    :: wt5    ! tau (frecuencia)
+integer ,intent(in)    :: wt6    ! cada cuanto imprimir las variables Colectivas
+real(dp),intent(in)    :: wt7    ! tolerancia para las gaussianas         
+integer ,intent(in)    :: wt8    ! cantidad de particulas en el core
+integer ,intent(in)    :: wt9    ! id de grupo de integracion donde se monta la Meta
+         
 !seleccion del grupo de integracion (cuales se mueven)
 g => its%o(wt9)
 call werr('Integration group should be in a constant T ensamble',.not.g%b_fixt)
 temp_md=g%fixt
-  wWTini      = wt1
-  sigCV1      = wt2
-  sigCV2      = wt3
-  dT_WT       = wt4
-  tauWT       = wt5
-  printD      = wt6
-  tol_Bias    = wt7
-  cant_parta  = wt8
-  
-  write(*,*) '--------Parametros de la Well-Tempered Metadynamic  (2D)---------'
-  write(*,'(3(A18,f9.4))') 'W_ini (KJ/mol) =',wWTini,'sig_CV1 (A) =',sigCV1,'sig_CV2 (A) =',sigCV2
-  write(*,'(3(A18,f10.4))') 'deltaT WTMD    =',dT_WT, 'tau (ps)    =',tauWT, 'Tol(Kj/mol) =',tol_Bias
-  write(*,'(A18,i9,A18,i9)') 'Print CV       =',printD,'Cant_core  =',cant_parta
-  !Control, escribimos en el .log
-  call wlog ('WTMD2D'); write(logunit,*) 'w->',wWTini,'sig1->',sigCV1,'sig2->',sigCV2
-  call wlog ('WTMD2D'); write(logunit,*) 'dT->',dT_WT,'tau->',tauWT
-  call wlog ('WTMD2D'); write(logunit,*) 'printCV->',printD, 'temp', temp_md
-  call wlog ('WTMD2D'); write(logunit,*) 'tol->',tol_Bias,'N_partcore->',cant_parta
-  
-  biasf= real (((temp_md+dT_WT)/(dT_WT)),dp)
-  parA= 1.0_dp/real (cant_parta,dp)
-  parB= 1.0_dp/real ((gsel%nat-cant_parta),dp)
-  wWTini  = wWTini * real(kjau_pro,dp)
-  tol_Bias = tol_Bias * real(kjau_pro,dp)  
-  tauWT_pasos= int(tauWT/dt)
- end subroutine wtmd2D_set
+wWTini      = wt1
+sigCV1      = wt2
+sigCV2      = wt3
+dT_WT       = wt4
+tauWT       = wt5
+printD      = wt6
+tol_Bias    = wt7
+cant_parta  = wt8
+
+call wlog ('WTMD2D'); write(logunit,*) 'w->',wWTini,'sig1->',sigCV1,'sig2->',sigCV2
+call wlog ('WTMD2D'); write(logunit,*) 'dT->',dT_WT,'tau->',tauWT
+call wlog ('WTMD2D'); write(logunit,*) 'printCV->',printD, 'temp', temp_md
+call wlog ('WTMD2D'); write(logunit,*) 'tol->',tol_Bias,'N_partcore->',cant_parta
+
+biasf= real (((temp_md+dT_WT)/(dT_WT)),dp)
+parA= 1.0_dp/real (cant_parta,dp)
+parB= 1.0_dp/real ((gmeta%nat-cant_parta),dp)
+wWTini  = wWTini * real(kjau_pro,dp)
+tol_Bias = tol_Bias * real(kjau_pro,dp)  
+tauWT_pasos= int(tauWT/dt)
+end subroutine wtmd2D_set
 !Parametros Limites CV1
-  subroutine wall2D_set(wt1,wt2,wt3,wt4,wt5,wt6,wt7)
-  real(dp),intent(in)    :: wt1    ! potencial inicial CV1
-  real(dp),intent(in)    :: wt2    ! potencial final CV1
-  integer ,intent(in)    :: wt3    ! potencial bines CV1
-  real(dp),intent(in)    :: wt4   ! potencial inicial CV2
-  real(dp),intent(in)    :: wt5   ! potencial final CV2
-  integer ,intent(in)    :: wt6   ! potencial bines CV2
-  real(dp),intent(in)    :: wt7   ! rburb
+subroutine wall2D_set(wt1,wt2,wt3,wt4,wt5,wt6,wt7)
+real(dp),intent(in)    :: wt1    ! potencial inicial CV1
+real(dp),intent(in)    :: wt2    ! potencial final CV1
+integer ,intent(in)    :: wt3    ! potencial bines CV1
+real(dp),intent(in)    :: wt4   ! potencial inicial CV2
+real(dp),intent(in)    :: wt5   ! potencial final CV2
+integer ,intent(in)    :: wt6   ! potencial bines CV2
+real(dp),intent(in)    :: wt7   ! rburb
 
-  potiniCV1   = wt1
-  potfinCV1   = wt2
-  potbinCV1   = wt3
-  potiniCV2   = wt4
-  potfinCV2   = wt5
-  potbinCV2   = wt6
-  rburb       = wt7
+potiniCV1   = wt1
+potfinCV1   = wt2
+potbinCV1   = wt3
+potiniCV2   = wt4
+potfinCV2   = wt5
+potbinCV2   = wt6
+rburb       = wt7
 
-  dpot_CV1= (potfinCV1 - potiniCV1) / real (potbinCV1,dp)
-  dpot_CV2= (potfinCV2 - potiniCV2) / real (potbinCV2,dp)
+dpot_CV1= (potfinCV1 - potiniCV1) / real (potbinCV1,dp)
+dpot_CV2= (potfinCV2 - potiniCV2) / real (potbinCV2,dp)
 
-  deltapared=0.2
-  write(*,*) '--------------------Ventana Well Tempered Metadynamics (1D)-----------------------'
-  write(*,'(2(A16,f12.4,2x),A11,I6)') 'Pot_ini_CV1 (A) =',potiniCV1, 'Pot_fin_CV1 (A) =',potfinCV1, 'Bins CV1 =',potbinCV1
-  write(*,'(2(A16,f12.4,2x),A11,I6)') 'Pot_ini_CV2 (A) =',potiniCV2, 'Pot_fin_CV1 (A) =',potfinCV2, 'Bins CV1 =',potbinCV2
-  write(*,'(2(A15,f12.4),2x)') 'Burb ext (A)    =',rburb,'delta pared (A)   =',deltapared
+deltapared=0.2
+call wlog('W2D', 'Ventana Well Tempered Metadynamics (1D)')
+call wlog('W2D'); write(logunit,'(2(a,f12.4,2x),a,i6)') 'Pot_ini_CV1 (A) =',potiniCV1, & 
+         'Pot_fin_CV1 (A) =',potfinCV1, 'Bins CV1 =',potbinCV1
+call wlog('W2D'); write(logunit,'(2(a,f12.4,2x),a,i6)') 'Pot_ini_CV2 (A) =',potiniCV2, &
+         'Pot_fin_CV1 (A) =',potfinCV2, 'Bins CV1 =',potbinCV2
+call wlog('W2D'); write(logunit,'(2(a,f12.4),2x)') 'burb ext (A) =',rburb, &
+         'delta pared (A)   =',deltapared
 
-  potbinCV1=potbinCV1+1
-  potbinCV2=potbinCV2+1
- 
-  allocate(B_WTMD_2D(potbinCV1,potbinCV2))
-  allocate(F_WTMD_2D_CV1(potbinCV1,potbinCV2))
-  allocate(F_WTMD_2D_CV2(potbinCV1,potbinCV2))
-    !Control, escribimos en el .log
-  call wlog ('W2D'); write(logunit,*) 'WCV1min->',potiniCV1,'WCV1max->',potfinCV1,'WCV1bin->',potbinCV1
-  call wlog ('W2D'); write(logunit,*) 'WCV2min->',potiniCV2,'WCV2max->',potfinCV2,'WCV1bin->',potbinCV2
-  call wlog ('W2D'); write(logunit,*) 'rburb->',rburb
- end subroutine wall2D_set
+potbinCV1=potbinCV1+1
+potbinCV2=potbinCV2+1
+
+allocate(B_WTMD_2D(potbinCV1,potbinCV2))
+allocate(F_WTMD_2D_CV1(potbinCV1,potbinCV2))
+allocate(F_WTMD_2D_CV2(potbinCV1,potbinCV2))
+  !Control, escribimos en el .log
+call wlog ('W2D'); write(logunit,*) 'WCV1min->',potiniCV1,'WCV1max->',potfinCV1,'WCV1bin->',potbinCV1
+call wlog ('W2D'); write(logunit,*) 'WCV2min->',potiniCV2,'WCV2max->',potfinCV2,'WCV1bin->',potbinCV2
+call wlog ('W2D'); write(logunit,*) 'rburb->',rburb
+end subroutine wall2D_set
+
 !Parametros de barreras auxiliares para Rg Core 
-  subroutine wallauxCore_set(wt1,wt2)
-  real(dp),intent(in)    :: wt1    ! potencial inicial CV1
-  real(dp),intent(in)    :: wt2    ! potencial final CV1
+subroutine wallauxCore_set(wt1,wt2)
+real(dp),intent(in)    :: wt1    ! potencial inicial CV1
+real(dp),intent(in)    :: wt2    ! potencial final CV1
 
-  potiniaux1   = wt1
-  potfinaux1   = wt2
+potiniaux1   = wt1
+potfinaux1   = wt2
 
-  write(*,*) '----------Ventana Aux Core Well Tempered Metadynamics-----------'
-  write(*,'(2(A19,f12.4,2x))') 'Paux_ini Core (A) =',potiniaux1 ,'Paux_fin Core (A) =',potfinaux1
+call wlog('WAC', 'Ventana Aux Core Well Tempered Metadynamics')
+call wlog('WAC'); write(logunit,'(2(A19,f12.4,2x))') 'Paux_ini Core (A) =',potiniaux1, &
+    'Paux_fin Core (A) =',potfinaux1
+end subroutine wallauxCore_set
 
-  !Control, escribimos en el .log
-  call wlog ('WAC'); write(logunit,*) 'Wmin->',potiniaux1,'Wmax->',potfinaux1
-  end subroutine wallauxCore_set
+subroutine wallauxShell_set(wt1,wt2)
+real(dp),intent(in)    :: wt1    ! potencial inicial CV1
+real(dp),intent(in)    :: wt2    ! potencial final CV1
 
-  subroutine wallauxShell_set(wt1,wt2)
-  real(dp),intent(in)    :: wt1    ! potencial inicial CV1
-  real(dp),intent(in)    :: wt2    ! potencial final CV1
+potiniaux2   = wt1
+potfinaux2   = wt2
 
-  potiniaux2   = wt1
-  potfinaux2   = wt2
-
-  write(*,*) '----------Ventana Aux Core Well Tempered Metadynamics-----------'
-  write(*,'(2(A19,f12.4,2x))') 'Paux_ini Core (A) =',potiniaux2 ,'Paux_fin Core (A) =',potfinaux2
-  
-  !Control, escribimos en el .log
-  call wlog ('WAS'); write(logunit,*) 'Wmin->',potiniaux2,'Wmax->',potfinaux2
-  end subroutine wallauxShell_set
+call wlog('WAS','Ventana Aux Core Well Tempered Metadynamics')
+call wlog('WAS'); write(logunit,'(2(A19,f12.4,2x))') 'Paux_ini Core (A) =',potiniaux2 ,'Paux_fin Core (A) =',potfinaux2
+end subroutine wallauxShell_set
 
 !!!Well Tempered Metadynamics 2D !!!!!
 !dCM-RgCore
 subroutine wtmetad_2D(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
 !
 !Calculo mis variables colectivas en el paso n de la simulacion  
@@ -403,13 +390,13 @@ subroutine wtmetad_2D(n,nstep)
   CV2_ff = CV2_ffcte /real ((cant_parta*Rg),dp)
 
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcmA))   
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
   enddo
@@ -436,7 +423,7 @@ call pared_burb(n)
 !dCM-RgShell
  subroutine wtdcmrgau(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
 !
 !Calculo mis variables colectivas en el paso n de la simulacion  
@@ -468,15 +455,15 @@ call pared_burb(n)
  
           
   CV1_ff= (CV1_ffcte*(rcmA-rcmB))/ real (dCM,dp)
-  CV2_ff = CV2_ffcte /real (((gsel%nat-cant_parta)*RgAu),dp)
+  CV2_ff = CV2_ffcte /real (((gmeta%nat-cant_parta)*RgAu),dp)
 
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcmB))   
@@ -504,7 +491,7 @@ call pared_burb(n)
 !dCM-RgTotal
 subroutine dCM_RgTotal(n,nstep)
   type (atom_dclist),pointer   :: la
-   integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+   integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
    real(dp)                    :: CV1_ffcte,CV2_ffcte,CV1_ff(3),CV2_ff(3)
 !Calculo mis variables colectivas en el paso n de la simulacion  
   call Collective_Variable
@@ -533,15 +520,15 @@ subroutine dCM_RgTotal(n,nstep)
   CV2_ffcte = interpolacion_bilineal(dCM,Rgtotal,binCV1_1,binCV1_2,binCV2_1,binCV2_2,&
       F_WTMD_2D_CV2(binCV1_1,binCV2_1),F_WTMD_2D_CV2 (binCV1_2,binCV2_1),&
       F_WTMD_2D_CV2 (binCV1_1,binCV2_2),F_WTMD_2D_CV2 (binCV1_2,binCV2_2))
-  CV2_ff = CV2_ffcte /real ((gsel%nat*Rgtotal),dp)
+  CV2_ff = CV2_ffcte /real ((gmeta%nat*Rgtotal),dp)
 !calculo de las fuerzas de los bias 
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + (CV1_ff*parA)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcm))   
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - (CV1_ff*parB)
    la%o%force = la%o%force + (CV2_ff*(la%o%pos-rcm))   
@@ -584,49 +571,42 @@ call pared_burb(n)
   
 !! !!!!!!!!!!! Set de parametros para correr wtmd 1D con o sin barreras!!!!!!!
 subroutine wtmetad_set(wt1,wt2,wt3,wt4,wt5,wt6,wt7)
-  real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
-  real(dp),intent(in)    :: wt2    ! Ancho de las gaussianas
-  real(dp),intent(in)    :: wt3    ! Parametro de WTMD
-  real(dp),intent(in)    :: wt4    ! tau (frecuencia)
-  integer ,intent(in)    :: wt5   ! cada cuanto imprimir la CV
-  integer ,intent(in)    :: wt6   ! cantidad de particulas en el core
-  integer ,intent(in)    :: wt7   ! id de grupo de integracion donde se monta la Meta
-           
+real(dp),intent(in)    :: wt1    ! Altura inicial de las gaussianas
+real(dp),intent(in)    :: wt2    ! Ancho de las gaussianas
+real(dp),intent(in)    :: wt3    ! Parametro de WTMD
+real(dp),intent(in)    :: wt4    ! tau (frecuencia)
+integer ,intent(in)    :: wt5   ! cada cuanto imprimir la CV
+integer ,intent(in)    :: wt6   ! cantidad de particulas en el core
+integer ,intent(in)    :: wt7   ! id de grupo de integracion donde se monta la Meta
+         
 
 !seleccion del grupo de integracion (cuales se mueven)
 g => its%o(wt7)
 call werr('Integration group should be in a constant T ensamble',.not.g%b_fixt)
 temp_md=g%fixt
                  
-  wWTini      = wt1
-  sigCV1      = wt2
-  dT_WT       = wt3
-  tauWT       = wt4
-  printD      = wt5
-  cant_parta  = wt6
+wWTini      = wt1
+sigCV1      = wt2
+dT_WT       = wt3
+tauWT       = wt4
+printD      = wt5
+cant_parta  = wt6
 
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '--Parametros de la Well-Tempered Metadynamic  (1D)--'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) 'Altura inicial de la Gauss (KJ/mol)=',wWTini
-  write(*,*) 'Ancho de medio pico de la Gauss (A)=',sigCV1
-  write(*,*) 'Parametrop de la WTMetaD           =',dT_WT
-  write(*,*) 'Frecuencia de incorporacion (ps)   =',tauWT
-  write(*,*) 'Cantidad Particulas en el core     =',cant_parta
-  write(*,*) 'Temperatura                        =',temp_md
-  !Control, escribimos en el .log
-  call wlog ('WTMD1D'); write(logunit,*) 'w->',wWTini,'sig1->',sigCV1
-  call wlog ('WTMD1D'); write(logunit,*) 'dT->',dT_WT,'tau->',tauWT
-  call wlog ('WTMD1D'); write(logunit,*) 'printCV->',printD,'temp->',temp_md,'N_partcore->',cant_parta
 
-  parA= 1.0_dp/real (cant_parta,dp)
-  parB= 1.0_dp/real ((gsel%nat-cant_parta),dp)
-                                          
-  wWTini  = wWTini * real(kjau_pro,dp)
-  tauWT_pasos= int(tauWT/dt)
-  call ini_1D
+call wlog('WTMD1D_Pos', 'Altura inicial de la Gauss (KJ/mol)='//str(wWTini))
+call wlog('WTMD1D_Pos', 'Ancho de medio pico de la Gauss (A)='//str(sigCV1))
+call wlog('WTMD1D_Pos', 'Parametrop de la WTMetaD           ='//str(dT_WT))
+call wlog('WTMD1D_Pos', 'Frecuencia de incorporacion (ps)   ='//str(tauWT))
+call wlog('WTMD1D_Pos', 'Cantidad Particulas en el core     ='//str(cant_parta))
+call wlog('WTMD1D_Pos', 'Cantidad Particulas en el core     ='//str(temp_md))
+call wlog('WTMD1D_Pos', 'printCV                            ='//str(printD))
+ 
+parA= 1.0_dp/real (cant_parta,dp)
+parB= 1.0_dp/real ((gmeta%nat-cant_parta),dp)
+                                        
+wWTini  = wWTini * real(kjau_pro,dp)
+tauWT_pasos= int(tauWT/dt)
+call ini_1D
 end subroutine wtmetad_set
       
   
@@ -641,20 +621,12 @@ subroutine wall1D_set(wt1,wt2,wt3,wt4)
   rburb       = wt4
 
 
-  dpot_CV1=(potfinCV1 - potiniCV1) / real (potbinCV1,dp)
+  dpot_CV1=(potfinCV1 - potiniCV1) / real(potbinCV1,dp)
 
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '-------Ventana Well Tempered Metadynamics (2D)------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) '----------------------------------------------------'
-  write(*,*) 'potencial inicial (A)              =',potiniCV1
-  write(*,*) 'potencial final (A)                =',potfinCV1
-  write(*,*) 'Cantidad de Bins                   =',potbinCV1
-  write(*,*) 'Radio burb (A)                     =',rburb
-  !Control, escribimos en el .log
-  call wlog ('W1D'); write(logunit,*) 'WCV1min->',potiniCV1,'WCV1max->',potfinCV1,'WCV1bin->',potbinCV1
-  call wlog ('W1D'); write(logunit,*) 'rburb->',rburb
+  call wlog('W1D', 'potencial inicial (A) ='//str(potiniCV1))
+  call wlog('W1D', 'potencial final (A)   ='//str(potfinCV1))
+  call wlog('W1D', 'Cantidad de Bins      ='//str(potbinCV1))
+  call wlog('W1D', 'Radio burb (A)        ='//str(rburb))
   
   potbinCV1=potbinCV1+1
   allocate(interpolation_x(potbinCV1))
@@ -667,10 +639,9 @@ end subroutine wall1D_set
 !dCM
 subroutine wtmetad(n,nstep)
   type (atom_dclist),pointer   :: la
-  integer                      :: i
-  integer binCV1_1,binCV1_2,n,nstep
-  real(dp) biasf
-  real(dp) ff(3),ffcte,fact
+  integer          :: i
+  integer          :: binCV1_1,binCV1_2,n,nstep
+  real(dp)         :: ff(3),ffcte
   
   call Collective_Variable
 ! Apertura  de archivos y poner a 0 las variables del potencial
@@ -690,12 +661,12 @@ subroutine wtmetad(n,nstep)
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
   ff= (ffcte*(rcmA-rcmB))/real (dCM,dp)
 !calculo de la fuerza del bias en la cordenada colectiva dCM
-  la => gsel%alist
+  la => gmeta%alist
   do i = 1,cant_parta
    la => la%next
    la%o%force = la%o%force + real (ff*parA,dp)
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    la%o%force= la%o%force - real (ff*parB,dp)
   enddo
@@ -734,21 +705,19 @@ call pared_burb(n)
 
 !Parametros de la DM siguiendo las CV
 subroutine DM_CV_set(wt1,wt2,wt3)
-  integer ,intent(in)    :: wt1    ! cada cuanto imprimir 
-  real(dp),intent(in)    :: wt2    ! burbuja 
-  integer ,intent(in)    :: wt3    ! cantidad de atomos en el core 
+integer ,intent(in)    :: wt1    ! cada cuanto imprimir 
+real(dp),intent(in)    :: wt2    ! burbuja 
+integer ,intent(in)    :: wt3    ! cantidad de atomos en el core 
 
-  printD     = wt1
-  rburb      = wt2
-  cant_parta = wt3
+printD     = wt1
+rburb      = wt2
+cant_parta = wt3
 
-  write(*,*) '------------------------------------------'
-  write(*,*) 'Parametros para Din. Mol. siguiendo CV'
-  write(*,*) '------------------------------------------'
-  write(*,*) 'Burbujas Potencial externo          =',rburb
-  write(*,*) 'Cantidad Particulas en el core      =',cant_parta
+call wlog('WTMD1D_Pos','Parametros para Din. Mol. siguiendo CV')
+call wlog('WTMD1D_Pos','Burbujas Potencial externo     ='//str(rburb))
+call wlog('WTMD1D_Pos','Cantidad Particulas en el core ='//str(cant_parta))
 
-  end subroutine DM_CV_set
+end subroutine DM_CV_set
 
   
   !DM siguiendo CV
@@ -794,7 +763,7 @@ end subroutine DM_CV
 
  function gauss_2D_Force_CV2 (x_CV1,x_CV2,CVs1,CVs2,wWT) result(resultado)
   implicit none
-  real(dp) CVs1,CVs2,x_CV1,x_CV2,wWT,sigCVs1,sigCVs2
+  real(dp) CVs1,CVs2,x_CV1,x_CV2,wWT
   real(dp) a_CV1s,b_CV2s
   real(dp) resultado
   a_CV1s = ((x_CV1-CVs1)*(x_CV1-CVs1))/ real ((2.0_dp*sigCV1*sigCV1),dp)
@@ -881,7 +850,7 @@ subroutine Collective_Variable()
   sumaRgtotal=0.0_dp   
 
  !   Calculo la posicion del CM  de cada especie
- la => gsel%alist
+ la => gmeta%alist
   do i=1, cant_parta
    la => la%next
    rcmA = rcmA + (la%o%pos*la%o%mass)
@@ -889,7 +858,7 @@ subroutine Collective_Variable()
    if(i/=1) cycle
    mas1= la%o%mass
   enddo
-  do i=cant_parta+1, gsel%nat
+  do i=cant_parta+1, gmeta%nat
    la => la%next
    rcmB = rcmB + (la%o%pos*la%o%mass)
    rcm = rcm + (la%o%pos*la%o%mass)
@@ -897,23 +866,23 @@ subroutine Collective_Variable()
    mas2= la%o%mass
   enddo
   rcmA = rcmA/ real ((cant_parta*mas1),dp)
-  rcmB = rcmB/ real (((gsel%nat-cant_parta)*mas2),dp)
-  rcm = rcm/ real (((gsel%nat-cant_parta)*mas2)+(cant_parta*mas1),dp)
+  rcmB = rcmB/ real (((gmeta%nat-cant_parta)*mas2),dp)
+  rcm = rcm/ real (((gmeta%nat-cant_parta)*mas2)+(cant_parta*mas1),dp)
   
-  la => gsel%alist
+  la => gmeta%alist
   do i=1, cant_parta
    la => la%next
    sumaRg= sumaRg + (dot_product(la%o%pos-rcmA, la%o%pos-rcmA))
    sumaRgtotal= sumaRgtotal + (dot_product(la%o%pos-rcm, la%o%pos-rcm))
   enddo
-  do i=cant_parta + 1, gsel%nat 
+  do i=cant_parta + 1, gmeta%nat 
    la => la%next
    sumaRgAu= sumaRgAu + (dot_product(la%o%pos-rcmB, la%o%pos-rcmB))
    sumaRgtotal= sumaRgtotal + (dot_product(la%o%pos-rcm, la%o%pos-rcm))
   enddo
 
-  Rgtotal=sqrt(sumaRgtotal / real (gsel%nat,dp))
-  RgAu=sqrt(sumaRgAu / real (gsel%nat - cant_parta,dp))
+  Rgtotal=sqrt(sumaRgtotal / real (gmeta%nat,dp))
+  RgAu=sqrt(sumaRgAu / real (gmeta%nat - cant_parta,dp))
   Rg=sqrt(sumaRg / real (cant_parta,dp))
   dCM=sqrt(((rcmB(1)-(rcmA(1)))*(rcmB(1)-rcmA(1)))+((rcmB(2)-rcmA(2))*(rcmB(2)-rcmA(2)))+((rcmB(3)-rcmA(3))*(rcmB(3)-rcmA(3))))
 
@@ -937,12 +906,12 @@ end subroutine Collective_Variable
    type (atom_dclist),pointer   :: la
    integer                      :: i
    ffCM = -kBuCM*(dCM-pared)*((rcmA-rcmB)/dCM)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force = la%o%force + (ffCM*parA)
    enddo
-   do i=cant_parta+1, gsel%nat
+   do i=cant_parta+1, gmeta%nat
     la => la%next
     la%o%force = la%o%force - (ffCM*parB)
    enddo
@@ -955,12 +924,12 @@ end subroutine Collective_Variable
    integer                      :: i
    ffCM = -kBuCM*(dCM-pared)*((rcmA-rcmB)/dCM)
 
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next
     la%o%force = la%o%force + (ffCM*parA)
    enddo
-   do i=cant_parta+1, gsel%nat
+   do i=cant_parta+1, gmeta%nat
     la => la%next
     la%o%force = la%o%force - (ffCM*parB)
    enddo
@@ -972,7 +941,7 @@ end subroutine Collective_Variable
   integer                      :: i
   type (atom_dclist),pointer   :: la
    ffRgT = (-kBuRg*(Rg-pared))/real ((Rg*cant_parta),dp)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmA))   
@@ -984,9 +953,9 @@ end subroutine Collective_Variable
   real(dp)                     :: ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gsel%nat-cant_parta)),dp)
-   la => gsel%alist
-   do i = cant_parta+1,gsel%nat
+   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gmeta%nat-cant_parta)),dp)
+   la => gmeta%alist
+   do i = cant_parta+1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmB))   
    enddo
@@ -998,7 +967,7 @@ end subroutine Collective_Variable
   integer                      :: i
   type (atom_dclist),pointer   :: la
    ffRgT = (-kBuRg*(Rg-pared))/real ((Rg*cant_parta),dp)
-   la => gsel%alist
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmA))   
@@ -1010,9 +979,9 @@ end subroutine Collective_Variable
   real(dp)                     ::ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gsel%nat-cant_parta)),dp)
-   la => gsel%alist
-   do i = cant_parta+1,gsel%nat
+   ffRgT = (-kBuRg*(RgAu-pared))/real ((RgAu*(gmeta%nat-cant_parta)),dp)
+   la => gmeta%alist
+   do i = cant_parta+1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcmB))   
    enddo  
@@ -1023,13 +992,13 @@ end subroutine Collective_Variable
   real(dp)                     :: ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gsel%nat),dp)
-   la => gsel%alist
+   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gmeta%nat),dp)
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo
-   do i = cant_parta +1,gsel%nat
+   do i = cant_parta +1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
@@ -1040,13 +1009,13 @@ end subroutine Collective_Variable
   real(dp)                     ::ffRgT,pared
   integer                      :: i
   type (atom_dclist),pointer   :: la
-   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gsel%nat),dp)
-   la => gsel%alist
+   ffRgT = (-kBuRg*(Rgtotal-pared))/real ((Rgtotal*gmeta%nat),dp)
+   la => gmeta%alist
    do i = 1,cant_parta
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
-   do i = cant_parta +1,gsel%nat
+   do i = cant_parta +1,gmeta%nat
     la => la%next 
     la%o%force = la%o%force + (ffRgT*(la%o%pos-rcm))   
    enddo  
@@ -1057,9 +1026,9 @@ end subroutine Collective_Variable
   integer                      :: i,n
   real(dp)                     :: dist_part2,dist_part,ffburb
   type (atom_dclist),pointer   :: la
-  la => gsel%alist
+  la => gmeta%alist
 
-  do i = 1,gsel%nat
+  do i = 1,gmeta%nat
    la => la%next
    dist_part2 = dot_product(la%o%pos,la%o%pos)
    if (dist_part2 < (rburb*rburb)) cycle
@@ -1079,7 +1048,7 @@ end subroutine Collective_Variable
    real(dp)                     :: CV1,CV2,bias_ant,wWT,potential_point
    real(dp)                     :: force_point_cv1,force_point_cv2
    real(dp)                     :: x_ini,x_fin,y_ini,y_fin,bincte_CV1,bincte_CV2 
-    type (atom_dclist),pointer   :: la
+
    bias_ant = interpolacion_bilineal(CV1,CV2,binCV1_1,binCV1_2,binCV2_1,binCV2_2,&
        B_WTMD_2D(binCV1_1,binCV2_1),B_WTMD_2D(binCV1_2,binCV2_1),&
        B_WTMD_2D(binCV1_1,binCV2_2),B_WTMD_2D(binCV1_2,binCV2_2))
@@ -1139,8 +1108,8 @@ end subroutine Collective_Variable
  subroutine ini_2D(n)
    use gems_input_parsing, only: ioprefix
    use gems_constants, only:find_io
-   integer         :: n,k,j,i,ierr,bincv1_1,bincv1_2,bincv2_1,bincv2_2
-   real(dp)        :: c_1,c_2,ww,w_old,t,s_1,s_2,fac 
+   integer         :: n,j,i!,ierr,bincv1_1,bincv1_2,bincv2_1,bincv2_2
+   ! real(dp)        :: c_1,c_2,ww,w_old,t,s_1,s_2,fac 
    
    unidad=find_io(10)
    open(unidad,FILE= 'Par_E_libre.'//trim(ioprefix)//'.dat')
@@ -1195,8 +1164,8 @@ end subroutine Collective_Variable
       end subroutine ini_2D
 
       subroutine ini_1D()
-       integer         :: n,k,j,i,ierr,bincv1_1,bincv1_2
-       real(dp)        :: c_1,ww,w_old,t,s_1
+        integer         :: i!,ierr,bincv1_1,bincv1_2
+       ! real(dp)        :: c_1,ww,w_old,t,s_1
 !       open(UNIT=235,FILE= 'Gauss.dat')
 !       write(235,*) '#! FIELDS time dCM Rg sigma_dCM  sigma_Rg height biasf'
 !       write(235,*) '#! SET multivariate false' 
@@ -1250,15 +1219,15 @@ end subroutine
 
 subroutine write_E_1D(of)
   class(outfile)     :: of
-  integer            :: i,j
+  integer            :: i
   real(dp)           :: fact 
 
   fact=(-(temp_md+dT_WT)/(dT_WT))*0.01
    do i=1, potbinCV1
-   write(of%un,*) interpolation_x(i),fact*pot_int_y(i)
+   write(of%un,'(e25.12,x,e25.12)') interpolation_x(i),fact*pot_int_y(i)
    enddo
    
-   write(of%un,*) 
+   write(of%un,'(a)')
 
   if(of%flush) call flush(of%un)
 
@@ -1268,8 +1237,7 @@ subroutine wtx(n,nstep)
   type (atom_dclist),pointer   :: la
   integer                      :: i
   integer binCV1_1,binCV1_2,n,nstep
-  real(dp) biasf
-  real(dp) ff(3),ffcte,fact
+  real(dp)  :: ffcte
   call Collective_Variable
 ! Apertura  de archivos y poner a 0 las variables del potencial
   
@@ -1286,7 +1254,7 @@ subroutine wtx(n,nstep)
     ffcte= sline_interpotation(rcmA(1),interpolation_x(binCV1_1),for_int_y(binCV1_1),&
       interpolation_x(binCV1_2),for_int_y(binCV1_2),dfor_int_y(binCV1_1),dfor_int_y(binCV1_2))
 !calculo de la fuerza del bias en la cordenada colectiva dCM
-    la => gsel%alist
+    la => gmeta%alist
     do i = 1,cant_parta
       la => la%next
       la%o%force(1) = la%o%force(1) + real (ffcte*parA,dp)
@@ -1310,8 +1278,8 @@ subroutine wtx(n,nstep)
 
 subroutine wtxy_2D(n,nstep)
   type (atom_dclist),pointer   :: la
-  integer                     :: n,nstep,i,j,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
-  real(dp)                    :: CV1_ffcte,CV2_ffcte,Cv1_ff(3),CV2_ff(3)
+  integer                     :: n,nstep,i,binCV1_1,binCV1_2,binCV2_1,binCV2_2   
+  real(dp)                    :: CV1_ffcte,CV2_ffcte
 
 !Calculo mis variables colectivas en el paso n de la simulacion  
   call Collective_Variable
@@ -1333,7 +1301,7 @@ subroutine wtxy_2D(n,nstep)
         F_WTMD_2D_CV2(binCV1_1,binCV2_1),F_WTMD_2D_CV2 (binCV1_2,binCV2_1),&
         F_WTMD_2D_CV2 (binCV1_1,binCV2_2),F_WTMD_2D_CV2 (binCV1_2,binCV2_2))
    
-      la => gsel%alist
+      la => gmeta%alist
       do i = 1,cant_parta
         la => la%next
         la%o%force(1) = la%o%force(1) + real (CV1_ffcte*parA,dp)

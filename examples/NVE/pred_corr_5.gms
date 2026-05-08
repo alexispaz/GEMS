@@ -19,13 +19,13 @@ box size 50 50 50
 prng lcg
 prng seed 123456
 
->< fill 100 2.6
-sys add He
+>+ fill 100 2.6
+set element He
 
->< fill 100 2.6
-sys add Ne
+>+ fill 100 2.6
+set element Ne
 
-> sys
+> all
   set pbc T T T 
   group 1 add
  
@@ -59,13 +59,14 @@ time step 0.002d0  (integration timestep [ps])
 # NE     0.000000  -0.086000     1.5300  ! neon, semiempirical pot. energy surface, adm jr., 12/95
 # ==============================================================
 
-getin  cal_eV     2.61144768e19
-getin  na         6.0221417930e23
-getin  kcalmol_ev {$cal_ev$/$na$*1000.}
+cal_ev := 2.61144768e19
+na := 6.0221417930e23
+kcalmol_ev := {$cal_ev/$na*1000.}
 
-interact 2 under  plj {0.021270*$kcalmol_ev$} 1.4800
-interact 3 under  plj {0.086000*$kcalmol_ev$} 1.5300
-interact 2 with 3 plj {sqrt(0.086000*0.021270)*$kcalmol_ev$} {0.5*(1.5300+1.4800)}
+interact 2 pair plj {0.021270*$kcalmol_ev} 1.4800
+interact 3 pair  plj {0.086000*$kcalmol_ev} 1.5300
+interact 2 < 3 pair plj {sqrt(0.086000*0.021270)*$kcalmol_ev} {0.5*(1.5300+1.4800)}
+interact 3 < 2 pair plj {sqrt(0.086000*0.021270)*$kcalmol_ev} {0.5*(1.5300+1.4800)}
 
 
 ((((((((((( archivos de salida  )))))))))) 
@@ -78,7 +79,7 @@ outfile :f2 name Pos.$jobname$.xyz
 outfile :f2 pos 1
 outfile :f2 each 100
 
-> sys
+> all
 set tempgdist 300  
 evolve pred_corr_5
 dinamica 5000

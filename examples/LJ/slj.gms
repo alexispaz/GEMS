@@ -20,12 +20,12 @@
 dimension 3
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
 # m0=1uma
-sys add H
+set element H
 
-> sys
+> all
 set pbc F F F 
 group 1 add
  
@@ -39,7 +39,7 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 1 under slj 1. 0.890898718140339 1.108683
+interact 1 pair slj 1. 0.890898718140339 1.108683
 
 # About time unit
 #   1eV=9648.61 uma*A**2/ps**2
@@ -47,7 +47,7 @@ interact 1 under slj 1. 0.890898718140339 1.108683
 #   1ps**2=  9648.61 m0*r0**2/E0
 #   1ps=sqrt(9648.61) tau 
 #   1ps=98.22 tau
-getin tau_ps 0.01018
+tau_ps:=0.01018
        
 time step {0.002*$tau_ps$}   (integration timestep [ps])
                 
@@ -63,7 +63,7 @@ outfile :f3 pos 1
 outfile :f3 each 1
          
 
-> sys
+> all
 
 out state
 
@@ -73,7 +73,7 @@ set move 0.9 0 0
 bloque repeat 250
 > group 2
 set move 0.01 0 0
-> sys
+> all
 out state
 # lbfgs
 fin
@@ -83,7 +83,7 @@ set move -2.5 0 0
 set move -0.9 0 0
 set move 1.2 0 0
 
-> sys
+> all
 evolve v_verlet
 dinamica 1000
 

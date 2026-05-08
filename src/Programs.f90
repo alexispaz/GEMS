@@ -21,7 +21,7 @@ module gems_programs
  use gems_constants
  use gems_inq_properties 
  use gems_set_properties
- use gems_neighbour
+ use gems_neighbor
 
  implicit none
 
@@ -45,14 +45,6 @@ logical,intent(in)      :: b_out
 character(*),intent(in) :: fname
 character(2)            :: sym
 character(200)          :: boxflag
-logical                 :: ghosted
-
-! CHECK: I think this require full ghost updates: motion jumps are arbitrary
-! Sudden atom movements require fullghost
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
 
 u = find_io(30)
 open(u,action='read',file=fname)
@@ -74,9 +66,9 @@ do ns = 1,steps
   endif
 
   do j = 1, k
-    read(u,*) sym, a(j)%o%pos(1:dm)
+    read(u,*) sym, sys%a(j)%o%pos(1:dm)
   enddo
-  call pos_changed()
+  call gindex_pos_changed()
 
   call interact(b_out)
    
@@ -84,10 +76,6 @@ do ns = 1,steps
   if (b_out) call write_out(1,dm_steps)
 
 enddo
-
-if(ghost) then
-  fullghost=ghosted
-endif
 
 close(u)
 
@@ -113,7 +101,6 @@ end subroutine
     
 subroutine dinamic(steps,b_out,b_time)
 use gems_errors, only: timer_start, timer_dump
-use gems_set_properties, only:pos_changed
 use gems_integration, only: integration_stepa,integration_stepb
 use gems_interaction, only: interact
 use gems_output, only: write_out
@@ -121,7 +108,7 @@ use gems_checkpoint, only:b_ckp, chpeach, write_chp
 use gems_input_parsing, only: load_blk, bloques, execute_block
  
 integer,intent(in)    :: steps
-integer               :: ns,i
+integer               :: ns
 logical,intent(in)    :: b_out,b_time
 
 ! Timing

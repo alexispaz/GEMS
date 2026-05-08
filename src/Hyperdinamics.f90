@@ -14,7 +14,16 @@
 !  .
 !  You should have received a copy of the GNU General Public License
 !  along with GEMS.  If not, see <https://www.gnu.org/licenses/>.
-
+! 
+! References
+!
+! Paz & Leiva (2015). Time Recovery for a Complex Process Using Accelerated
+! Dynamics. JCTC 11 1725. http://doi.org/10.1021/ct5009729
+!
+! Reigada et. al. (1999). One-dimensional arrays of oscillators: Energy
+! localization in thermal equilibrium. JCP 111(4) 1373.
+! http://doi.org/10.1063/1.479396  
+ 
 module gems_hyperdynamics
 use gems_program_types
 use gems_constants
@@ -26,7 +35,7 @@ use gems_output
 use gems_errors
 use gems_programs
 use gems_checkpoint
-use gems_neighbour
+use gems_neighbor
 use gems_bias, only: compress_below
 
 implicit none
@@ -41,7 +50,9 @@ real(dp)             :: sigma,vprom
 type(group),pointer   :: ghd=>null()
 
 ! lp hyperdinamics
-type(decorrelation)           :: dvp,dbp,dvbp
+! FIXME: Rise an internal ifort error
+! type(decorrelation)  :: dvp,dbp,dvbp
+class(decorrelation), pointer  :: dvp,dbp,dvbp
 real(dp)                      :: f
 integer                       :: ctime
 
@@ -83,9 +94,9 @@ end function
 
 ! subroutine hyperdinamics_cli()
 ! use gems_bias, only: compress_below
-! use gems_neighbour, only: intergroup_dl
+! use gems_neighbor, only: ngroup_dl
 ! use gems_interaction, only: polvar_interact(w1)
-! class(intergroup), pointer      :: ig
+! class(ngroup), pointer      :: ig
 ! class(compress_below), pointer  :: p
 !
 ! selectcase(w1)
@@ -95,7 +106,7 @@ end function
 !   select type(igb)
 !   type is(compress_below)
 !   case default
-!     call werr('Bias shoulw be of type lpe to allow hybrid HD-DM algorithm')
+!     call werr('Bias shoulw be of type lpe to allow hybrid HD-DM algorithm',.true.)
 !   end select
 ! case default
 !   call werr('Bad keyword. Use `under`, `with` or `feels`')
@@ -113,16 +124,17 @@ use gems_fields
 use gems_input_parsing
 use gems_tb
 use gems_bias, only: compress_below
-use gems_interaction, only: polvar_interact, intergroup
+use gems_interaction, only: polvar_interact, ngroup
 logical,intent(in)        :: b_out
 integer,intent(in)        :: nsteps,msteps,lsteps ! numero de bloques, pasos por bloque, equilibracion
 real(dp),intent(in)       :: hd_f,eprime,aprime,z,t
 integer                   :: i,n
 integer,save              :: uhd=0,udm=0
-real(dp)                  :: bprom,vbprom,prob,dumy,zfact,a,e!,dvbmin,aux
+real(dp)                  :: bprom,vbprom,prob,dumy,zfact!,dvbmin,aux
 logical                   :: acelerar=.false.!,dummy
-class(intergroup),pointer :: ig
+class(ngroup),pointer :: ig
 
+allocate(dvp,dbp,dvbp)
 
 call dvp%init()
 call dbp%init()
@@ -143,22 +155,22 @@ select type(ig)
 type is (compress_below)
   igb=>ig
 class default
-  call werr(':hybrid_ea should be of type compress_below')
+  call werr(':hybrid_ea should be of type compress_below',.true.)
 end select
 
 ! Ensure the parameters to be inside the range
 igb%alpha=boostfactor2(eprime,aprime)
 igb%e=1._dp-igb%alpha+igb%alpha*cdf_snorm(eprime)
 
-call wlog('HYD'); write(logunit,*) 'El boost factor será:', a
-call wlog('HYD'); write(logunit,*) 'y la integral w será:', e
+call wlog('HYD'); write(logunit,*) 'El boost factor será:', igb%alpha
+call wlog('HYD'); write(logunit,*) 'y la integral w será:', igb%e
 call flush(logunit)
 
-zfact=inv_cdf_snorm(e)-inv_cdf_snorm(eprime*z)
+zfact=inv_cdf_snorm(igb%e)-inv_cdf_snorm(eprime*z)
 
 ! Pongo parametros para que el bias sea cero
-a = 1._dp
-e = -1e16
+igb%alpha = 1._dp
+igb%e = -1e16
 bias_highc = 1._dp
 
 
@@ -169,10 +181,8 @@ if(uhd==0) then
   open(udm,file=trim(ioprefix)//'.dm')
 endif
 
-
-
 do i=1,nsteps
-
+                  
   ! Corro dinamica o hyperdinamica
   call hyperd_eprom(msteps,b_out)
 
@@ -198,7 +208,7 @@ do i=1,nsteps
   prob=float(bsteps)/float(nbsteps+bsteps)  ! fraccion de pasos con bias
 
   ! Escribo el output
-  write(udm,fmt='(i0,9(x,e25.12))') i,dm_steps,time,f,vprom*ui_ev,sigma*ui_ev
+  write(udm,fmt='(i0,9(1x,e25.12))') i,dm_steps,time,f,vprom*ui_ev,sigma*ui_ev
 
   ! Lisent to term signal
   if (term_signal) exit
@@ -218,7 +228,9 @@ do i=1,nsteps
     !  endif
     !endif
 
-    write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+    write(uhd,fmt='(i0,9(1x,e25.12))') &
+      i,dm_steps,igb%e*ui_ev,igb%alpha,prob,vbprom*ui_ev, &
+      bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
 
     if(over_highc) then ! Demasiado bias apago la HD
       acelerar=.false.
@@ -227,7 +239,7 @@ do i=1,nsteps
       over_lowc=.false.
       over_highc=.false.
       maxbias=0._dp
-      write(uhd,*)
+      write(uhd,'(a)')
     endif    
      
   else ! Vengo de DM
@@ -244,18 +256,18 @@ do i=1,nsteps
       igb%alpha=1._dp-aprime/(beta*sigma) 
 
       !bias_highc = (inv_cdf_snorm(hd_phi)*sigma+(hd_e-vprom))*(1._dp-hd_a)/hd_a
-      bias_highc = (1._dp-a)*sigma*zfact
+      bias_highc = (1._dp-igb%alpha)*sigma*zfact
       !bias_highc = 1e10
 
       ! Put a blank line to plot with discontinuities
-      write(udm,*)
+      write(udm,'(a)')
 
       ! Hago la HD de inicializacion
-      write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
-            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,igb%e*ui_ev,igb%alpha,prob,&
+            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
       call hyperd_init(lsteps,.false.)
-      write(uhd,fmt='(i0,9(x,e25.12))') i,dm_steps,e*ui_ev,a,prob,&
-            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias,bias_highc*ui_ev
+      write(uhd,fmt='(i0,9(1x,e25.12))') i,dm_steps,igb%e*ui_ev,igb%alpha,prob,&
+            vbprom*ui_ev,bprom*ui_ev,sigma*ui_ev,maxbias*ui_ev,bias_highc*ui_ev
 
       over_lowc=.false.
       over_highc=.false.
@@ -268,7 +280,7 @@ do i=1,nsteps
     endif
 
   endif 
-
+            
   call dvp%empty()
   call dbp%empty()
   call dvbp%empty()
@@ -281,6 +293,10 @@ enddo
 ! biased = 0._dp
 ! bfact = 1._dp 
 
+call dvp%dest()
+call dbp%dest()
+call dvbp%dest()
+          
 end subroutine hybrid_ea
 
 subroutine hyperd_init(steps,b_out)
@@ -289,16 +305,12 @@ use gems_programs, only: dinamic
 ! potencial con bias
 integer                       :: steps
 logical,intent(in)            :: b_out
-integer                       :: ns
 real(dp)                      :: auxtime
-logical                       :: b_bias
 
 auxtime = time
 maxbias=0._dp
 
-! igb%disable=.true.
 call dinamic(steps,b_out,.false.) 
-! igb%disable=.false.
 
 time = auxtime
 
@@ -307,15 +319,14 @@ end subroutine
 subroutine hyperd_eprom(steps,b_out)
 ! Realiza steps pasos de DM o HD acumulando la energia media y demas variables
 ! estadisticas
-use gems_bias, only: noboost, biased
+use gems_bias, only: biased
 use gems_integration, only: integration_reversea
 use gems_input_parsing, only: load_blk, execute_block, bloques
 use gems_ddda
 integer,intent(in)  :: steps
 logical,intent(in)  :: b_out
 integer             :: ns!,ct
-logical             :: b_bias
-real(dp)            :: bias, aux
+real(dp)            :: aux
 
 call interact(.true.) 
 
@@ -371,12 +382,12 @@ do ns = 1,steps
 
   ! Checkpoint
   if (b_ckp) then
-    if (mod(dm_steps,real(chpeach))==0._dp)  call write_chp(ns,steps)
+    if (mod(dm_steps,real(chpeach,dp))==0._dp)  call write_chp(ns,steps)
   endif
        
   ! Command interpreter
   if (b_load) then
-    if (mod(dm_steps,real(load_each))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
+    if (mod(dm_steps,real(load_each,dp))==0._dp)  call execute_block(bloques(load_blk),1,1,1,.false.)
 
     ! Lisent to term signals
     if (term_signal) exit
@@ -509,7 +520,6 @@ real(dp),target             :: pmin(ghd%nat*dm)
 !real(dp),target             :: fce(ghd%nat*dm),pos(ghd%nat*dm)
 !real(dp)                    :: vmin
 real(dp),intent(out)        :: media
-logical                     :: b_bias
 
 hyperd_dinamic_safe=.true.
 
@@ -564,70 +574,70 @@ desviacion=sqrt(suma2/n-media*media)
 
 end function hyperd_dinamic_safe
  
-function hyperd_eprom_safe(m,n,media,desviacion,b_out) result(flag)
-! Determina la energía potencial promedio del termino a boostear y la
-! desviacion estandar. Utiliza el grupo de ermak. 
-! m Numero de pasos para determinar una medida de energía potencial 
-! n Numero de medidas para determinar la media
-use gems_programs
-use gems_bias, only: noboost, biased
-real(dp),intent(out)        :: media,desviacion
-integer                     :: i,j
-integer                     :: flag
-real(dp),target             :: pmin(ghd%nat*dm)
-integer,intent(in)          :: m,n
-real(dp)                    :: medida,suma,suma2
-logical,intent(in)    :: b_out
-
-suma=0
-suma2=0
-flag=1
-
-! No quiero boostear las fuerzas aca
-noboost=.true.  
-
-! Guardo el minimo en pmin
-call lbfgs_minimizator(ghd,.false.,pmin)
-call interact(.false.)
-  
-do j = 1,n
-
-  medida=0._dp
-  do i = 1,m
-    dm_steps=dm_steps+1._dp
-    
-    !Acumulo para promedio y desviacion
-    medida=medida+biased
-
-    !Dinamica Step
-    call integration_stepa
-    call interact(.false.)
-    call integration_stepb
-
-    !Avance del tiempo
-    time = time + dt
-
-    ! Escribo aca para que coincida interacción y configuracion
-    if (b_out) call write_out(1,dm_steps)
-  enddo
-
-  ! Salgo porque no estoy en una basija
-  call lbfgs_minimizator(ghd,.false.,pmin)
-  if (diff_vect(ghd%pp,pmin,desp)) return
-
-  medida=medida/m
-  suma=suma+medida
-  suma2=suma2+medida*medida
-enddo
-
-media=suma/n
-desviacion=sqrt(suma2/n-media*media)
- 
-! Sin errores
-flag=0
-
-end function
-
+! function hyperd_eprom_safe(m,n,media,desviacion,b_out) result(flag)
+! ! Determina la energía potencial promedio del termino a boostear y la
+! ! desviacion estandar. Utiliza el grupo de ermak. 
+! ! m Numero de pasos para determinar una medida de energía potencial 
+! ! n Numero de medidas para determinar la media
+! use gems_programs
+! use gems_bias, only: noboost, biased
+! real(dp),intent(out)        :: media,desviacion
+! integer                     :: i,j
+! integer                     :: flag
+! real(dp),target             :: pmin(ghd%nat*dm)
+! integer,intent(in)          :: m,n
+! real(dp)                    :: medida,suma,suma2
+! logical,intent(in)    :: b_out
+!
+! suma=0
+! suma2=0
+! flag=1
+!
+! ! No quiero boostear las fuerzas aca
+! noboost=.true.  
+!
+! ! Guardo el minimo en pmin
+! call lbfgs_minimizator(ghd,.false.,pmin)
+! call interact(.false.)
+!   
+! do j = 1,n
+!
+!   medida=0._dp
+!   do i = 1,m
+!     dm_steps=dm_steps+1._dp
+!     
+!     !Acumulo para promedio y desviacion
+!     medida=medida+biased
+!
+!     !Dinamica Step
+!     call integration_stepa
+!     call interact(.false.)
+!     call integration_stepb
+!
+!     !Avance del tiempo
+!     time = time + dt
+!
+!     ! Escribo aca para que coincida interacción y configuracion
+!     if (b_out) call write_out(1,dm_steps)
+!   enddo
+!
+!   ! Salgo porque no estoy en una basija
+!   call lbfgs_minimizator(ghd,.false.,pmin)
+!   if (diff_vect(ghd%pp,pmin,desp)) return
+!
+!   medida=medida/m
+!   suma=suma+medida
+!   suma2=suma2+medida*medida
+! enddo
+!
+! media=suma/n
+! desviacion=sqrt(suma2/n-media*media)
+!  
+! ! Sin errores
+! flag=0
+!
+! end function
+!
 ! SALIDA
 
 subroutine write_fpp(of)
@@ -639,7 +649,7 @@ use gems_output
 class(outfile)                  :: of
 integer                         :: j,n,m
 class(statistic_dclist),pointer :: ls
-real(dp)                       :: var,err,errerr,med,plato!,bigerr
+real(dp)                       :: err,errerr,med,plato!,bigerr
 
 
 !call dvp%var(n,var)
@@ -656,8 +666,8 @@ med=dvp%med()
 call dvp%var(m,plato)
 
 ! Separador de bloque (Enable `plot "file" i 3` in gnuplot)
-write(of%un,*)
-write(of%un,*)
+write(of%un,'(a)')
+write(of%un,'(a)')
 
 !Tiene que ser -1... nos e porque anda mejor el -2
 !El cero tambien cuenta
@@ -671,7 +681,7 @@ do j =1,dvp%size-2
   errerr=err/(sqrt(2._dp*(ls%o%nsamples-1)))
 
   !write(of%un,fmt='(i0,x,2(e25.12,2x),i0)')  dm_steps+j*(n/(dvp%size-2)),sqrt(var)*ui_ev+med*ui_ev,sqrt(err)*ui_ev,ls%o%nsamples
-  write(of%un,fmt='(i10,x,3(e25.12,2x))')  ls%o%nsamples,err,errerr,plato*ui_ev
+  write(of%un,fmt='(i10,1x,3(e25.12,2x))')  ls%o%nsamples,err,errerr,plato*ui_ev
 enddo
 
 !ATENCION: esto se lee asi
@@ -717,18 +727,4 @@ ctime=0
 end subroutine write_ctime
   
 end module gems_hyperdynamics
-
-
-! References
-!
-! (Paz2015) Paz, S. A., & Leiva, E. P. M. (2015). Time Recovery for a Complex Process Using
-!   Accelerated Dynamics. J. Chem. Theory Comput., 11, 1725–1734.
-!   http://doi.org/10.1021/ct5009729
-!
-! (Reigada1999) Reigada, R., Romero, A. H., Sarmiento, A., & Lindenberg, K. (1999).
-!   One-dimensional arrays of oscillators: Energy localization in thermal
-!   equilibrium. The Journal of Chemical Physics, 111(4), 1373–1384.
-!   http://doi.org/10.1063/1.479396  
-!  
-
 

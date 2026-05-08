@@ -19,12 +19,12 @@
 module gems_checkpoint
 use gems_errors
 use gems_program_types
+use gems_groups, only: atom_dclist, gindex_all_changed, sys
 use gems_constants, only: dm, linewidth
 use gems_input_parsing
 use gems_random, only: write_chpseed, read_chpseed
 use gems_integration, only: write_chppiston, read_chppiston
 use gems_interaction, only: interact
-use gems_set_properties, only: posvel_changed
 use gems_output, only: chpmode
 #ifdef HAVE_MPI
  use mpi_f08
@@ -82,11 +82,11 @@ function search_chp(step,nsteps,fname)
 ! Esta subrrutina es llamada cuando se esta por entrar al algoritmo en el cual
 ! se corto el calculo. Antes de entrar leo el paso del chepoint, tomo la
 ! configuracion del checkpoint, y disminuyo el numero de pasos acorde.
-integer,intent(out)    :: step,nsteps
-logical                :: search_chp
-character(*),optional  :: fname      
-integer                :: i,j,na
-logical                :: ghosted
+integer,intent(out)       :: step,nsteps
+logical                   :: search_chp
+character(*),optional     :: fname      
+integer                   :: i,j,na
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -106,7 +106,7 @@ search_chp=(current==i)
 
 if(search_chp) then
   
-  call werr('Atoms in checkpoint are more or less tan the atoms in the system',na/=nlocal)
+  call werr('Atoms in checkpoint are more or less tan the atoms in the system',na/=sys%nat)
 
   nsteps=nsteps-step
 
@@ -120,30 +120,23 @@ if(search_chp) then
   ! Read piston information if is needed
   call read_chppiston(chpunit)
               
-  read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
-  do i =1,nlocal
-    read(chpunit) (a(i)%o%pos(j),j=1,dm)
-    read(chpunit) (a(i)%o%vel(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel2(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel3(j),j=1,dm)
-    read(chpunit) (a(i)%o%acel4(j),j=1,dm)
+  read(chpunit) time,dm_steps,frame
+  la => sys%alist
+  do i = 1,sys%nat
+    la => la%next
+    read(chpunit) (la%o%pos(j),j=1,dm)
+    read(chpunit) (la%o%vel(j),j=1,dm)
+    read(chpunit) (la%o%acel(j),j=1,dm)
+    read(chpunit) (la%o%acel2(j),j=1,dm)
+    read(chpunit) (la%o%acel3(j),j=1,dm)
+    read(chpunit) (la%o%acel4(j),j=1,dm)
   enddo
 
   chpmode=.false.
 
-  call posvel_changed()
+  call gindex_all_changed()
    
-  ! CHECK: I think this require full ghost updates
-  if(ghost) then
-    ghosted=fullghost
-    fullghost=.true.
-  endif
   call interact(.false.)
-  if(ghost) then
-    fullghost=ghosted
-  endif
-          
 
 endif      
 
@@ -155,6 +148,7 @@ subroutine write_chp(step,nsteps,fname)
 integer,intent(in)    :: step,nsteps
 character(*),optional :: fname      
 integer               :: i,j
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -162,7 +156,7 @@ else
   open(chpunit, file=trim(adjustl(ioprefix))//".chp",form='unformatted')
 endif
 
-write(chpunit) current,step,nsteps,nlocal
+write(chpunit) current,step,nsteps,sys%nat
 
 ! Read the box size
 write(chpunit) tbox(:,:)
@@ -173,14 +167,16 @@ call write_chpseed(chpunit)
 ! Read piston information if is needed
 call write_chppiston(chpunit)
 
-write(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
-do i =1,nlocal
-  write(chpunit) (a(i)%o%pos(j),j=1,dm)
-  write(chpunit) (a(i)%o%vel(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel2(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel3(j),j=1,dm)
-  write(chpunit) (a(i)%o%acel4(j),j=1,dm) 
+write(chpunit) time,dm_steps,frame
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  write(chpunit) (la%o%pos(j),j=1,dm)
+  write(chpunit) (la%o%vel(j),j=1,dm)
+  write(chpunit) (la%o%acel(j),j=1,dm)
+  write(chpunit) (la%o%acel2(j),j=1,dm)
+  write(chpunit) (la%o%acel3(j),j=1,dm)
+  write(chpunit) (la%o%acel4(j),j=1,dm) 
 enddo
 close(chpunit)
 
@@ -193,7 +189,7 @@ subroutine read_chp(step,nsteps,fname)
 integer,intent(out)    :: step,nsteps
 character(*),optional  :: fname  
 integer                :: i,j,na
-logical                :: ghosted
+type(atom_dclist),pointer :: la
 
 if(present(fname)) then
   open(chpunit, file=trim(adjustl(fname)),form='unformatted')
@@ -203,8 +199,8 @@ endif
         
 read(chpunit) i,step,nsteps,na
 
-call werr('Atoms in checkpoint are more than the atoms in the system',na>nlocal)
-call wwan('Atoms in checkpoint are less than the atoms in the system',na<nlocal)
+call werr('Atoms in checkpoint are more than the atoms in the system',na>sys%nat)
+call wwan('Atoms in checkpoint are less than the atoms in the system',na<sys%nat)
 
 ! Read the box size
 read(chpunit) tbox(:,:)
@@ -216,29 +212,22 @@ call read_chpseed(chpunit)
 ! Read piston information if is needed
 call read_chppiston(chpunit)
                   
-read(chpunit) nframe,time,dm_steps,pnframe,ptime,frame
-do i =1,na
-  read(chpunit) (a(i)%o%pos(j),j=1,dm)
-  read(chpunit) (a(i)%o%vel(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel2(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel3(j),j=1,dm)
-  read(chpunit) (a(i)%o%acel4(j),j=1,dm)
+read(chpunit) time,dm_steps,frame
+la => sys%alist
+do i = 1,sys%nat
+  la => la%next
+  read(chpunit) (la%o%pos(j),j=1,dm)
+  read(chpunit) (la%o%vel(j),j=1,dm)
+  read(chpunit) (la%o%acel(j),j=1,dm)
+  read(chpunit) (la%o%acel2(j),j=1,dm)
+  read(chpunit) (la%o%acel3(j),j=1,dm)
+  read(chpunit) (la%o%acel4(j),j=1,dm)
 enddo
 close(chpunit)
 
-call posvel_changed()
+call gindex_all_changed()
 
-
-! CHECK: I think this require full ghost updates
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
 call interact(.false.)
-if(ghost) then
-  fullghost=ghosted
-endif
                     
 
 end subroutine read_chp

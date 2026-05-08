@@ -19,12 +19,12 @@
 
 dimension 3
 
->< atom 1 1 1
-+< atom 1 1 1
+>+ atom 1 1 1
+^+ atom 1 1 1
 # m0=1uma
-sys add H
+set element H
 
-> sys
+> all
 set pbc F F F 
 group 1 add
  
@@ -38,7 +38,7 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 1 under sm1 1. 2. 0.01
+interact 1 pair sm1 1. 2. 0.01
 
 time step 0.001
                 
@@ -52,14 +52,14 @@ outfile :f1 each 1
 # outfile :f3 each 1
          
 
-> sys
+> all
 
 out state
 
 bloque repeat 300
 > group 2
 set move 0.01 0 0
-> sys
+> all
 out state
 # lbfgs
 fin
@@ -68,7 +68,7 @@ fin
 set move -2 0 0
 set cm_vel 10 0 0
 
-> sys
+> all
 evolve v_verlet 
 
 dinamica 1000

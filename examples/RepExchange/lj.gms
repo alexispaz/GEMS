@@ -29,12 +29,12 @@ prng seed {123456*$pc$}
 
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-+< atom 2.2 1 1
+>+ atom 1 1 1
+^+ atom 2.2 1 1
 # m0=1uma
-sys add H
+set element H
 
-> sys
+> all
 set move 1. 1. 1.
 set pbc F F F 
 set mass 3.
@@ -50,7 +50,7 @@ box move (make the total velocity zero)
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-interact 1 under lj 1. 0.890898718140339 2
+interact 1 lj 1. 0.890898718140339 2
 
 # About time unit
 #   1eV=9648.61 uma*A**2/ps**2
@@ -58,14 +58,14 @@ interact 1 under lj 1. 0.890898718140339 2
 #   1ps**2=  9648.61 m0*r0**2/E0
 #   1ps=sqrt(9648.61) tau 
 #   1ps=98.22 tau
-getin tau_ps 0.01018
+tau_ps:=0.01018
        
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
-> sys
+> all
 
 # MPI example 1: Note the variable substitution using rank
-getin temp {$pc$*5.+30}
+temp:={$pc$*5.+30}
 set tempgdist $temp$
 
 # MPI example 2: Note the code executed by a certain MPI rank
@@ -92,7 +92,7 @@ outfile :f1 each 10
 # outfile :f3 flush on
          
 
-> sys
+> all
 out state
 partemp2 100 100
 

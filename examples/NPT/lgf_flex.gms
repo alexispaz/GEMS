@@ -18,19 +18,19 @@ prng lcg
 prng seed 123456
  
 #include ../configs/unitcells/fcc.gms
-+< reply 1 0 0   6
-+< reply 0 1 0   6
-+< reply 0 0 1   6
-getin d 1.
+^+ reply 1 0 0   6
+^+ reply 0 1 0   6
+^+ reply 0 0 1   6
+d:=1.
 set expand {$d$*sqrt(2)} {$d$*sqrt(2)} {$d$*sqrt(2)}
 box size 6 6 6
 box expand {$d$*sqrt(2)} {$d$*sqrt(2)} {$d$*sqrt(2)}
 
 # m0=1uma
-sys add H
+set element H
 
 
-> sys
+> all
   set pbc T T T 
   group 1 add
 box mic F
@@ -38,13 +38,13 @@ box mic F
 ((((((((((( caja )))))))))))
 
 box move (make the total velocity zero)
-> sys
+> all
 set move 0.2 0.2 0.2
 
 # Epsilon=1eV=1E0
 # Rmin=1A=1r0
-getin sigma {2**(-1./6.)}
-interact 1 under slj 1. $sigma$ 1.108683
+sigma:={2**(-1./6.)}
+interact 1 pair slj 1. $sigma$ 1.108683
                
 # About time unit
 #   1eV=9648.61 uma*A**2/ps**2
@@ -52,7 +52,7 @@ interact 1 under slj 1. $sigma$ 1.108683
 #   1ps**2=  9648.61 m0*r0**2/E0
 #   1ps=sqrt(9648.61) tau 
 #   1ps=98.22 tau
-getin tau_ps 0.01018
+tau_ps:=0.01018
        
 time step {0.01*$tau_ps$}   (integration timestep [ps])
                                          
@@ -82,10 +82,10 @@ outfile :f5 cols virial 1
 outfile :f5 each 10
            
 
-> sys
+> all
 
 # T=1E0/kB=eV/kB=11604.45 K
-getin kt_k 11604.45
+kt_k:=11604.45
 
 # set tempgdist {0.3*$kt_k$}
 # add v_verlet 
@@ -96,10 +96,12 @@ getin kt_k 11604.45
 # Note that alpha is gama*m
 
 # P=1eV/A^3=1E0/r0
-getin e0r0_atm 1581225.25240563
+e0r0_atm:=1581225.25240563
 evolve piston_lgf x {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 evolve piston_lgf y {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 evolve piston_lgf z {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
+# evolve piston_lgf xyz {0.3*$kt_k$} {1/$tau_ps$} {0.1*$e0r0_atm$} {1/$tau_ps$} 0.1
 
 
-dinamica 100
+dinamica 50
+checkpoint write last.chp

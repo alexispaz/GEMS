@@ -33,18 +33,19 @@ use gems_set_properties
 
 use gems_select_create
 use gems_checkpoint
-use gems_neighbour
+use gems_neighbor
 use gems_integration
 use gems_interaction
 use gems_output
 
 use gems_neb
 
-use gems_quasi_newton
-
 use gems_random
 use gems_algebra
-use gems_variables, only:polvar_expand
+use gems_variables, only:polvars
+
+! FIXME:
+use gems_metadynamics, only:  gmeta
 
 implicit none
 
@@ -53,19 +54,27 @@ real(dp)                  :: fv(dm),fv2(dm),fv3(dm)
 logical                   :: b1,bv1(dm)!,b2,b3
 
 ! Variables auxiliares para lectura, parsing y demas. 
-character(len=linewidth)  :: w1,w2,w3
-integer                   :: i1,i2,i3,i4,i5,i6,i7,i8
-real(dp)                  :: f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16 
+character(linewidth)      :: wfix
 
 ! character(:)              :: help_file='DOCDIR/help.md'
 
+! Selection of atoms in creation
+type(group),target    :: gsel     ! current selection
+      
+! Groups stored in memory with `group 1 add`.
+! TODO, use labels
+integer,parameter,public     :: mgr=9
+type(group),target,public    :: gr(mgr)
+ 
+! TODO: Metadynamics module should handle this internally
+public  :: gmeta
 
 contains
 
 ! EXECUTE COMMANDS
 
 recursive subroutine execute_command(com)
-use gems_programs
+use gems_programs, only: dinamic_from_xyz, dinamic
 use gems_hyperdynamics
 #ifdef HAVE_MPI
 use gems_replicaexchange, only: parallel_tempering,parallel_tempering2
@@ -73,9 +82,23 @@ use gems_replicaexchange, only: parallel_tempering,parallel_tempering2
 use gems_metadynamics, only:  metadynamics, wtmd2D_set,dm_cv_set,&
                                wall2D_set,wallauxCore_set,wallauxShell_set,&
                                wall1D_set,wtmetad_set,posicion1d_set
+use gems_quasi_newton, only: lbfgs_minimizator, minvol
+use gems_calc, only: calc_cli
+
                               
 character(*)  :: com
-type(group)   :: gsel_aux
+! type(group)   :: gaux !  FXIME: Rise an internal ifort error.
+class(group),pointer   :: gaux
+character(:),allocatable  :: w1,w2
+integer                   :: i1,i2,i3,i4,i5
+real(dp)                  :: f1,f2,f3,f4,f5,f6
+
+! FXIME: gaux is a pointer to avoid an internal ifort error.
+select case(com)
+case('-','^-','^+','>+','^>')
+  allocate(gaux)
+  call gaux%init()
+end select
 
 select case(com)
 case('license')
@@ -110,77 +133,82 @@ case('cycle')
 
   ! This allow to cycle in a repeat block
   cycle_signal=.true.
-   
-case('<') ! Crea
-  call create_commands(gnew)
+     
+case('-') ! Destroy
 
-case('+<') ! Crea y agrega a la seleccion previa
+  i1=sys%nat
+  call select_commands(sys,gaux)
+  call wwan('empty selection',gaux%nat==0)
+           
+  call wstd(); write(logunit,*) gaux%nat, 'particles deleted'
+  call gaux%destroy_all()
+      
+case('^-') ! Destroy
+  
+  ! Seleccioname esto de mi seleccion 
+  call select_commands(gsel,gaux)
+  call wwan('empty selection',gaux%nat==0)
+       
+  ! Seleccioname esto del sistema
+  call wstd(); write(logunit,*) gaux%nat, 'particles deleted'
+  call gaux%destroy_all()
+          
+case('+') ! Create
+  call create_commands(sys)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
+
+case('^+') ! Crea y agrega a la seleccion previa
 
   ! WARNING FIXME Aquellas selecciones en donde gini=gsel, a medida que
   ! agreguen a gs (gout) incrementan el gini.... esto puede traer conflicto
-  ! call create_commands(gnew,gsel)
+  ! call create_commands(sys,gsel)
+  call create_commands(gaux)
+  call sys%attach(gaux)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
 
-  call gsel_aux%init('gsax')
-  call create_commands(gnew,gsel_aux)
-  call gsel%add(gsel_aux)
+  call gsel%attach(gaux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
+
   call wwan('empty selection',gsel%nat==0)  
-  call gsel_aux%dest()
+  call gaux%detach_all()
 
-case('><') ! Crea y selecciona lo creado
+case('>+') ! Crea y selecciona lo creado
 
-  call gsel_aux%init('gsax')
-  call create_commands(gnew,gsel_aux)
-  call group_allatom_del(gsel)
-  call gsel%add(gsel_aux)
+  call create_commands(gaux)
+  call sys%attach(gaux)
+  call wstd(); write(logunit,*) sys%nat, 'particles in system'
+
+  call gsel%detach_all()
+  call gsel%attach(gaux)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
+
   call wwan('empty selection',gsel%nat==0) 
-  call gsel_aux%dest()
+  call gaux%detach_all()
 
-! Seleccion en la creacion
-
-case('.>') ! Seleccioname esto de la creacion
-
-  call group_allatom_del(gsel)
-  call select_commands(gnew,gsel)
-  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
-  call wwan('empty selection',gsel%nat==0)
-
-case('.+') ! Agrega esto a mi seleccion (Union de conjuntos)
-
-  call select_commands(gnew,gsel)
-  call wstd(); write(logunit,*) gsel%nat, 'particles selected'
-  call wwan('empty selection',gsel%nat==0) 
-
-! Seleccion en el sistema
 
 case('>') ! Seleccioname esto del sistema
 
-  call group_allatom_del(gsel)
+  call gsel%detach_all()
   call select_commands(sys,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
 
-case('+') ! Agrega esto a mi seleccion (Union de conjuntos)
+case('^') ! Agrega esto a mi seleccion (Union de conjuntos)
 
   call select_commands(sys,gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0) 
 
-! Seleccion tanto en creacion como en el sistema
+case('^>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
 
-case('>>') ! Seleccioname esto de mi seleccion  (Interseccion de conjuntos)
-
-  call gsel_aux%init('gsax')
-  call select_commands(gsel,gsel_aux)
-  call group_allatom_del(gsel)
-  call gsel%add(gsel_aux) 
-  call gsel_aux%dest()
+  call select_commands(gsel,gaux)
+  call gsel%detach_all()
+  call gsel%attach(gaux) 
 
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
   call wwan('empty selection',gsel%nat==0)
 
-case('-')  ! Borrame esto de mi seleccion (resta de conjuntos)
+case('^~')  ! Borrame esto de mi seleccion (resta de conjuntos)
 
   call unselect_commands(gsel)
   call wstd(); write(logunit,*) gsel%nat, 'particles selected'
@@ -194,34 +222,32 @@ case('temp') ! Solo para usar unidades de kT
   call readf(temp)
   kt=dsqrt(kB_ui*temp)
 case('prng')
-  call prng_commands
+  call prng_commands()
 ! otros comandos
 case('prueba')
-  call write_state
-case('constrain')
-  call readl(w1)
-  call constrain_commands(w1)
+  call write_state()
 case('set')
-  call set_commands
+  call set_commands()
 case('interact')
-  call interacciones
+  call interacciones()
+case('calc') ! 
+  call calc_cli(gsel)
 case('getin') ! 
-  call get_commands
-case('sys')
-  call sys_commands
+  call get_commands()
 case('group')
-  call group_commands
+  call group_commands()
 case('mpi')
-  call mpi_commands
+  call mpi_commands()
 case('log')
-  call log_commands
+  call log_commands()
 case('outfile')
-  call outfile_commands
+  call outfile_commands()
 case('print')
   i2=print_commands()
   do i1 =1, i2
-    write(w1,'(a,i0,a)') '_ans[',i1,']'
-    w2=polvar_expand(w1)
+    write(wfix,'(a,i0,a)') '_ans[',i1,']'
+    w1=trim(wfix)
+    w2=polvars%expand(w1)
     call wprt(w2)
   enddo
 case('time')
@@ -272,12 +298,18 @@ case('neb_run')
   call readi(i1)   ! Iteracciones
   call readf(f1)   ! Constante resorte
   call neb(gsel,f1,i1,.true.)
+case('minvol')
+  b1=.true.
+  call readf(f1)
+  call readf(f2)
+  if (nitems>item) call readb(b1)
+  call minvol(f1,f2,b1) 
 case('lbfgs')
   b1=.true.
   if (nitems>item) call readb(b1)
   call lbfgs_minimizator(gsel,b1)
-case('fix_lbfgs')
-  call fix_lbfgs_minimizator(gsel,.true.)
+! case('fix_lbfgs')
+  ! call fix_lbfgs_minimizator(gsel,.true.)
 ! case('escape')
 !  call readf(f1)
 !  call escape_dinamic(gsel,f1,.true.) 
@@ -334,8 +366,8 @@ case('setwtmd1d')
   call readf(f2)   ! ancho de las gaussianas
   call readf(f3)   ! Parametro de la WTMD
   call readf(f4)   ! tau (frecuencia)
-  call readi(i5)   ! cada cuanto grabo la dCM
-  call readi(i6)   ! cantidad de particulas en el core
+  call readi(i1)   ! cada cuanto grabo la dCM
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics         
   i3=1
     call werr('No integration group',its%size<1)
@@ -343,7 +375,9 @@ case('setwtmd1d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
-  call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wtmetad_set(f1,f2,f3,f4,i1,i2,i3)
 
 case('setpos1d')
   !Lectura de los parametros necesarios para Well tempered Metadynamics
@@ -359,20 +393,28 @@ case('setpos1d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
+  ! FIXME:
+  call gmeta%attach(gsel)
   call posicion1d_set(f1,f2,f3,f4,i5,i3)
 
- case('setwall1d')
-  call readf(f5)   ! potencial inicial
-  call readf(f6)   ! potencial final
+case('setwall1d')
+  call readf(f1)   ! potencial inicial
+  call readf(f2)   ! potencial final
   call readi(i4)   ! potencial bines
-  call readf(f9)   ! radio de la burbuja
-  call wall1D_set(f5,f6,i4,f9)
+  call readf(f3)   ! radio de la burbuja
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wall1D_set(f1,f2,i4,f3)
 
 case('wtdcm')
   call readi(i1)
   i2=1
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
+  
+  ! FIXME:
+  call gmeta%attach(gsel)
+
   !well-tempered Metadynamics 1D en dCM
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.true.,.false.,.false.,.false.)
 
@@ -383,6 +425,8 @@ case('wtx')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics en x
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.true.,.false.)
 
 case('wtpos1d')
@@ -391,6 +435,8 @@ case('wtpos1d')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 1D en dCM
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.true.,.false.,.false.)
 
 case('setwtmd2d')
@@ -400,9 +446,9 @@ case('setwtmd2d')
   call readf(f3)   ! ancho de rg
   call readf(f4)   ! Parametro de la WTMD
   call readf(f5)   ! tau (frecuencia)
-  call readi(i6)   ! cada cuanto grabo la dCM
-  call readf(f15)  ! tolerancia en las gaussianas
-  call readi(i8)   ! cantidad de particulas en el core
+  call readi(i1)   ! cada cuanto grabo la dCM
+  call readf(f6)  ! tolerancia en las gaussianas
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics 
   i3=1
     call werr('No integration group',its%size<1)
@@ -410,27 +456,35 @@ case('setwtmd2d')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif  
-  call wtmd2D_set(f1,f2,f3,f4,f5,i6,f15,i8,i3)
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wtmd2D_set(f1,f2,f3,f4,f5,i1,f6,i2,i3)
 
 case('setwall2d')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
-  call readi(i4)   ! potencial bines dcm
-  call readf(f10)  ! potencial inicial rg
-  call readf(f11)  ! potencial final rg
-  call readi(i5)   ! potencial bines rg
-  call readf(f14)  ! radio de la burbuja
-  call wall2D_set(f6,f7,i4,f10,f11,i5,f14)
+  call readf(f1)  ! potencial inicial dcm
+  call readf(f2)  ! potencial final dcm
+  call readi(i4)  ! potencial bines dcm
+  call readf(f3)  ! potencial inicial rg
+  call readf(f4)  ! potencial final rg
+  call readi(i5)  ! potencial bines rg
+  call readf(f5)  ! radio de la burbuja
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wall2D_set(f1,f2,i4,f3,f4,i5,f5)
 
 
 case('setwallauxcore')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
-  call wallauxCore_set(f6,f7)
+  call readf(f1)   ! potencial inicial dcm
+  call readf(f2)   ! potencial final dcm
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wallauxCore_set(f1,f2)
 case('setwallauxshell')
-  call readf(f6)   ! potencial inicial dcm
-  call readf(f7)   ! potencial final dcm
-  call wallauxShell_set(f6,f7)
+  call readf(f1)   ! potencial inicial dcm
+  call readf(f2)   ! potencial final dcm
+  ! FIXME:
+  call gmeta%attach(gsel)
+  call wallauxShell_set(f1,f2)
 
 case('wtdcmrgco')
       
@@ -439,6 +493,8 @@ case('wtdcmrgco')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 case('wtxy')
@@ -448,6 +504,8 @@ case('wtxy')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.false.,.false.,.false.,.false.,.true.)
 !!!!!
 
@@ -458,6 +516,8 @@ case('wtdcmrgau')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !well-tempered Metadynamics 2D
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.false.,.true.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -469,6 +529,8 @@ case('wtdcmrgtotal')
   if(chpmode)stop
   
   !well-tempered Metadynamics 2D en dCm y Rg total
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.false.,.true.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -479,12 +541,14 @@ case('dmcv')
   call readwrite_chp(i2,i1,b1)
   if(chpmode)stop
   !Lectura de los parametros necesarios para Parabola (Umb_Samp)
-  call readi(i5)   ! cada cuanto grabo la dCM
-  call readf(f6)   ! burbuja
-  call readi(i6)   ! cantidad de particulas en el core
+  call readi(i3)   ! cada cuanto grabo la dCM
+  call readf(f1)   ! burbuja
+  call readi(i2)   ! cantidad de particulas en el core
   !Pasar los parametros al modudo Metadynamics
-  call DM_CV_set(i5,f6,i6)
+  call DM_CV_set(i3,f1,i2)
   !Umbrella sampling
+  ! FIXME:
+  call gmeta%attach(gsel)
   if(b1) call metadynamics(i1,.true.,.false.,.true.,.false.,.false.,.false.,.false.,.false.,.false.)
 !!!!!
 
@@ -500,7 +564,7 @@ case('partemp2')
   endif
   call parallel_tempering2(i1,i2,i3,.true.,.true.) 
 #else
-  call werr('Compile GEMS with MPI (./configure --with-mpi)')
+  call werr('Compile GEMS with MPI (./configure --with-mpi)',.true.)
 #endif  
     
 case('partemp')
@@ -510,11 +574,13 @@ case('partemp')
   call readl(w1)
   select case (w1)
    case('dmcv')
-    call readi(i5)   ! cada cuanto grabo la dCM
-    call readf(f6)   ! burbuja
-    call readi(i6)   ! cantidad de particulas en el core
+    call readi(i1)   ! cada cuanto grabo la dCM
+    call readf(f1)   ! burbuja
+    call readi(i2)   ! cantidad de particulas en el core
     !Pasar los parametros al modudo Metadynamics
-    call DM_CV_set(i5,f6,i6)
+  ! FIXME:
+  call gmeta%attach(gsel)
+    call DM_CV_set(i1,f1,i2)
    !PTWTMD
    case('wtdcm')
     !Lectura de los parametros necesarios para Well tempered Metadynamics
@@ -522,8 +588,8 @@ case('partemp')
     call readf(f2)   ! ancho de las gaussianas
     call readf(f3)   ! Parametro de la WTMD
     call readf(f4)   ! tau (frecuencia)
-    call readi(i5)   ! cada cuanto grabo la dCM
-    call readi(i6)   ! cantidad de particulas en el core
+    call readi(i1)   ! cada cuanto grabo la dCM
+    call readi(i2)   ! cantidad de particulas en el core
     !Pasar los parametros al modudo Metadynamics
     i3=1
     call werr('No integration group',its%size<1)
@@ -531,14 +597,18 @@ case('partemp')
       call werr('There is more than one integration group, specify which to exchange',item==nitems)
       call readi(i3)
     endif
-    call wtmetad_set(f1,f2,f3,f4,i5,i6,i3)
+  ! FIXME:
+  call gmeta%attach(gsel)
+    call wtmetad_set(f1,f2,f3,f4,i1,i2,i3)
     case default
-    call werr('I do not understand the last command')  
+    call werr('I do not understand the last command',.true.)
   endselect
   
+  ! FIXME:
+  call gmeta%attach(gsel)
   call parallel_tempering(i1,i2,i3,.true.,.true.,w1) 
 #else
-  call werr('Compile GEMS with MPI (./configure --with-mpi)')
+  call werr('Compile GEMS with MPI (./configure --with-mpi)',.true.)
 #endif  
 
 case('help')
@@ -553,15 +623,25 @@ case default
 
 end select 
 
+
+! FXIME: gaux is a pointer to avoid an internal ifort error.
+select case(com)
+case('-','^-','^+','>+','^>')
+  call gaux%dest()
+  deallocate(gaux)
+end select
+  
 endsubroutine execute_command
 
 subroutine interacciones
-use gems_neighbour,only: intergroup,igr_vop
+use gems_constants,only: linewidth
+use gems_neighbor,only: ngroup,ngindex
 use gems_interaction,only: polvar_interact, interact_new
-use gems_variables,only: polvar_link
-class(intergroup),pointer  :: ig
-character(:),allocatable   :: label
-integer                    :: i
+use gems_variables,only: polvars
+class(ngroup),pointer      :: ig
+character(linewidth)       :: wfix
+character(:),allocatable   :: label, w1
+integer                    :: i1,i2
 
 ! Read user label if found or assing a new one
 call readl(w1)
@@ -571,47 +651,61 @@ if(w1(1:1)==':') then
   ig=>polvar_interact(label)
 else 
   call reread(0)
-  write(w1,'(a,i0)') ':i',igr_vop%size+1
-  label=trim(w1)
+  write(wfix,'(a,i0)') ':i',ngindex%size+1
+  label=trim(wfix)
 endif
 
 ! If label is not found create new one
 if (.not.associated(ig)) then
 
-  ! Create new interaction
-  call interact_new(ig)
+  ! Read the first group
+  call readi(i1) ! A
+  i2=i1          ! B=A by default
 
+  ! Read interaction and second group if given
+  call reada(w1)
+  if (w1=='<') then
+    call readi(i2) ! B
+    call reada(w1)
+    selectcase(w1)
+    case('bias','field','graph','reax')
+      call werr("Only one group expected for this interaction type.",i1/=i2)
+    end select 
+  endif
+             
+  ! Create interaction
+  call interact_new(ig,w1)
+  call ig%init()
+
+  ! Add groups (keep order, needed by sort during attach)
+  call ig%ref%attach(gr(i1))
+  call ig%b%attach(gr(i2))
+  call ig%attach(gr(i1))
+  if(i2/=i1) call ig%attach(gr(i2))
+ 
   ! Create new label
-  call polvar_link(label,ig)
+  call polvars%link(label,ig)
   call wstd('The interaction label is '//label)
 
 endif
 
 ! Run CLI
 call ig%cli(ig)
-     
-! Unless some neighboor list is requested, 
-! all the neighboor list are sablished here.
-! FIXME: We must search for all interactions because 
-! a new interaction implies `pos_old=pos` and can affect the pos_old of other
-! interactions. We should probably add a flag to selectively set pos_old
-do i=1,igr_vop%size
-  ig => igr_vop%o(i)%o
-  if(.not.associated(ig%lista)) call ig%setcells()
-enddo
- 
+
+! First time here, force pbcfullghost
+call test_update()  
+       
 end subroutine interacciones
- 
 
 subroutine help(w)
   character(*),intent(in)   :: w
-  ! character(:)              :: line
-  integer                   :: i,j
-  integer                   :: stat 
-  character(50)             :: buffer  
-  integer :: nch
+  ! ! character(:)              :: line
+  ! integer                   :: i,j
+  ! integer                   :: stat 
+  ! character(50)             :: buffer  
+  ! integer :: nch
      
-  j = find_io(30)
+  ! j = find_io(30)
   ! open(j,file=help_file)
   !
   !   line = ''
@@ -626,94 +720,59 @@ subroutine help(w)
   !
   !   end do
   !
-  !   print *, line
   ! close(j)
 
 endsubroutine help
 
-subroutine sys_commands
-
-call readl(w1)
-selectcase(w1)
-case('add')    !FIXME Makeme remember the previously group selecction...
-
-  call werr('No se agrego ningun atomo',gsel%nat==0)
-             
-  ! Por si se les quiere cambiar el tipo
-  ! FIXME: Esto antes estaba debajo para evitar cambiar el tipo a la
-  ! seleccion y solo a lo que se agrega al systema
-  if(item<nitems) then
-    call readelement(i1)
-    call set_element(gsel,i1)
-  endif
-          
-  ! ! Agrego los atomos
-  ! call system_group_add(gsel)
-
-  ! Agrego los atomos XGHOST
-  call atoms_group_add(gsel)
-          
-  call inq_mass(sys) 
-  call wstd(); write(logunit,*) natoms, 'particles in the system '
-
-case default  
-  call wwan('I do not understand the last command')  
-endselect      
-endsubroutine sys_commands
-
 subroutine evolve_commands
+use gems_constants,only: linewidth
 use gems_integration,only: polvar_integrate
-use gems_variables,only: polvar_link
+use gems_variables,only: polvars
 use gems_integration,only: integrate_cli, integrate
+use gems_strings,only: int2char
 type(integrate),pointer   :: it
-integer                   :: i
+character(:),allocatable  :: label, w1
 
-! Get label name
+! Read user label if found or assing a new one
 call readl(w1)
-
-! Find previous label
 it=>null()
 if(w1(1:1)==':') then
-  it=>polvar_integrate(w1)
-  if (associated(it)) call readl(w1)
+  label=w1
+  it=>polvar_integrate(label)
+  call readl(w1)
+else 
+  label=int2char(its%size+1)
+  label=':'//label
 endif
-
+       
 ! If label is not found create new one
 if (.not.associated(it)) then
 
   ! Create new evolution algoritm
   call its%append()
   it=>its%o(its%size)
-
-  ! Create new label
-  if(w1(1:1)==':') then
-    ! Using label defined by user
-    call polvar_link(trim(w1),it)
-    call readl(w1)
-  else
-    ! Using label defined by default
-    write(w2,'(a,i0)') ':',its%size
-    call polvar_link(trim(w2),it)
-    call wstd('The algorithm label is '//trim(w2))
-  endif
-
-  ! Initialize the integrate
   call it%init_ext(gsel)
 
+  ! Create new label
+  call polvars%link(label,it)
+  call wstd('The algorithm label is '//label)
 endif
 
-call integrate_cli(it,trim(adjustl(w1)))
+call integrate_cli(it,w1)
 
 endsubroutine evolve_commands
 
 subroutine cv_commands
 use gems_cvs
+character(:),allocatable  :: w1, w2
+real(dp)                  :: f1
+
 
 ! ! Interacciones
 ! ! Esto es beta, pero la idea es ir agregando atomos al grupo de interaccion
 ! case('igr')
 !   call readi(i1)
-!   call igr(i1)%adda(gsel)
+!   call igr(i1)%attacha(gsel)
 
 ! CVS
 call readl(w2)
@@ -726,25 +785,33 @@ case('cm')
   call readl(w1)
   select case(w1)
   case('x') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=1
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('y') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=2
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('z') 
-    call cvs(ncvs)%init(1,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=1
+    call cvs(ncvs)%attach(gsel)
     allocate(cvs(ncvs)%ir(1))
     cvs(ncvs)%ir(1)=3
     cvs(ncvs)%eval => cv_eval_cm
     cvs(ncvs)%jaco => cv_jaco_cm
   case('xyz','zxy','yzx','xzy','yxz','zyx') 
-    call cvs(ncvs)%init(3,gsel)
+    call cvs(ncvs)%init()
+    cvs(ncvs)%dm=3
+    call cvs(ncvs)%attach(gsel)
     cvs(ncvs)%eval => cv_eval_cmpos
     cvs(ncvs)%jaco => cv_jaco_cmpos
   case default  
@@ -769,12 +836,13 @@ endselect
 endsubroutine cv_commands
 
 subroutine clean_commands
+character(:),allocatable  :: w1
 call readl(w1)
 selectcase(w1)
 case('creation')
-  call group_allatom_del(gsel)
-  call gsel%add(sys)
-  call group_allatom_del(gnew)
+  call gsel%detach_all()
+  call gsel%attach(sys)
+  call sys%try_destroy_all()
   call wstd(); write(logunit,*) 'sys is selected'
 case default  
   call wwan('I do not understand the last command')  
@@ -782,37 +850,41 @@ endselect
 endsubroutine clean_commands
  
 subroutine group_commands
+character(:),allocatable  :: w1
+integer                   :: i1
+
 call readi(i1)
 call readl(w1)
 selectcase(w1)
 case('add')
-  call gr(i1)%add(gsel) 
+  call gr(i1)%attach(gsel) 
   call wstd(); write(logunit,*) gr(i1)%nat, 'particles in group', i1
 case('clean')
-  call group_allatom_del(gr(i1)) 
+  call gr(i1)%detach_all()
   call wstd(); write(logunit,*) gr(i1)%nat, 'particles in group', i1 
 case default  
   call wwan('I do not understand the last command')  
 endselect      
 endsubroutine group_commands
 
-subroutine create_commands(gn,gs)
-! Agrega lo nuevo a gn y agrega en seleccion a gs si este esta presente
-! Hay que tener en cuenta que gsel puede ser usado, asique no es cuestion 
-! de borrarlo asi como asi, lo mismos sys
-type(group),intent(inout)            :: gn
-type(group),intent(inout),optional   :: gs
-integer     :: i
+subroutine create_commands(gn)
+! Create atoms and add them to `gn` group
+class(group),intent(inout) :: gn
+integer                    :: i
+character(:),allocatable   :: w1
+integer                    :: i1
+real(dp)                   :: f1,fv(dm),fv2(dm)
+
 
 call readl(w1)
 selectcase(w1)
 case('reply')
   call readf(fv)
   call readi(i1)
-  call create_reply(gsel,fv,i1,gn,gs)
+  call create_reply(gsel,fv,i1,gn)
 case('atom')
   call readf(fv)
-  call create_atom(fv,gn,gs)
+  call create_atom(fv,gn)
 case('fillpbc')     ! Llena con n atomos agregados sequencialmente al pbc
   call wlog(''); write(logunit,*) "box: ",box
   call readi(i1)
@@ -820,9 +892,9 @@ case('fillpbc')     ! Llena con n atomos agregados sequencialmente al pbc
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gn,fv,fv2,gs,opt_pbc=.true.)
+    call create_fill(f1,i1,sys,gn,fv,fv2,opt_pbc=.true.)
   else
-    call create_fill(f1,i1,gn,gout=gs,opt_pbc=.true.)
+    call create_fill(f1,i1,sys,gn,opt_pbc=.true.)
   endif 
 case('fill')     ! Llena con n atomos separados por un cierto radio
   call wlog(''); write(logunit,*) "box: ",box
@@ -831,12 +903,12 @@ case('fill')     ! Llena con n atomos separados por un cierto radio
   if (item < nitems) then
     call readf(fv)
     call readf(fv2)
-    call create_fill(f1,i1,gn,fv,fv2,gs)
+    call create_fill(f1,i1,sys,gn,fv,fv2)
   else
-    call create_fill(f1,i1,gn,gout=gs)
+    call create_fill(f1,i1,sys,gn)
   endif
 case('fillh')    ! Llena con hidrogenos los atomos de carbono.
-  call create_fillh(gsel,gn,gs) 
+  call create_fillh(gsel,gn) 
 case('read')
 
   ! Allow to especify the extension?
@@ -848,110 +920,34 @@ case('read')
   ! end select
 
   call reada(w1)
-  i=len_trim(adjustl(w1))
+  i=len(w1)
 
   i1=1
   if (item < nitems) call readi(i1) ! The frame
    
-  call create_file(w1,w1(i-2:i+1),gn,gs,i1)
+  call create_file(w1,w1(i-2:i),gn,i1)
 
 case default  
 call wwan('I do not understand the last command')  
 endselect      
-call wstd(); write(logunit,*) gnew%nat, 'particles in creation'
+
+! Adding new atoms to sys group
+call sys%attach(gsel)
 
 endsubroutine create_commands
 
-subroutine constrain_commands(w)
-integer                    :: i,j,k
-character(*)               :: w
-character(1)               :: c
-type (atom_dclist),pointer :: la
-logical                    :: lconst=.false.
-real(dp)                   :: aux
-
-
-selectcase(w)
-case('axis') 
-  lconst=.true.
-case('plane') 
-  lconst=.false.
-endselect
-
-call readf(fv)
-aux=dot_product(fv,fv) 
-fv=fv/sqrt(aux)
-
-la => gsel%alist
-do i = 1,gsel%nat
-  la=>la%next
-  if(.not.allocated(la%o%pconst)) allocate(la%o%pconst(dm))
-  la%o%pconst=la%o%pos
-  la%o%vconst=fv
-  la%o%bconst=.true.
-  la%o%lconst=lconst
-enddo 
-
-! Lo de abajo creo es obsoleto....
-
-return
-
-selectcase(w)
-! case('fix') 
-!   call readl(w2)
-!   selectcase(c) 
-!   case('x')
-!     k=0
-!   case('y')
-!     k=1
-!   case('z')
-!     k=2
-!   endselect 
-!
-!   call gr_fix%add(gsel)
-!   la => gsel%alist%next
-!   do i = 1,gsel%nat
-!     j = la%o%idv
-!     fix(j+k) = .true.
-!     fix_pos(j+k) = la%o%pos(k+1)
-!     la=>la%next
-!   enddo 
-!
-case('join')
-  call readl(w2)
-  selectcase(c) 
-  case('x')
-    k=0
-  case('y')
-    k=1
-  case('z')
-    k=2
-  endselect 
-
-  njoin=0
-  la => gsel%alist%next
-  do i = 1,gsel%nat
-    j = la%o%idv
-    join(j+k) = .true.
-    njoin=njoin+1
-    la=>la%next
-  enddo 
-endselect
-
-endsubroutine constrain_commands
-
 subroutine unselect_commands(g)
-integer                    :: i
-type(group)                :: g
+class(group)               :: g
 type(group)                :: aux
 type (atom_dclist),pointer :: la
+integer                    :: i
 
 call aux%init()
 call select_commands(g,aux)
 
 la => aux%alist%next
 do i = 1,aux%nat
-  call group_atom_del(la%o, g)
+  call  g%detach(la%o)
   la=>la%next
 enddo
 
@@ -960,9 +956,11 @@ call aux%dest()  ! Sin esto, habia un segmentation full
 endsubroutine unselect_commands
    
 subroutine select_commands(gini,gout)
-type(group),intent(inout)          :: gout
-type(group),intent(inout),optional :: gini
-integer                            :: i
+class(group),intent(inout)          :: gout
+class(group),intent(inout),optional :: gini
+character(:),allocatable            :: w1
+integer                             :: i,i1,i2
+real(dp)                            :: f1, f2, f3, f4
 
 call readl(w1)
 
@@ -971,13 +969,10 @@ call readl(w1)
 selectcase(w1)
 case('group')
   call readi(i1)
-  call gout%add(gr(i1))
+  call gout%attach(gr(i1))
   return
-case('creation')
-  call gout%add(gnew)
-  return
-case('sys')
-  call gout%add(sys)
+case('all')
+  call gout%attach(sys)
   return
 endselect
 
@@ -1115,7 +1110,7 @@ case('atom')
 !       call readi(i3)
 !       gini%nat = gini%nat + i3-i2
 !       do j = i2,i3
-!         call group_atom_add(ss(i1)%a(j),gini)
+!         call gini%attach(ss(i1)%a(j))
 !       enddo 
 case('random')
   call readi(i1)
@@ -1128,12 +1123,14 @@ endsubroutine select_commands
 
 subroutine out_commands
 use gems_output, only:prf,pri
+character(:),allocatable   :: w1
+
 
 call readl(w1)
   
 selectcase(w1)
   case('posxyz')
-    write(w1,*) "positions.xyz"
+    w1="positions.xyz"
     if (nitems>item) call reada(w1)
     call write_screenshot(w1,gsel)   
 
@@ -1152,6 +1149,9 @@ end select
 end subroutine out_commands
 
 subroutine checkpoint_commands
+character(:),allocatable  :: w1
+integer                   :: i1, i2
+
 call readl(w1)
 selectcase(w1)
 case('write')
@@ -1174,9 +1174,11 @@ case default
 endselect
 endsubroutine checkpoint_commands
 
-subroutine set_commands
-! use gems_forcefield
+subroutine set_commands()
 use gems_elements, only: inq_z
+character(:),allocatable  :: w1,w2
+integer                   :: i1
+real(dp)                  :: f1
 
 call readl(w1)
 select case(w1)
@@ -1285,9 +1287,9 @@ case('rotate')
     call givens_rotation(gsel,f1,ip)
   endif
 case('expand')
-  fv2=0.0_dp   ! Default en el origen?
+  fv2=0._dp   ! Default en el origen?
   call readf(fv)
-  call readf(fv2)
+  call try_get(fv2)
   call expand(gsel,fv,fv2)
 case('move')
   call readf(fv)
@@ -1305,12 +1307,13 @@ endsubroutine set_commands
 
 subroutine get_commands
 use gems_random
-use gems_variables,only:polvar_hard, polvar_expand
-integer                :: i,j
-character(linewidth)   :: var, vari
+use gems_variables,only:polvars
+integer                    :: i, i2
+character(:),allocatable   :: var, vari, w1, w2
 
 ! Reding the variable name
-call readl(var) 
+call readl(var)
+var=trim(var)  
 
 ! Las variables que empiezan con underscore son solo internas
 ! no para que definan o accedan los usuarios
@@ -1321,26 +1324,31 @@ i2=print_commands()
 if (i2>1) then
   do i =1, i2
 
-    write(vari,'(a,i0,a)') trim(var)//'[',i,']'
-    write(w1,'(a,i0,a)') '_ans[',i,']'
+    w1=str(i)
+    vari=var//'['//w1//']'
+    w1='_ans['//w1//']'
 
-    w2=polvar_expand(w1)
-    call polvar_hard(trim(vari),trim(w2))
-    call wstd(trim(vari)//' = '//trim(w2))
+    w2=polvars%expand(w1)
+    call polvars%hard(vari,w2)
+    call wstd(vari//' = '//w2)
    
   enddo 
   return
 endif
 
-w2=polvar_expand('_ans[1]')
-call polvar_hard(trim(var),trim(w2))
-call wstd(trim(var)//' = '//trim(w2))
+w2=polvars%expand('_ans[1]')
+
+call polvars%hard(var,w2)
+call wstd(var//' = '//w2)
 
 endsubroutine get_commands
 
 subroutine mpi_commands
 use gems_random
-use gems_mpi, only: mpi_pc, mpi_tpc, ch_mpi_pc
+use gems_mpi, only: mpi_pc, mpi_tpc
+character(:),allocatable  :: w1
+integer                   :: i1
+
 call readl(w1)
 #ifdef HAVE_MPI
 #else
@@ -1366,6 +1374,7 @@ end subroutine  mpi_commands
 
 subroutine log_commands
 use, intrinsic :: iso_fortran_env, only: output_unit
+character(:),allocatable  :: w1
  
 if(logunit/=truelogunit) close(logunit) 
 
@@ -1391,15 +1400,13 @@ end subroutine log_commands
 function print_commands() result(ans)
 use gems_random
 use gems_tables, only: etable
-use gems_variables,only:polvar_hard
-integer                :: ans
+use gems_variables,only:polvars
+integer                   :: ans
 type(atom_dclist),pointer :: la
-type(etable) :: t
-integer             :: i
+real(dp)                  :: cmr(dm), f1, f2
+character(:),allocatable  :: w1
+integer                   :: i, i1
 
-!if (gsel%nat==int(gsel%mass)) call wwan('Atomo/s sin elemento definidos')
-
-call pos_changed()
 
 ! Reading print order
 call readl(w1)
@@ -1433,81 +1440,79 @@ case('std')
 ! Estos case es para cuando el resultado se puede guardar en ans
 
 case('dm_steps')
-  call polvar_hard('_ans[1]',dm_steps)
+  call polvars%hard('_ans[1]',dm_steps)
 case('selnat') 
-  call polvar_hard('_ans[1]',gsel%nat)
+  call polvars%hard('_ans[1]',gsel%nat)
 case('temp') 
-  call inq_temperature(gsel)
-  call polvar_hard('_ans[1]',gsel%temp)
+  call polvars%hard('_ans[1]',inq_temperature(gsel))
 case('cm_vel')
-  call inq_cm_vel(gsel)
-  call polvar_hard('_ans[1]',gsel%cm_vel(1))
-  call polvar_hard('_ans[2]',gsel%cm_vel(2))
-  call polvar_hard('_ans[3]',gsel%cm_vel(3))
+  call inq_cmvel(cmr,gsel)
+  call polvars%hard('_ans[1]',cmr(1))
+  call polvars%hard('_ans[2]',cmr(2))
+  call polvars%hard('_ans[3]',cmr(3))
   ans=3
 case('cm_pos')
-  call group_inq_cmpos(gsel)
-  call polvar_hard('_ans[1]',gsel%cm_pos(1))
-  call polvar_hard('_ans[2]',gsel%cm_pos(2))
-  call polvar_hard('_ans[3]',gsel%cm_pos(3))
+  call inq_cmpos(cmr,gsel)
+  call polvars%hard('_ans[1]',cmr(1))
+  call polvars%hard('_ans[2]',cmr(2))
+  call polvars%hard('_ans[3]',cmr(3))
   ans=3
 case('cm_diff2','cm_diff')
+  call inq_cmpos(fv(:),gsel)
+
   call readi(i1) ! The second group
-  ! Run selecction according to the second group selected
-  call group_inq_cmpos(gsel)
   if (i1==-1) then
-    fv = gsel%cm_pos-gsel%cm_pos
+    cmr(:)=fv(:)
   else if (i1==0) then
-    call pos_changed()
-    call group_inq_cmpos(sys)
-    fv = gsel%cm_pos-sys%cm_pos
+    call inq_cmpos(cmr,sys)
   else
-    call pos_changed()
-    call group_inq_cmpos(gr(i1))
-    fv = gsel%cm_pos-gr(i1)%cm_pos
+    call inq_cmpos(cmr,gr(i1))
   endif
+  fv(:) = fv(:)-cmr(:)
+
   if(w1=='cm_diff2') then
-    call polvar_hard('_ans[1]',dot_product(fv,fv))
+    call polvars%hard('_ans[1]',dot_product(fv,fv))
   else
-    call polvar_hard('_ans[1]',sqrt(dot_product(fv,fv)))
+    call polvars%hard('_ans[1]',sqrt(dot_product(fv,fv)))
   endif
 case('rg_pos')
-  call group_inq_rg(gsel)
-  call polvar_hard('_ans[1]',gsel%rg_pos)
+  call polvars%hard('_ans[1]',inq_rg(gsel))
 case('minpos') 
   call inq_boundingbox(gsel)
-  call polvar_hard('_ans[1]',gsel%minpos(1))
-  call polvar_hard('_ans[2]',gsel%minpos(2))
-  call polvar_hard('_ans[3]',gsel%minpos(3))
+  call polvars%hard('_ans[1]',gsel%minpos(1))
+  call polvars%hard('_ans[2]',gsel%minpos(2))
+  call polvars%hard('_ans[3]',gsel%minpos(3))
   ans=3
 case('maxpos') 
   call inq_boundingbox(gsel) 
-  call polvar_hard('_ans[1]',gsel%maxpos(1))
-  call polvar_hard('_ans[2]',gsel%maxpos(2))
+  call polvars%hard('_ans[1]',gsel%maxpos(1))
+  call polvars%hard('_ans[2]',gsel%maxpos(2))
   ans=3
-  call polvar_hard('_ans[3]',gsel%maxpos(3))
-case('norm') 
-  call readi(i1)
-  call readi(i2)
-  call readi(i3)
-  ! BUG: Por alguna extraña razon no es lo mismo si se intercambia i2 con i1
-  fv=cross_product(vdistance(a(i1)%o,a(i2)%o,ghost),vdistance(a(i3)%o,a(i2)%o,mic))
-  f1=dot_product(fv,fv)
-  fv=fv/sqrt(f1)
-  call polvar_hard('_ans[1]',fv(1))
-  call polvar_hard('_ans[2]',fv(2))
-  call polvar_hard('_ans[3]',fv(3))
-  ans=3
-case('axis') 
-  call readi(i1)
-  call readi(i2)
-  fv=vdistance(a(i1)%o,a(i2)%o, mic)
-  f1=dot_product(fv,fv)
-  fv=fv/sqrt(f1)
-  call polvar_hard('_ans[1]',fv(1))
-  call polvar_hard('_ans[2]',fv(2))
-  call polvar_hard('_ans[3]',fv(3))
-  ans=3
+  call polvars%hard('_ans[3]',gsel%maxpos(3))
+! FIXME: Atoms id are not clear to use.
+! TODO: Use insted select_atom from Select_Create
+! case('norm') 
+!   call readi(i1)
+!   call readi(i2)
+!   call readi(i3)
+!   ! BUG: Por alguna extraña razon no es lo mismo si se intercambia i2 con i1
+!   fv=cross_product(vdistance(sys%a(i1)%o,sys%a(i2)%o,mic),vdistance(sys%a(i3)%o,sys%a(i2)%o,mic))
+!   f1=dot_product(fv,fv)
+!   fv=fv/sqrt(f1)
+!   call polvars%hard('_ans[1]',fv(1))
+!   call polvars%hard('_ans[2]',fv(2))
+!   call polvars%hard('_ans[3]',fv(3))
+!   ans=3
+! case('axis') 
+!   call readi(i1)
+!   call readi(i2)
+!   fv=vdistance(sys%a(i1)%o,sys%a(i2)%o, mic)
+!   f1=dot_product(fv,fv)
+!   fv=fv/sqrt(f1)
+!   call polvars%hard('_ans[1]',fv(1))
+!   call polvars%hard('_ans[2]',fv(2))
+!   call polvars%hard('_ans[3]',fv(3))
+!   ans=3
 case('ptriaxial') 
   write(ans,fmt='(e15.8)') inq_triaxial_param(gsel)
 case('mayordist') 
@@ -1526,9 +1531,9 @@ case('mayordist')
     else
       fv(:)=inq_mayordistance(gsel,gr(i1))
     endif
-    call polvar_hard('_ans[1]',fv(1))
-    call polvar_hard('_ans[2]',fv(2))
-    call polvar_hard('_ans[3]',fv(3))
+    call polvars%hard('_ans[1]',fv(1))
+    call polvars%hard('_ans[2]',fv(2))
+    call polvars%hard('_ans[3]',fv(3))
     ans=3
 
   end if
@@ -1556,7 +1561,7 @@ case('border')
     endif
 
   end if
-  call polvar_hard('_ans[1]',gsel%alist%next%o%border)
+  call polvars%hard('_ans[1]',gsel%alist%next%o%border)
 case('index') 
   call werr('Only one atom must be in the selection',gsel%nat/=1)
   call readi(i1) ! The group 
@@ -1564,37 +1569,38 @@ case('index')
   do i = 1,gr(i1)%nat
     la => la%next
     if (.not.associated(la%o,target=gsel%alist%next%o)) cycle
-    call polvar_hard('_ans[1]',i)
+    call polvars%hard('_ans[1]',i)
     exit
   enddo 
 
 case('rang')
   call rang(f1)
-  call polvar_hard('_ans[1]',f1)
+  call polvars%hard('_ans[1]',f1)
 case('ranu')
-  call polvar_hard('_ans[1]',ranu())
+  f1=ranu()
+  call polvars%hard('_ans[1]',f1)
 case('max')
   call readf(f1)
   call readf(f2)
   write(ans,fmt='(e15.8)') max(f1,f2)
-  call polvar_hard('_ans[1]',max(f1,f2))
+  call polvars%hard('_ans[1]',max(f1,f2))
 case('min')
   call readf(f1)
   call readf(f2)
-  call polvar_hard('_ans[1]',min(f1,f2))
+  call polvars%hard('_ans[1]',min(f1,f2))
 case('int')
   call readf(f1)
-  call polvar_hard('_ans[1]',int(f1))
+  call polvars%hard('_ans[1]',int(f1))
 case('floor')
   call readf(f1)
-  call polvar_hard('_ans[1]',floor(f1)) 
+  call polvars%hard('_ans[1]',floor(f1)) 
 case('ceil','ceiling')
   call readf(f1)
-  call polvar_hard('_ans[1]',ceiling(f1))   
+  call polvars%hard('_ans[1]',ceiling(f1))   
 case("box") 
-  call polvar_hard('_ans[1]',box(1))
-  call polvar_hard('_ans[2]',box(2))
-  call polvar_hard('_ans[3]',box(3))
+  call polvars%hard('_ans[1]',box(1))
+  call polvars%hard('_ans[2]',box(2))
+  call polvars%hard('_ans[3]',box(3))
   ans=3
 
 
@@ -1608,38 +1614,40 @@ case("box")
 !   call t%wprt()
 !
 case default
-  call polvar_hard('_ans[1]',trim(w1))
+  w1=trim(w1)
+  call polvars%hard('_ans[1]',w1)
 endselect 
 
 
 end function print_commands
 
-  subroutine time_commands
-    call readl(w1)
-    selectcase(w1)
-    case('cero')
-      time=0.0_dp
-      ptime=0.0_dp
-      dm_steps=0.0_dp
-      nframe=0.0_dp
-      call wstd('time set to cero')
-    case('step')
-      call readf(dt)
-      dtaux=dt
-    case default  
-      call wwan('I do not understand the last command')  
-    endselect 
-  endsubroutine time_commands
-             
+subroutine time_commands
+character(:),allocatable  :: w1
+call readl(w1)
+selectcase(w1)
+case('cero')
+  time=0.0_dp
+  dm_steps=0.0_dp
+  call wstd('time set to cero')
+case('step')
+  call readf(dt)
+case default  
+  call wwan('I do not understand the last command')  
+endselect 
+endsubroutine time_commands
+           
 subroutine element_commands
 use gems_elements, only: add_z 
+character(:),allocatable  :: w1
+real(dp)                  :: f1
+
 
 call readl(w1)
 selectcase(w1)
 case('add')
   call reada(w1)
-  call readf(f2)
-  call add_z(trim(adjustl(w1)),f2,0._dp,1._dp)
+  call readf(f1)
+  call add_z(trim(adjustl(w1)),f1,0._dp,1._dp)
 case default  
   call wwan('I do not understand the last command')  
 endselect 
@@ -1647,6 +1655,8 @@ endselect
 endsubroutine element_commands
 
 subroutine prng_commands
+character(:),allocatable  :: w1
+integer                   :: i1
 call readl(w1)
 selectcase(w1)
 case('lcg')
@@ -1662,7 +1672,7 @@ case('seed_first')
   call readi(i2)
   call init_ran(lstreamnum=i1,lnstreams=i2)
 #else
-  call werr('Feature not enable, configure with --with-sprng')
+  call werr('Feature not enable, configure with --with-sprng',.true.)
 #endif
 
 case('stream')
@@ -1675,7 +1685,7 @@ case('stream')
     call spawn_ran(i1)
   endif
 #else
-  call werr('Feature not enable, configure with --with-sprng')
+  call werr('Feature not enable, configure with --with-sprng',.true.)
 #endif
 
 case default  
@@ -1685,14 +1695,16 @@ endselect
 endsubroutine prng_commands
       
 subroutine box_commands
+use gems_groups, only: useghost
+character(:),allocatable  :: w1
 integer   :: i,j
+real(dp)  :: f1,f2,f3
 
 call readl(w1)
 selectcase(w1)
 case('move')
-  call inq_cm_vel(sys)
-  fv=-sys%cm_vel
-  call set_add_cmvel(sys,fv)
+  call inq_cmvel(fv,sys)
+  call set_add_cmvel(sys,-fv)
 case('tsize')
   cubic=.false.
   do i = 1,dm
@@ -1721,9 +1733,8 @@ case('expand')
   w1='(A,'//cdm//'(f10.5))'
   call wstd(); write(logunit,trim(adjustl(w1))) '  box size:', (box(i),i=1,dm)
 case('mic') ! Establezco condiciones periodicas para ese grupo
-  call readb(b1)
-  mic=b1
-  ghost=.not.b1
+  call readb(mic)
+  useghost=.not.mic
 case default  
   call wwan('I do not understand the last command')  
 endselect 
@@ -1732,6 +1743,8 @@ endsubroutine box_commands
 
 subroutine table_commands
 type(etable) t1
+character(:),allocatable :: w1,w2
+integer                  :: i2,i3
 
 call reada(w1) ! Archivo
 call readi(i2) ! Columna x
@@ -1768,6 +1781,7 @@ endsubroutine table_commands
 
 subroutine mtable_commands
 !type(etable) t1,t2,t3
+character(:),allocatable :: w2
 
 call readl(w2) ! Comando 
 !select case(w2)
@@ -1813,18 +1827,18 @@ use gems_output
 use gems_hyperdynamics
 use gems_bias, only: write_bias
 use gems_forcefield, only: write_ebend, write_estretch, write_etors
-use gems_tersoff
 use gems_interaction
 use gems_neb
 use gems_graphs
-use gems_variables,only: polvar_link
+use gems_calc, only: write_calc
+use gems_variables,only: polvars
 use gems_metadynamics, only: write_cvs,write_E_1D
 use gems_fields, only: write_halfsho
 class(outfile),pointer   :: of
 class(outpropa),pointer  :: op
 type(outpropa_l),pointer :: ln
-character(:),allocatable :: label
-integer                  :: j
+character(:),allocatable :: label,w1, w2
+integer                  :: j,i2
 
 ! Read user label if found or assing a new one
 call readl(w1)
@@ -1834,6 +1848,7 @@ if(w1(1:1)==':') then
 else 
   of=>null()
   call reread(0)
+  w1=':of9999999' ! Allocate for write
   write(w1,'(a,i0)') ':of',of_vop%size+1
   label=trim(w1)
 endif
@@ -1847,7 +1862,7 @@ if (.not.associated(of)) then
   of_vop%o(of_vop%size)%o=>of
 
   ! Create new label
-  call polvar_link(label,of)
+  call polvars%link(label,of)
   call wstd('The outfile label is '//label)
 
 endif
@@ -1922,8 +1937,6 @@ case('at')
     of%enable(2)=.true.
   case ('forcefield' )
     of%enable(3)=.true.
-  case ('tersoff' )
-    of%enable(4)=.true.
   case ('hd' )
     of%enable(5)=.true.
   end select
@@ -1970,7 +1983,7 @@ case('cols')
     end select
    
     select case(w1)
-    case('eparts'   );  call op%init(igr_vop%size,write_eparts)
+    case('eparts'   );  call op%init(ngindex%size,write_eparts)
     !case('dihedrals'); call op%init(,write_dihedrals)
     !case('angulos'  ); call op%init(,write_tsfangs)
     case('time'     ); call op%init(1,write_time)
@@ -2010,10 +2023,10 @@ case('cols')
 !      case ('nebi'      ); ne%w => writeb_opi
 !      case ('nebf'      ); ne%w => writeb_opf       
     case  default
-      call werr('incorrect imput')
+      call werr('incorrect imput',.true.)
     end select
 
-    ! call of%p%add_hardcpy(op)
+    ! call of%p%attach_hardcpy(op)
     ! call op%destroy()
     of%w => outfile_write
 
@@ -2045,13 +2058,13 @@ case default
   !xyz
   select case(w1)
   case('pos'        ); of%w => write_pos
+  case('calc'       ); of%w => write_calc    ; b1=.false.  
   case('graph'      ); of%w => write_graph
   case('free_en_1d' ); of%w => write_E_1D
   case('poscr'      ); of%w => write_poscr
   case('hd_fpp'     ); of%w => write_fpp     ; b1=.false.  
   case('vel'        ); of%w => write_vel
   case('vel_rot'    ); of%w => write_vel_rot
-  case('vel_vib'    ); of%w => write_vel_vib
   case('fce'        ); of%w => write_fce
   case('pes'        ); of%w => write_pes
   case('pose'       ); of%w => write_pose
@@ -2059,7 +2072,7 @@ case default
   case('charge'     ); of%w => write_charge
  !%case ('border'   ); of%w => write_border    
   case  default
-    call werr('wrong input')
+    call werr('wrong input',.true.)
   end select
   
   call of%reopen()

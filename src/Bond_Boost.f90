@@ -21,11 +21,9 @@ module gems_bondboost
 !Y. Shibuta and S. Maruyama, "Bond-order potential for transition metal
 !carbide cluster for the growth simulation of a single-walled carbon nanotube,"
 !Computational Materials Science, vol. 39, 2007, pp. 842-848.
-
-  use gems_atoms, only: atom,atom_dclist
-  use gems_groups, only: group
+  use gems_groups, only: group,atom,atom_dclist
   use gems_constants, only:dp,dm
-  use gems_neighbour
+  use gems_neighbor
 
   implicit none
   private

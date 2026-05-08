@@ -8,19 +8,19 @@
 # dimension.
 
 # First primitive fcc cell
->< atom  0      0      0    
-+< atom  0.5    0.5    0
-+< atom  0    0.5    0.5  
-+< atom  0.5    0    0.5  
+^+ atom  0      0      0    
+^+ atom  0.5    0.5    0
+^+ atom  0    0.5    0.5  
+^+ atom  0.5    0    0.5  
 
 # 1/4 offset
 set move 0.25 0.25 0.25
 
 # Second primitive fcc cell
-+< atom  0      0      0    
-+< atom  0.5    0.5    0
-+< atom  0    0.5    0.5
-+< atom  0.5    0    0.5
+>+ atom  0      0      0    
+^+ atom  0.5    0.5    0
+^+ atom  0    0.5    0.5
+^+ atom  0.5    0    0.5
 
 #     y
 #     ^
@@ -36,16 +36,16 @@ set move 0.25 0.25 0.25
 #     |  |          |         
 #    0+  0---------0.5          
 #     |                     
-#     +--+----+-----+-----+---> x
+#     +--+----+-----+-----+---< x
 #        0  0.25   0.5  0.75     
 
 # The distance between first neighbors.
-getin d0 {sqrt(0.25)}
+d0:={sqrt(0.25)}
               
 # The primitive cell size
-getin a 1
-getin b 1
-getin c 1
+a:=1
+b:=1
+c:=1
           
 # All the surface are (100). 
                                       

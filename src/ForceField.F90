@@ -18,6 +18,9 @@
 
 module gems_forcefield
 
+! FIXME: This module was build without considering that sys index may have
+! null atoms due to detaching.
+
 ! Existen los boundgr que son grupos de objetos bound. Los bound, son objetos
 ! que contienen 2,3,4 atomos unidos. Cada boundgr tiene asignada una funcion y
 ! parametros que va a aplicar a los objetos bounds que contenga. Por ejemplo, un
@@ -27,7 +30,7 @@ module gems_forcefield
 use gems_constants
 use gems_program_types
 use gems_algebra
-use gems_neighbour
+use gems_neighbor
 use gems_output
 
 implicit none
@@ -87,7 +90,7 @@ type :: boundgr
   procedure(boundgr0),pointer :: interact=>null()  ! funcion de interaccion
 
   contains
-    procedure   :: add => boundgr_add
+    procedure   :: attach => boundgr_add
     procedure   :: init => boundgr_init
     procedure   :: destroy => boundgr_destroy
     ! final       :: boundgr_destroy
@@ -147,7 +150,7 @@ subroutine charm_stretching(bg)
     j => ln%o%a(2)%o
 
     ! Distancias
-    vd = vdistance(i,j, mic)
+    call vdistance(vd,i,j, mic)
     d  = dsqrt(dot_product(vd,vd))
 
     difr=d-de
@@ -202,11 +205,11 @@ subroutine charm_bending(bg)
     k => ln%o%a(3)%o
 
     ! Distancia ij
-    a = vdistance(i,j, mic)
+    call vdistance(a,i,j, mic)
     am =  dsqrt(dot_product(a,a))
 
     ! Distancia jk
-    b = vdistance(k,j, mic)
+    call vdistance(b,k,j, mic)
     bm =  dsqrt(dot_product(b,b))
 
     ! Angulo
@@ -335,9 +338,9 @@ do m = 1,bg%n
   l => ln%o%a(4)%o
 
   ! Distancias y nomenclatura siguiendo Blondel, A., & Karplus, M. (1996).
-  f=vdistance(i,j, mic)
-  g=vdistance(j,k, mic)
-  h=vdistance(k,l, mic)  ! With a minus
+  call vdistance(f,i,j, mic)
+  call vdistance(g,j,k, mic)
+  call vdistance(h,k,l, mic)  ! With a minus
 
   ! Productos cruz.
   a=cross_product(f,g)
@@ -537,9 +540,9 @@ do m = 1,bg%n
   l => ln%o%a(4)%o
 
   ! Distancias y nomenclatura
-  a=vdistance(j,i, mic)
-  b=vdistance(k,j, mic)
-  c=vdistance(l,k, mic)
+  call vdistance(a,j,i, mic)
+  call vdistance(b,k,j, mic)
+  call vdistance(c,l,k, mic)
 
   ! Producto cruz b con c
   bxc=cross_product(b,c)
@@ -810,8 +813,8 @@ subroutine read_prm(prmfile)
   character(*),intent(in)  :: prmfile
   type(boundgr_l),pointer   :: ln,lp
   type(input_options), target   :: iopts
-  character(90)            :: clase,w1,w2,w3,w4
-  character(ncsym)         :: zx(4)
+  character(:),allocatable :: clase,w1,w2,w3,w4
+  character(10)            :: zx(4)
   real(dp)                 :: f1,f2
   integer                  :: ix(4),u,i1,i2,i
 
@@ -1111,6 +1114,7 @@ end subroutine read_prm
 
 subroutine read_psf(topfile)
   use gems_elements, only: add_z, inq_z
+  use gems_groups, only: atom_setelmnt
   character(*),intent(in)  :: topfile
   character(9)             :: clase
   integer                  :: i,j,k,l,u,n,natoms,m,ioflag,ix(4),iy(4)
@@ -1139,11 +1143,12 @@ subroutine read_psf(topfile)
 
       ! Asumo que ya estan allocateado los atomos
       ! leyendo por ejemplo el pdb
+      ! FIXME: sys index may have null atoms
       natoms=n
       do m=1,n
         read(u,*) i,seg,j,resn,nomb,tipo,carga,masa
         call add_z(tipo,masa,carga)
-        call atom_setelmnt(a(i)%o,inq_z(tipo))
+        call atom_setelmnt(sys%a(i)%o,inq_z(tipo))
       enddo
 
     case('!NBOND:')
@@ -1154,12 +1159,12 @@ subroutine read_psf(topfile)
         if(mod(m,4)==0) read(u,*)
 
         ! Solving symmetry in bonds. Need to do it in ix???
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(2))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(2))%o%z
         call sort_int(iy(1:2))
 
         bg=>boundgrs_include(iy(1:2))
-        call bg%add(ix(1:2))
+        call bg%attach(ix(1:2))
 
       enddo
 
@@ -1170,14 +1175,14 @@ subroutine read_psf(topfile)
         if(mod(m,3)==0) read(u,*)
 
         ! Solving symmetry in angles.
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(3))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(3))%o%z
         call sort_int(iy(1:2))
         iy(3)=iy(2)
-        iy(2)=a(ix(2))%o%z
+        iy(2)=sys%a(ix(2))%o%z
 
         bg=>boundgrs_include(iy(1:3))
-        call bg%add(ix(1:3))
+        call bg%attach(ix(1:3))
 
       enddo
 
@@ -1188,19 +1193,19 @@ subroutine read_psf(topfile)
         if(mod(m,2)==0) read(u,*)
 
         ! Solving symmetry in torsion.
-        iy(1)=a(ix(1))%o%z
-        iy(2)=a(ix(2))%o%z
-        iy(3)=a(ix(3))%o%z
-        iy(4)=a(ix(4))%o%z
+        iy(1)=sys%a(ix(1))%o%z
+        iy(2)=sys%a(ix(2))%o%z
+        iy(3)=sys%a(ix(3))%o%z
+        iy(4)=sys%a(ix(4))%o%z
         if(iy(1)>iy(4)) then
           iy(1)=iy(4)
           iy(2)=iy(3)
-          iy(3)=a(ix(2))%o%z
-          iy(4)=a(ix(1))%o%z
+          iy(3)=sys%a(ix(2))%o%z
+          iy(4)=sys%a(ix(1))%o%z
         endif
 
         bg=>boundgrs_include(iy(1:4))
-        call bg%add(ix(1:4))
+        call bg%attach(ix(1:4))
 
       enddo
     case('!NIMPHI:')
@@ -1317,7 +1322,7 @@ subroutine boundgr_add(bg,id)
   allocate(b%a(size(id)))
 
   do i=1,size(id)
-    b%a(i)%o => a(id(i))%o
+    b%a(i)%o => sys%a(id(i))%o
   enddo
 
 end subroutine boundgr_add

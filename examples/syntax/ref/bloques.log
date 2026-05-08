@@ -13,45 +13,46 @@
 #  This is free software, and you are welcome to redistribute it
 #  under certain conditions; type `license` for details.
 #  
-#  Version:eea5-dirty
+#  Version:83fe
 #  I/O Units:
 #    -input: bloques.gms
 #    -log:   bloques.log
 #    -chp:   bloques.chp
 #  MPI: Not compiled for MPI
-#  OpenMP: Using 4 threads
+#  OpenMP: Using 6 threads
 #-WAN-> F2003 standar do not specify PRNG implementation, so this is a compiler dependent choice.
 #  Random Seed: 
-#    502067135
-#    299688736
-#    1143573079
-#    55175885
-#    366921879
-#    1133710388
-#    1206100884
-#    -1905503571
-# Input script for GeMS
+#    -423313580
+#    1110344510
+#    734603579
+#    936516345
+#    -1391208295
+#    -2085932759
+#    -32875840
+#    -898380771
+# Input script for GEMS
 
+# Testing blocks
 bloque repeat 12
   print {2*$i$}
 fin
-#-STD->  >>> iterando: $i$=01
+#-STD->  >>> iterando: $i$=0
 # 2.0000000000000000
-#-STD->  >>> iterando: $i$=02
+#-STD->  >>> iterando: $i$=0
 # 4.0000000000000000
-#-STD->  >>> iterando: $i$=03
+#-STD->  >>> iterando: $i$=0
 # 6.0000000000000000
-#-STD->  >>> iterando: $i$=04
+#-STD->  >>> iterando: $i$=0
 # 8.0000000000000000
-#-STD->  >>> iterando: $i$=05
+#-STD->  >>> iterando: $i$=0
 # 10.000000000000000
-#-STD->  >>> iterando: $i$=06
+#-STD->  >>> iterando: $i$=0
 # 12.000000000000000
-#-STD->  >>> iterando: $i$=07
+#-STD->  >>> iterando: $i$=0
 # 14.000000000000000
-#-STD->  >>> iterando: $i$=08
+#-STD->  >>> iterando: $i$=0
 # 16.000000000000000
-#-STD->  >>> iterando: $i$=09
+#-STD->  >>> iterando: $i$=0
 # 18.000000000000000
 #-STD->  >>> iterando: $i$=10
 # 20.000000000000000
@@ -71,36 +72,69 @@ fin
 bloque load 1
 # hola
 
+# Box
 box size 5.78 5.78 5.78
 
->< atom 1 1 1
-#-STD->            1 particles in creation
+# Play with particles that will not be used
++ atom 2.2 1 10
+#-STD->            1 particles in system
+> all
 #-STD->            1 particles selected
-+< atom 2.2 1 1
-#-STD->            2 particles in creation
-#-STD->            2 particles selected
-# m0=1uma
-sys add H
-#-STD->            2 particles in the system 
+^+ reply 0 0 1 10
+#-STD->           10 particles in system
+#-STD->           10 particles selected
+^- zrange 15 20
+#-STD->            4 particles deleted
+^~ zrange 13 20
+#-STD->            4 particles selected
+group 2 add
+#-STD->            4 particles in group           2
 
-> sys
+# Particles that will be used
+>+ atom 1 1 1
+#-STD->            7 particles in system
+#-STD->            1 particles selected
+^+ atom 2.2 1 1
+#-STD->            8 particles in system
+#-STD->            2 particles selected
+set element H
+
+> element H
 #-STD->            2 particles selected
 set pbc F F F
 set mass 3.
 group 1 add
 #-STD->            2 particles in group           1
 
-interact 1 under lj 1. 0.890898718140339 2
+# Save variables for later use
+^> atom 1
+#-STD->            1 particles selected
+getin x1 cm_pos
+#-STD-> x1[1] = 1.000000
+#-STD-> x1[2] = 1.000000
+#-STD-> x1[3] = 1.000000
+> group 1
+#-STD->            2 particles selected
+^> atom 2
+#-STD->            1 particles selected
+getin x2 cm_pos
+#-STD-> x2[1] = 2.200000
+#-STD-> x2[2] = 1.000000
+#-STD-> x2[3] = 1.000000
+
+# Testing interaction commands
+interact 1 pair lj 1. 0.890898718140339 2
 #-STD-> The interaction label is :i1
 # NHB Not using linked cells since it would involve less than 4 cells.
-# NHB  -cut radious:    2.00000
+# NHB  -total cut radious:    3.00000
 
-getin tau_ps 0.01018
-#-STD-> tau_ps = 0.01018
+# Testing math
+tau_ps:=0.01018
 time step {0.002*$tau_ps$}   (integration timestep [ps])
 
-> sys
-#-STD->            2 particles selected
+# Testing evolve commands
+> all
+#-STD->            8 particles selected
 evolve ermak 100 1
 #-STD-> The algorithm label is :1
 # REF This feature use the following references:
@@ -115,11 +149,41 @@ bloque load_each 3 2
 dinamica 6
 #-STD-> 1 steps reached!
 #-STD-> 1neigh searches
-#-STD-> average wall time per step:      0.003 s
+#-STD-> average wall time per step:      0.000 s
 #-STD->       0.00ps simulated!
-#-STD-> average wall time per ns: 40 h 55 m
-#  0.30000000E+01
-#  0.60000000E+01
-#-STD-> cpu time:      0.024 s
-#-STD-> wall time:      0.004 s
+#-STD-> average wall time per ns:      0.000 s
+# 3.000000
+# 6.000000
+
+# Print properties
+> atom 7
+#-STD->            1 particles selected
+print cm_pos
+# 1.000053
+# 1.000000
+# 1.000000
+> atom 8
+#-STD->            1 particles selected
+print cm_pos
+# 2.199947
+# 1.000000
+# 1.000000
+
+# Testing set/get
+> group 1
+#-STD->            2 particles selected
+^> atom 1
+#-STD->            1 particles selected
+set cm_pos $x1[1] $x1[2] $x1[3]
+print cm_pos
+# 1.000000
+# 1.000000
+# 1.000000
+
+# Final deletion of particles
+- group 2
+#-STD->            4 particles deleted
+
+#-STD-> cpu time:      0.003 s
+#-STD-> wall time:      0.000 s
 #-STD-> vecinos actualizados: 1 veces

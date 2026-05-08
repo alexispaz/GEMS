@@ -7,12 +7,12 @@
 #include unitcells/graphene.gms
 
 # Replicate the primitive cell
-getin nx 3
-getin ny 6
-getin nz 3
-+< reply $a$ 0   0   $nx$
-+< reply 0  $b$  0   $ny$
-+< reply 0   0  $c$  $nz$
+nx:=3
+ny:=6
+nz:=3
+^+ reply $a$ 0   0   $nx$
+^+ reply 0  $b$  0   $ny$
+^+ reply 0   0  $c$  $nz$
 
 # Modify the lattice metrics.
 set expand 1.421437 1.421437 3.35

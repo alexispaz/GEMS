@@ -16,43 +16,33 @@ gems_SOURCES = Algebra.F90            \
                Inq_Properties.F90     \
                Integration.F90        \
                Interaction.f90        \
-               Pairs.f90                \
+               Pairs.F90                \
 	       Bias.f90	              \
                Main.F90               \
                Metadynamics.f90       \
                MPI.F90                \
                NEB.f90                \
-               Neighbour.F90          \
+               Neighbor.F90           \
+               Cells.F90              \
                Output.F90             \
                Programs.f90           \
                Program_Types.F90      \
-               Atoms.F90	      \
                Groups.F90	      \
                Graphs.F90	      \
+               Calc.F90	              \
                Quasi_Newton.f90       \
                Select_Create.F90      \
                Set_Properties.f90     \
                Strings.f90            \
                Tables.f90             \
                TB.F90                 \
-               Tersoff.f90            \
                Variables.F90
 
-
-# Fortran Preprocesor Templates	       
-FPTDDS=$(top_srcdir)/lib/fpt/include/
-AM_FCFLAGS = -I$(FPTDDS)
-include_HEADERS = $(FPTDDS)/prep.inc \
-                  $(FPTDDS)/vector_header.inc \
-                  $(FPTDDS)/vector_body.inc   \
-                  $(FPTDDS)/list_header.inc   \
-                  $(FPTDDS)/list_body.inc     \
-                  $(FPTDDS)/dlist_header.inc  \
-                  $(FPTDDS)/dlist_body.inc    \
-                  $(FPTDDS)/cdlist_header.inc \
-                  $(FPTDDS)/cdlist_body.inc   \
-                  $(FPTDDS)/arrayofptrs_header.inc
-
+    
+# zeros...
+gems_LDADD =
+AM_FCFLAGS =
+ 
 # nodist_gems_SOURCES = $(gems_common_SOURCES)
 # gems_common_SOURCES = sprng_f.h
 # CLEANFILES = $(gems_common_SOURCES)
@@ -62,23 +52,44 @@ include_HEADERS = $(FPTDDS)/prep.inc \
 
 
 AM_FCFLAGS += $(OPENMP_CFLAGS)
-gems_LDADD =
-gems_LDFLAGS =
-                           
+AM_FCFLAGS += -DDIM3
+
+# Only compile ReplicaExchange if MPI is ensure
+if HAVE_MPI
+replicaexchange_obj = ReplicaExchange.o
+AM_FCFLAGS += -DHAVE_MPI
+gems_SOURCES += ReplicaExchange.f90
+ReplicaExchange.o: Metadynamics.o Constants.o Errors.o Program_Types.o Programs.o MPI.o Interaction.o Integration.o $(random_obj)
+endif
+        
+# External software
+# =================
+
+# Note on local vs external libraries:
+# > We recommend that you avoid using -l options in LDADD or prog_LDADD when
+#   referring to libraries built by your package. Instead, write the file name of
+#   the library explicitly as in the above cpio example. Use -l only to list
+#   third-party libraries. If you follow this rule, the default value of
+#   prog_DEPENDENCIES will list all your local libraries and omit the other ones.
+# [source](https://www.gnu.org/software/automake/manual/html_node/Linking.html)
+
+# Fortran Preprocesor Templates
+# -----------------------------
+AM_FCFLAGS += -I$(top_srcdir)/lib/fpt/include/
+  
+# fparser
+# -------
 AM_FCFLAGS += -I$(top_srcdir)/lib/fparser/src/
 gems_LDADD += $(top_srcdir)/lib/fparser/src/libfparser.a
 
-
-AM_FCFLAGS += -DDIM3
-      
-# Optional compilation of SPRNG for random number generation
+# sprng
+# -----	
 if SPRNG
 random_obj = Random_sprng.o
 gems_SOURCES += Random_sprng.F90 
             
 AM_FCFLAGS += -I$(top_srcdir)/lib/sprng5/include 
-gems_LDFLAGS += -L$(top_srcdir)/lib/sprng5/lib     
-gems_LDADD += -lsprng -lstdc++ -lm    
+gems_LDADD += $(top_srcdir)/lib/sprng5/lib/libsprng.a -lstdc++ -lm    
                  
 Random_sprng.o: Constants.o  Errors.o
 
@@ -91,16 +102,10 @@ Random.o: Constants.o  Errors.o
 
 endif
         
-
-# Only compile ReplicaExchange if MPI is ensure
-if HAVE_MPI
-replicaexchange_obj = ReplicaExchange.o
-AM_FCFLAGS += -DHAVE_MPI
-gems_SOURCES += ReplicaExchange.f90
-ReplicaExchange.o: Metadynamics.o Constants.o Errors.o Program_Types.o Programs.o MPI.o Interaction.o Integration.o $(random_obj)
-endif
-
-
+ 
+# Debug
+# =====
+   
 DEBUG_FLAGS = -g -O0 -p
 PROF_FLAGS = -p 
 
@@ -145,52 +150,55 @@ debug:
 all: gems	       
 
 # Propios
-Main.o:  Neighbour.o
-Constants.o:     
-Strings.o:       Constants.o
-Errors.o:        Constants.o Strings.o
-Variables.o:	 Errors.o Program_Types.o Constants.o Strings.o
-Algebra.o:	 Constants.o $(random_obj)
-Elements.o:      Strings.o Constants.o Errors.o
-Input_Parsing.o: Elements.o Algebra.o Constants.o
-Atoms.o: Elements.o Constants.o 
-Groups.o: Constants.o 
-Program_Types.o: Elements.o Constants.o Errors.o Input_Parsing.o Atoms.o Groups.o
+Main.o: 
+Constants.o: 
+Strings.o:  Constants.o
+Algebra.o:  Constants.o $(random_obj)
+Errors.o:   Constants.o Strings.o
+Elements.o: Constants.o Strings.o Errors.o
+Variables.o:     Constants.o Strings.o Errors.o
 
-ForceField.o:    Algebra.o Output.o Program_Types.o Constants.o Input_Parsing.o    
-DDDA.o:                 Program_Types.o	 Errors.o
-Tables.o:		Program_Types.o  Input_Parsing.o DDDA.o
-Inq_Properties.o:   Algebra.o    Constants.o     Strings.o Constants.o    Input_Parsing.o    Program_Types.o  Tables.o
-Set_Properties.o:       Inq_Properties.o Algebra.o   Constants.o     Strings.o Constants.o    Program_Types.o
-Select_Create.o:        Set_Properties.o    Inq_Properties.o    Program_Types.o  
-Quasi_Newton.o:         Set_Properties.o    Inq_Properties.o    Algebra.o     Program_Types.o  Output.o 
+Input_Parsing.o: Constants.o Elements.o Algebra.o Variables.o
+Program_Types.o: Constants.o Errors.o Elements.o
+Groups.o:        Constants.o Elements.o Errors.o Program_Types.o Algebra.o 
 
-Bias.o:		Neighbour.o Program_Types.o 
-Pairs.o:	Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-TB.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-Tersoff.o:      Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
+Cells.o:         Constants.o Algebra.o Program_Types.o Variables.o    Groups.o
+Neighbor.o:      Constants.o Algebra.o Program_Types.o Variables.o    Cells.o
 
-Bond_Boost.o:   Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-BO.o:		Neighbour.o Set_Properties.o    Inq_Properties.o     Algebra.o    Program_Types.o
-Fields.o:   Output.o Neighbour.o Constants.o Algebra.o    Program_Types.o
-Integration.o:	 Variables.o Bias.o Algebra.o     Neighbour.o Set_Properties.o    Inq_Properties.o     Constants.o   Program_Types.o
-Neighbour.o:   Variables.o   Algebra.o     Set_Properties.o   Program_Types.o Constants.o Inq_Properties.o
-Graphs.o: Constants.o Groups.o Neighbour.o 
-Interaction.o: Neighbour.o TB.o Constants.o   Program_Types.o Output.o Neighbour.o CVS.o ForceField.o Bias.o Pairs.o Tersoff.o  Graphs.o
-Output.o:   Variables.o            DDDA.o     Set_Properties.o     Inq_Properties.o    Constants.o    Program_Types.o Errors.o Input_Parsing.o 
-NEB.o:         		Interaction.o Integration.o  Set_Properties.o     Inq_Properties.o     Program_Types.o   Constants.o Errors.o Output.o Algebra.o  
+DDDA.o:   Errors.o   Program_Types.o 
+Tables.o: Input_Parsing.o   Program_Types.o DDDA.o
 
-Checkpoint.o:    Input_Parsing.o Program_Types.o  Integration.o Interaction.o Output.o
+Inq_Properties.o: Constants.o Strings.o Algebra.o    Input_Parsing.o Program_Types.o Neighbor.o    Tables.o
+Set_Properties.o: Constants.o Strings.o Algebra.o    Program_Types.o    Inq_Properties.o  
+CVS.o: 		  Constants.o Errors.o Algebra.o     Program_Types.o    Inq_Properties.o  
+Select_Create.o:  Program_Types.o    Inq_Properties.o Set_Properties.o 
 
+Output.o: Constants.o Errors.o   Input_Parsing.o Program_Types.o Variables.o    DDDA.o   Inq_Properties.o Set_Properties.o     
 
-MPI.o: 		 Constants.o Strings.o
-CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbour.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o
+Bias.o:       Program_Types.o Neighbor.o 
+Pairs.o:      Algebra.o    Program_Types.o Neighbor.o Inq_Properties.o Set_Properties.o
+Fields.o:     Constants.o Algebra.o   Program_Types.o Neighbor.o   Output.o 
+TB.o:         Algebra.o Program_Types.o Neighbor.o Inq_Properties.o Set_Properties.o
+Graphs.o:     Constants.o Strings.o   Groups.o Input_Parsing.o     Neighbor.o 
+Calc.o:       Constants.o Strings.o   Groups.o Input_Parsing.o     Cells.o  
+ForceField.o: Constants.o Algebra.o   Input_Parsing.o Program_Types.o    Output.o
+BO.o:         Algebra.o    Program_Types.o Neighbor.o    Inq_Properties.o Set_Properties.o
+
+Bond_Boost.o:   Algebra.o   Program_Types.o   Neighbor.o   Inq_Properties.o Set_Properties.o
+Quasi_Newton.o: Algebra.o   Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o 
+
+Integration.o: Constants.o Algebra.o    Program_Types.o  Variables.o Neighbor.o   Inq_Properties.o Set_Properties.o   Bias.o 
+Interaction.o: Constants.o    Program_Types.o Neighbor.o    CVS.o   Output.o   TB.o ForceField.o Bias.o Pairs.o  Graphs.o
+Checkpoint.o:  Groups.o    Input_Parsing.o    Program_Types.o   Output.o   Integration.o Interaction.o
+
+NEB.o:         Constants.o Algebra.o Errors.o    Program_Types.o   Inq_Properties.o Set_Properties.o   Output.o  Interaction.o Integration.o    
+
+MPI.o:        Constants.o Strings.o
+CLInterpreter.o: $(replicaexchange_obj) Hyperdinamics.o Programs.o Metadynamics.o MPI.o Checkpoint.o  Errors.o   Input_Parsing.o  Inq_Properties.o   Integration.o  Interaction.o NEB.o  Neighbor.o  Output.o Program_Types.o  Quasi_Newton.o $(random_obj) Select_Create.o  Set_Properties.o CVS.o  Variables.o Graphs.o Calc.o 
 Hyperdinamics.o: Bias.o Integration.o  Quasi_Newton.o  Programs.o  Set_Properties.o     Inq_Properties.o     Program_Types.o	  
 Metadynamics.o:  Interaction.o Integration.o  Programs.o   Inq_Properties.o     Program_Types.o	  
-Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbour.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o 
+Programs.o:      Interaction.o Integration.o Input_Parsing.o Constants.o Output.o Neighbor.o Set_Properties.o Inq_Properties.o  Program_Types.o  Errors.o Checkpoint.o  
         
-CVS.o: Algebra.o  Inq_Properties.o  Program_Types.o Constants.o  Errors.o
-
 if COMPILER_IS_IFORT
   
 # fast is the equivalent of -ipo, -O3, -no-prec-div, -static, and -xHost

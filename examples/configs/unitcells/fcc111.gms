@@ -20,10 +20,10 @@ c:={9*$d0*tan($pi/6)/2}
 # Creacion de celda fcc con bordes 111
 x:={$c/9}
 # y={s60/sqrt(2)}
->< atom  0.0   0.0  0.0
-+< atom  {$d0/2}  {$b/2}  0.
-+< atom  {$d0/2}     $x  {$b/2}
-+< atom  0.0      {4*$x} {$b/2}
-+< atom  0.0      {2*$x}   $b
-+< atom  {$d0/2}  {5*$x}   $b
+>+ atom  0.0   0.0  0.0
+^+ atom  {$d0/2}  {$b/2}  0.
+^+ atom  {$d0/2}     $x  {$b/2}
+^+ atom  0.0      {4*$x} {$b/2}
+^+ atom  0.0      {2*$x}   $b
+^+ atom  {$d0/2}  {5*$x}   $b
 

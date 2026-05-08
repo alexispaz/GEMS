@@ -18,42 +18,44 @@
  
 module gems_neb
 
- ! G. Henkelman and H. Jonsson, Improved tangent estimate in the nudged
-  ! elastic band method for finding minimum energy paths and saddle points,
-  ! J. Chem. Phys., 113, 9978 (2000). 
+! G. Henkelman and H. Jonsson, Improved tangent estimate in the nudged
+! elastic band method for finding minimum energy paths and saddle points,
+! J. Chem. Phys., 113, 9978 (2000). 
 
-  use gems_program_types
-  use gems_integration, only: integrate, integrate_cli
-  use gems_interaction
-  use gems_inq_properties
-  use gems_set_properties
-  use gems_errors
-  use gems_output
-  use gems_algebra
-  use gems_constants,only:find_io
+use gems_program_types
+use gems_integration, only: integrate, integrate_cli
+use gems_interaction
+use gems_groups, only: gindex_pos_changed
+use gems_inq_properties
+use gems_set_properties
+use gems_errors
+use gems_output
+use gems_algebra
+use gems_constants,only:find_io
+
+implicit none
+private
+
+real(dp),allocatable     :: ks(:)
+real(dp),allocatable     :: eimg(:),eimg_old(:)  ! Energia de cada imagen
+real(dp)                 :: sum_eimg=0.0_dp        ! Energia de todas las imagenes
+real(dp)                 :: etrans=0.0_dp          ! Energia de transicion
+integer                  :: nimg,nebdim          ! Esto sera igual a gsel%nat*3
+
+real(dp)                    :: mass, facc
+
+real(dp),allocatable        :: tplus(:), tmin(:), qneb(:)
+real(dp),target,allocatable :: pneb(:,:),fneb(:,:),vneb(:,:)
+integer,allocatable         :: fiximg(:)         ! Guarda en orden los indices de las imagenes fijas (entre las que se va a interpolar)
+integer                     :: nfiximg            ! Numero de imagenes fijas
+type(atom_dclist),pointer :: la
+
+
+public  :: ks,fiximg,nfiximg,nimg,nebdim,pneb,neb,neb_fiximg,write_eneb 
   
-  implicit none
-  private
+type(integrate)           :: nebit
 
-  real(dp),allocatable     :: ks(:)
-  real(dp),allocatable     :: eimg(:),eimg_old(:)  ! Energia de cada imagen
-  real(dp)                 :: sum_eimg=0.0_dp        ! Energia de todas las imagenes
-  real(dp)                 :: etrans=0.0_dp          ! Energia de transicion
-  integer                  :: nimg,nebdim          ! Esto sera igual a gsel%nat*3
- 
-  real(dp)                    :: mass, one_mass, facc
-  
-  real(dp),allocatable        :: tplus(:), tmin(:), qneb(:)
-  real(dp),target,allocatable :: pneb(:,:),fneb(:,:),vneb(:,:)
-  integer,allocatable         :: fiximg(:)         ! Guarda en orden los indices de las imagenes fijas (entre las que se va a interpolar)
-  integer                     :: nfiximg            ! Numero de imagenes fijas
-
-  
-  public  :: ks,fiximg,nfiximg,nimg,nebdim,pneb,neb,neb_fiximg,write_eneb 
-    
-  type(integrate)           :: nebit
-
-  contains
+contains
 
 subroutine neb(g,k,iter,b_out)
 logical,intent(in)        :: b_out
@@ -63,14 +65,9 @@ type(group),intent(inout) :: g
 integer                   :: ns,i
 real(dp)                  :: delr,fprom
 real(dp)                  :: aux(g%nat*dm)
-logical                   :: switched, ghosted
+logical                   :: switched
+type(atom_dclist),pointer :: la
 
-! Sudden atom movements require fullghost
-if(ghost) then
-  ghosted=fullghost
-  fullghost=.true.
-endif
- 
 
 ! Cambio al modo de almacenamiento vectorial
 call group_switch_vectorial(g,switched)
@@ -98,8 +95,12 @@ ks(1) = 0.0_dp
 ks(nimg) = 0.0_dp
 ks(:) = k*ev_ui  
 mass = 1.0_dp             !Masa 
-one_mass = 1.0_dp/mass
-call change_atom_mas(mass)
+la => nebit%alist
+do i = 1,nebit%nat
+  la => la%next
+  la%o%mass = mass
+enddo      
+
 
 !Otras
 vneb = 0.0_dp
@@ -109,7 +110,7 @@ allocate(qneb(nebdim))         !Fuerza tangente?
 
 do i =1 , nimg-1
   g%pp = pneb(i,:)  ! Cargo la posocion
-  call pos_changed()
+  call gindex_pos_changed()
   call interact(.false.)
   call inq_pot_energy(g)
   eimg(i) = g%epot
@@ -154,7 +155,7 @@ do ns = 1,iter
     aux(:) = pneb(i,:)-aux(:)
     delr = delr + dot_product(aux,aux)
 
-    call pos_changed()
+    call gindex_pos_changed()
     call interact(.false.)
     fneb(i,:) = g%pf  ! Cargo la fuerza
     vneb(i,:) = g%pv  ! Cargo la velocidad
@@ -194,20 +195,10 @@ call set_flag('NebF')
 if(b_out) call write_neb(g)
 call del_flag('NebF')
 
-
-! la => gsel%alist%next
-! do i = 1,gsel%nat
-!   la%o%one_mass = 1.0_dp/z_mass(la%o%z)
-!   la => la%next
-! enddo     
 nebdim = 0
 nimg = 0
 
 if(switched) call group_switch_objeto(nebit)
-
-if(ghost) then
-  fullghost=ghosted
-endif
 
 deallocate(vneb,fneb) !Estado
 deallocate(eimg)      !Energia
@@ -218,20 +209,6 @@ deallocate(qneb)      !Fuerza tangente?
 deallocate(ks)        !Constante del resorte 'ev/A**2'
 
 end subroutine neb 
-  
-  subroutine change_atom_mas(m)
-    type(atom_dclist),pointer :: la
-    integer                   :: i
-    real(dp)                  :: m
-
-    la => gsel%alist%next
-    do i = 1,gsel%nat
-      !señalo al hypervector desde cada atomo
-      la%o%one_mass = 1.0_dp/m
-      la => la%next
-    enddo
- 
-  end subroutine change_atom_mas
 
   subroutine nebfce
     ! Estos vectores son solo sobre el numero de atomos moviles
@@ -390,10 +367,12 @@ sumrad=0.0_dp
 do i = 2, nimg  
   ! Calculo la distancia
   aux2(:) = pneb(i,:)-pneb(i-1,:)
-  aux = dsqrt(dot_product(aux2,aux2))
+  aux = sqrt(dot_product(aux2,aux2))
   gcr(i) = gcr(i-1) + aux
   sumrad=sumrad+aux
 enddo       
+
+g%pv(:) = 0._dp
 
 !Salida general
 bkptime=time
@@ -401,7 +380,7 @@ do i =1, nimg
   time=gcr(i)/sumrad/time_out
   g%pp = pneb(i,:) ! Cargo la posocion
   g%pf = fneb(i,:) ! Cargo la fuerza
-  call pos_changed()
+  call gindex_pos_changed()
   call interact(.true.)
   call write_out_force(1)
 enddo

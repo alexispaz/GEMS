@@ -25,21 +25,24 @@ box size 20 20 20
 prng lcg
 prng seed 123456
  
->< fillpbc 10 1.0 10. 10. 10. 0. 0. 0. 
-+< fillpbc 5 1.0 {$boxx-12} {$boxy-12} {$boxz-12} 12. 12. 12. 
-sys add H
+>+ fillpbc 10 1.0 10. 10. 10. 0. 0. 0. 
+^+ fillpbc 5 1.0 {$boxx-12} {$boxy-12} {$boxz-12} 12. 12. 12. 
+set element H
 
-> sys
+> all
 group 1 add
 set pbc T T T
 out posxyz asd.xyz
 
 box move (make the total velocity zero)
 
-interact :gr 1 @ graph subgraphs 3.
+interact :gr 1 graph subgraphs 3.
 
 outfile :f1 name Graph.$jobname$.dat
 outfile :f1 graph 1
-
+ 
+outfile :f2 name Pos.$jobname$.xyz
+outfile :f2 pos 1
+ 
 out state
 
