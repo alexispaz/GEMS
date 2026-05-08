@@ -10,22 +10,53 @@
 
 # Build and install
 
-GEMS use either meson (recommended) or autotools build systems. 
-To build with meson run:
+First downlaod GEMS from repo:
+ 
+    git clone https://github.com/alexispaz/gems.git
+    cd gems  
+
+Then, use either meson (recommended) or autotools systems to build an install.
+Optionally, these can be also handle with spack.
+
+## Using spack
+
+You can add the package from the local repo:
+
+    cd spack/
+    spack repo add .
+
+Then install and activate the package in your preferred spack way.
+
+    spack install gems
+    spack load gems
+
+## Using meson
+
+Configure, build an install
 
     meson setup build
     meson install -C build
 
-Run `meson dist` to create a distribution. Installation prefix, debug flags and
-other variables can be modified following meson way. For instance:
+Then, run `meson dist` to create a distribution. Installation prefix, debug
+flags and other variables can be modified during configuration. For instance:
 
     meson setup build --prefix=$PWD/usr --reconfigure && meson install -C build/
- 
-Instead, autotools can be used by running:
+
+All together with debug flags would be something like:
+  
+    meson setup build --prefix=$(realpath ./usr) --buildtype=debug \
+    -Df_args='-fcheck=all -ffpe-trap=invalid,zero,overflow -fbacktrace -g3 -ggdb3 -Wextra' \
+    && meson install -C build/  
+
+## Using autotools
+
+Configure, build an install
+
 
     autoreconf -fi; # Only if no configure script is given
     ./configure
     make
+    make install
 
 Run `make dist` to create a distribution. Further compiling options are handle
 following autotools way. For instance:
@@ -37,6 +68,11 @@ following autotools way. For instance:
 	./configure --disable-openmp FCFLAGS='-Ofast'
 
 See `./configure --help` for more information.
+
+_Warning: If you switch between Autotools and Meson, remember that Autotools
+places compiled .mod files inside the src/ directory, while Meson expects the
+source tree to be clean. Leftover .mod files in src/ can cause incorrect
+dependency resolution and misleading compilation errors._
 
 ## Dependencies
 
