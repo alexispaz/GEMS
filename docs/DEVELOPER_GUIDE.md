@@ -83,6 +83,3 @@ The MkDocs configuration is intentionally local-preview only. It does not config
 - Decide whether late interaction creation after dynamics has begun is intended.
 - Define future dense atom storage as a separate compiled view before GPU work.
 
-## Logging Documentation Work
-
-Record substantial documentation/analysis work in `docs/dev/AGENT_LOG.md` with inspected files, decisions, uncertainty, and tests.

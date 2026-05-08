@@ -6,7 +6,21 @@
          \______  /_______  /\____|__  /_______  /
                 \/        \/         \/        \/ 
              is an Extensible Molecular Simulator
+
+GEMS (General Engine for Molecular Simulations) is a flexible molecular
+simulation framework focused on configurable interaction models, dynamic
+atom/group handling, and extensible simulation workflows. The project
+emphasizes modular architecture, programmable input-driven simulations, and a
+hybrid memory model that combines dynamic editable structures with compact
+representations optimized for compute-intensive algorithms.
  
+# Documentation
+
+The full documentation is available at:
+
+[https://alexispaz.github.io/GEMS/](https://alexispaz.github.io/GEMS/)
+
+To preview locally use `mkdocs serve`
 
 # Build and install
 
@@ -86,14 +100,6 @@ Mandatory dependencies are:
 
 Meson build system will automatically download and install these dependencies
 if are no already present in the environment.
-
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Memory model](docs/MEMORY_MODEL.md)
-- [Input language](docs/INPUT_LANGUAGE.md)
-- [CLI reference](docs/CLI_REFERENCE.md)
-- [Developer guide](docs/DEVELOPER_GUIDE.md)
 
 # About
 

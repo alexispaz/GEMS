@@ -1,16 +1,37 @@
 site_name: GEMS Documentation
 site_description: Technical documentation for the GEMS molecular simulator
 repo_url: https://github.com/alexispaz/GEMS
+site_url: https://alexispaz.github.io/GEMS/
 docs_dir: docs
 
 theme:
   name: material
 
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path:
+        - .
+
 nav:
-  - Architecture: ARCHITECTURE.md
-  - Memory model: MEMORY_MODEL.md
-  - Data flow: DATAFLOW.md
-  - Hot paths: HOTPATHS.md
-  - Input language: INPUT_LANGUAGE.md
-  - CLI reference: CLI_REFERENCE.md
-  - Developer guide: DEVELOPER_GUIDE.md
+  - Home: index.md
+ 
+  - User Guide:
+      - Input language: INPUT_LANGUAGE.md
+      - CLI reference: CLI_REFERENCE.md
+  
+  - Architecture:
+      - Overview: ARCHITECTURE.md
+      - Memory model: MEMORY_MODEL.md
+      - Data flow: DATAFLOW.md
+      - Hot paths: HOTPATHS.md
+
+  - Developer:
+      - Developer guide: DEVELOPER_GUIDE.md
